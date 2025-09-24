@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: surveillance-ia
+    env: python
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+    startCommand: daphne -b 0.0.0.0 -p $PORT surveillance_system.asgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DEBUG
+        value: False
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: surveillance-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: surveillance-redis
+          property: connectionString
+
+  - type: redis
+    name: surveillance-redis
+    plan: starter
+
+databases:
+  - name: surveillance-db
+    databaseName: surveillance_system
+    user: surveillance_user 

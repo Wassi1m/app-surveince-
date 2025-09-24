@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion des Caméras - Monitoring{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="margin-top: 70px;">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-video me-2"></i>Gestion des Caméras</h2>
+                    <p class="text-muted">Configuration et monitoring des caméras de surveillance</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i> Ajouter une caméra
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        {% for camera in cameras %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card bg-dark text-light">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">{{ camera.name }}</h6>
+                    <span class="badge bg-{% if camera.status == 'online' %}success{% elif camera.status == 'offline' %}danger{% else %}warning{% endif %}">
+                        {{ camera.get_status_display }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <strong>Zone:</strong> {{ camera.zone.name }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>IP:</strong> {{ camera.ip_address }}
+                    </div>
+                    <div class="mb-3">
+                        <strong>Résolution:</strong> {{ camera.resolution|default:"Non spécifiée" }}
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-primary">
+                            <i class="fas fa-eye"></i> Voir
+                        </button>
+                        <button class="btn btn-sm btn-secondary">
+                            <i class="fas fa-cog"></i> Config
+                        </button>
+                        <button class="btn btn-sm btn-info">
+                            <i class="fas fa-chart-line"></i> Stats
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card bg-dark text-light">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-video-slash fa-3x text-muted mb-3"></i>
+                    <h4>Aucune caméra configurée</h4>
+                    <p class="text-muted">Commencez par ajouter des caméras de surveillance.</p>
+                    <button class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i> Ajouter la première caméra
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %} 

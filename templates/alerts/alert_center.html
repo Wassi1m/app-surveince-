@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Centre d'Alertes - Surveillance IA{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="margin-top: 70px;">
+    
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-exclamation-triangle me-2"></i>Centre d'Alertes</h2>
+                    <p class="text-muted">Gestion des alertes de sécurité en temps réel</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-success" onclick="acknowledgeAll()">
+                        <i class="fas fa-check me-1"></i> Tout acquitter
+                    </button>
+                    <button class="btn btn-primary" onclick="refreshAlerts()">
+                        <i class="fas fa-refresh me-1"></i> Actualiser
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques des alertes -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ stats.critical }}</h4>
+                            <p class="mb-0">Critiques</p>
+                        </div>
+                        <div>
+                            <i class="fas fa-fire fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ stats.high }}</h4>
+                            <p class="mb-0">Importantes</p>
+                        </div>
+                        <div>
+                            <i class="fas fa-exclamation fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ stats.medium }}</h4>
+                            <p class="mb-0">Moyennes</p>
+                        </div>
+                        <div>
+                            <i class="fas fa-info fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4>{{ stats.resolved_today }}</h4>
+                            <p class="mb-0">Résolues Aujourd'hui</p>
+                        </div>
+                        <div>
+                            <i class="fas fa-check-circle fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des alertes -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card bg-dark text-light">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        Alertes Récentes ({{ alerts|length }} alertes)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if alerts %}
+                        <div class="table-responsive">
+                            <table class="table table-dark table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Priorité</th>
+                                        <th>Titre</th>
+                                        <th>Caméra/Zone</th>
+                                        <th>Heure</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for alert in alerts %}
+                                    <tr class="{% if alert.priority == 'critical' %}table-danger{% elif alert.priority == 'high' %}table-warning{% endif %}">
+                                        <td>
+                                            <span class="badge bg-{{ alert.priority|default:'secondary' }}">
+                                                {% if alert.priority == 'critical' %}
+                                                    <i class="fas fa-fire"></i> Critique
+                                                {% elif alert.priority == 'high' %}
+                                                    <i class="fas fa-exclamation"></i> Importante  
+                                                {% elif alert.priority == 'medium' %}
+                                                    <i class="fas fa-info"></i> Moyenne
+                                                {% else %}
+                                                    <i class="fas fa-circle"></i> Faible
+                                                {% endif %}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <strong>{{ alert.title }}</strong>
+                                            <br><small class="text-muted">{{ alert.message|truncatechars:50 }}</small>
+                                        </td>
+                                        <td>
+                                            {% if alert.detection_event %}
+                                                📹 {{ alert.detection_event.camera.name }}
+                                                <br><small class="text-muted">{{ alert.detection_event.zone.name }}</small>
+                                            {% else %}
+                                                <span class="text-muted">Non spécifié</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {{ alert.created_at|date:"H:i:s" }}
+                                            <br><small class="text-muted">{{ alert.created_at|date:"d/m/Y" }}</small>
+                                        </td>
+                                        <td>
+                                            {% if alert.status == 'pending' %}
+                                                <span class="badge bg-warning">En attente</span>
+                                            {% elif alert.status == 'acknowledged' %}
+                                                <span class="badge bg-info">Acquittée</span>
+                                            {% elif alert.status == 'resolved' %}
+                                                <span class="badge bg-success">Résolue</span>
+                                            {% elif alert.status == 'sent' %}
+                                                <span class="badge bg-primary">Envoyée</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ alert.status }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                {% if alert.status == 'pending' or alert.status == 'sent' %}
+                                                <button class="btn btn-outline-info" onclick="acknowledgeAlert({{ alert.id }})">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                                {% endif %}
+                                                {% if alert.status != 'resolved' %}
+                                                <button class="btn btn-outline-success" onclick="resolveAlert({{ alert.id }})">
+                                                    <i class="fas fa-check-double"></i>
+                                                </button>
+                                                {% endif %}
+                                                <button class="btn btn-outline-primary" onclick="viewAlert({{ alert.id }})">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-shield-alt fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Aucune alerte active</h5>
+                            <p class="text-muted">Toutes les alertes ont été traitées ou il n'y a pas d'événements récents.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function acknowledgeAlert(alertId) {
+    fetch(`/alerts/${alertId}/acknowledge/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Erreur lors de l\'acquittement: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur lors de l\'acquittement');
+    });
+}
+
+function resolveAlert(alertId) {
+    fetch(`/alerts/${alertId}/resolve/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Erreur lors de la résolution: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la résolution');
+    });
+}
+
+function viewAlert(alertId) {
+    window.open(`/alerts/${alertId}/`, '_blank');
+}
+
+function acknowledgeAll() {
+    if (confirm('Acquitter toutes les alertes en attente ?')) {
+        // Implementation à ajouter
+        alert('Fonctionnalité en cours de développement');
+    }
+}
+
+function refreshAlerts() {
+    location.reload();
+}
+</script>
+{% endblock %} 

@@ -1,0 +1,1321 @@
+{% extends "base.html" %}
+
+{% block title %}Tableau de Bord - Surveillance IA{% endblock %}
+
+{% block extra_css %}
+<style>
+    .video-container {
+        position: relative;
+        background: #000;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    
+    .video-stream {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+    
+    .detection-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 10;
+    }
+    
+    .detection-box {
+        position: absolute;
+        border: 3px solid;
+        border-radius: 4px;
+        animation: pulse 2s infinite;
+    }
+    
+    .detection-box.normal { border-color: #28a745; }
+    .detection-box.suspicious { border-color: #ffc107; }
+    .detection-box.danger { border-color: #dc3545; }
+    
+    .detection-label {
+        position: absolute;
+        top: -25px;
+        left: 0;
+        color: white;
+        background: rgba(0,0,0,0.8);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+    
+    .camera-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .camera-card {
+        background: #2d3436;
+        border-radius: 8px;
+        overflow: hidden;
+        position: relative;
+    }
+    
+    .camera-header {
+        background: #636e72;
+        padding: 8px 12px;
+        display: flex;
+        justify-content: between;
+        align-items: center;
+    }
+    
+    .camera-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .status-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+    
+    .status-online { background-color: #00b894; }
+    .status-offline { background-color: #e17055; }
+    .status-warning { background-color: #fdcb6e; }
+    
+    .alert-panel {
+        background: linear-gradient(135deg, #2d3436 0%, #636e72 100%);
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-left: 4px solid #0984e3;
+    }
+    
+    .alert-item {
+        background: rgba(255,255,255,0.1);
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 10px;
+        border-left: 4px solid;
+        position: relative;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .alert-item:hover {
+        background: rgba(255,255,255,0.15);
+        transform: translateY(-1px);
+    }
+    
+    .alert-item.critical { border-left-color: #e74c3c; }
+    .alert-item.high { border-left-color: #f39c12; }
+    .alert-item.medium { border-left-color: #f1c40f; }
+    .alert-item.low { border-left-color: #95a5a6; }
+    
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        color: white;
+        transition: transform 0.3s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    
+    .heatmap-container {
+        background: #2d3436;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .zone-heatmap {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 10px;
+        margin-top: 15px;
+    }
+    
+    .zone-item {
+        background: rgba(255,255,255,0.1);
+        border-radius: 6px;
+        padding: 10px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .zone-item.high-activity { background: rgba(231, 76, 60, 0.3); }
+    .zone-item.medium-activity { background: rgba(243, 156, 18, 0.3); }
+    .zone-item.low-activity { background: rgba(46, 204, 113, 0.3); }
+    
+    .timeline {
+        background: #2d3436;
+        border-radius: 8px;
+        padding: 15px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-left: 30px;
+        margin-bottom: 15px;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: 8px;
+        top: 8px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #0984e3;
+    }
+    
+    .timeline-item::after {
+        content: '';
+        position: absolute;
+        left: 11px;
+        top: 16px;
+        width: 2px;
+        height: calc(100% + 15px);
+        background: #636e72;
+    }
+    
+    .timeline-item:last-child::after {
+        display: none;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    
+    @keyframes alert-glow {
+        0% { box-shadow: 0 0 5px rgba(231, 76, 60, 0.5); }
+        50% { box-shadow: 0 0 20px rgba(231, 76, 60, 0.8); }
+        100% { box-shadow: 0 0 5px rgba(231, 76, 60, 0.5); }
+    }
+    
+    .critical-alert {
+        animation: alert-glow 2s infinite;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="margin-top: 70px;">
+    
+    <!-- Barre de statut système -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center bg-primary p-3 rounded">
+                <div class="d-flex align-items-center gap-4">
+                    <div class="d-flex align-items-center">
+                        <span class="status-indicator status-online me-2"></span>
+                        <strong>Système Actif</strong>
+                    </div>
+                    <div>
+                        <i class="fas fa-camera me-1"></i>
+                        <span id="camera-count">{{ total_cameras }}</span> Caméras
+                        (<span id="online-cameras" class="text-success">{{ online_cameras }}</span> en ligne)
+                    </div>
+                    <div>
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        <span id="active-alerts">{{ active_alerts }}</span> Alertes actives
+                    </div>
+                    <div>
+                        <i class="fas fa-shield-alt me-1"></i>
+                        IA: <span class="text-success">Opérationnelle</span>
+                    </div>
+                </div>
+                <div>
+                    <button class="btn btn-outline-light btn-sm" onclick="toggleFullscreen()">
+                        <i class="fas fa-expand"></i> Plein écran
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Écran principal - Surveillance Live -->
+        <div class="col-xl-8 col-lg-7">
+            <div class="card bg-secondary text-light mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-video me-2"></i>
+                        Surveillance Live
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <select class="form-select form-select-sm" id="camera-selector" style="width: 250px;">
+                                <option value="webcam" selected>🎥 Webcam de l'ordinateur</option>
+                                {% for camera in cameras %}
+                                <option value="{{ camera.id }}">
+                                    📹 {{ camera.name }} - {{ camera.zone.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button class="btn btn-outline-light btn-sm" id="refresh-camera-btn" title="Actualiser la caméra">
+                                <i class="fas fa-refresh"></i>
+                            </button>
+                            <button class="btn btn-outline-success btn-sm" id="permissions-help-btn" title="Aide permissions">
+                                <i class="fas fa-question-circle"></i>
+                            </button>
+                        </div>
+                        <button class="btn btn-outline-light btn-sm" id="recording-btn">
+                            <i class="fas fa-circle text-danger"></i> REC
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="video-container" id="main-video-container">
+                        <canvas id="video-canvas" class="video-stream" width="800" height="600"></canvas>
+                        <div class="detection-overlay" id="detection-overlay">
+                            <!-- Les détections IA apparaîtront ici dynamiquement -->
+                        </div>
+                        
+                        <!-- Contrôles vidéo -->
+                        <div class="position-absolute bottom-0 start-0 end-0 p-3" 
+                             style="background: linear-gradient(transparent, rgba(0,0,0,0.8));">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center gap-3">
+                                    <button class="btn btn-outline-light btn-sm" onclick="togglePause()">
+                                        <i class="fas fa-pause" id="pause-icon"></i>
+                                    </button>
+                                    <button class="btn btn-outline-light btn-sm" onclick="takeScreenshot()">
+                                        <i class="fas fa-camera"></i>
+                                    </button>
+                                    <span class="badge bg-success">LIVE</span>
+                                </div>
+                                <div class="text-end">
+                                    <div class="small text-light">
+                                        Caméra: <span id="current-camera">{{ cameras.first.name }}</span>
+                                    </div>
+                                    <div class="small text-muted">
+                                        Zone: <span id="current-zone">{{ cameras.first.zone.name }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Grille des caméras secondaires -->
+            <div class="card bg-secondary text-light">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-th me-2"></i>
+                        Aperçu Multi-Caméras
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="camera-grid" id="camera-grid">
+                        {% for camera in cameras|slice:":4" %}
+                        <div class="camera-card" data-camera-id="{{ camera.id }}">
+                            <div class="camera-header">
+                                <span class="fw-bold">{{ camera.name }}</span>
+                                <div class="camera-status">
+                                    <span class="status-indicator status-{{ camera.status }}"></span>
+                                    <small>{{ camera.get_status_display }}</small>
+                                </div>
+                            </div>
+                            <div class="video-container">
+                                <canvas class="secondary-video" width="300" height="200" 
+                                        data-camera-id="{{ camera.id }}"></canvas>
+                                <div class="detection-overlay"></div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panneau latéral - Alertes et Statistiques -->
+        <div class="col-xl-4 col-lg-5">
+            <!-- Alertes en temps réel -->
+            <div class="alert-panel">
+                <h6 class="d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Alertes en Temps Réel
+                    </span>
+                    <button class="btn btn-outline-light btn-sm" onclick="clearAlerts()">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </h6>
+                <div id="real-time-alerts" class="mt-3" style="max-height: 300px; overflow-y: auto;">
+                    <!-- Les alertes apparaîtront ici dynamiquement -->
+                    <div class="text-center text-muted py-3" id="no-alerts">
+                        <i class="fas fa-shield-alt fa-2x mb-2"></i>
+                        <div>Aucune alerte active</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistiques rapides -->
+            <div class="row mb-4">
+                <div class="col-6">
+                    <div class="stats-card bg-success">
+                        <div class="stats-number" id="detections-today">{{ stats.detections_today }}</div>
+                        <div>Détections Aujourd'hui</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="stats-card bg-warning">
+                        <div class="stats-number" id="incidents-week">{{ stats.incidents_week }}</div>
+                        <div>Incidents cette Semaine</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Carte de chaleur des zones -->
+            <div class="heatmap-container">
+                <h6>
+                    <i class="fas fa-map-marked-alt me-2"></i>
+                    Activité par Zone
+                </h6>
+                <div class="zone-heatmap" id="zone-heatmap">
+                    {% for zone in zones %}
+                    <div class="zone-item {{ zone.activity_level }}" data-zone-id="{{ zone.id }}">
+                        <div class="fw-bold">{{ zone.name }}</div>
+                        <div class="small">{{ zone.risk_level|capfirst }}</div>
+                        <div class="mt-1">
+                            <span class="badge bg-primary">{{ zone.detection_count }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Timeline des événements -->
+            <div class="timeline" id="events-timeline">
+                <h6 class="mb-3">
+                    <i class="fas fa-clock me-2"></i>
+                    Chronologie des Événements
+                </h6>
+                <!-- Les événements seront chargés dynamiquement -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Légende des détections -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card bg-secondary text-light">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h6 class="mb-2">Légende des Détections IA</h6>
+                            <div class="d-flex flex-wrap gap-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="detection-box normal" style="width: 20px; height: 15px; position: relative;"></div>
+                                    <span class="ms-2">Normal</span>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <div class="detection-box suspicious" style="width: 20px; height: 15px; position: relative;"></div>
+                                    <span class="ms-2">Suspect</span>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <div class="detection-box danger" style="width: 20px; height: 15px; position: relative;"></div>
+                                    <span class="ms-2">Danger</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="small text-muted">
+                                IA: <span class="text-success">{{ ai_accuracy }}%</span> de précision
+                                <br>
+                                Dernière mise à jour: <span id="last-update">{{ last_update|date:"H:i:s" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal détails alerte -->
+<div class="modal fade" id="alertDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-secondary text-light">
+            <div class="modal-header">
+                <h5 class="modal-title">Détails de l'Alerte</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="alert-detail-content">
+                <!-- Contenu dynamique -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                <button type="button" class="btn btn-success" onclick="acknowledgeAlert()">
+                    Accuser Réception
+                </button>
+                <button type="button" class="btn btn-primary" onclick="resolveAlert()">
+                    Résoudre
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Variables globales
+    let currentCamera = "webcam"; // Par défaut, utiliser la webcam
+    let videoSocket = null;
+    let alertSocket = null;
+    let dashboardSocket = null;
+    let isRecording = false;
+    let isPaused = false;
+    let currentAlertId = null;
+
+    // Initialisation
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeVideoStreaming();
+        initializeAlertSystem();
+        initializeDashboard();
+        startPeriodicUpdates();
+    });
+
+    function initializeVideoStreaming() {
+        const cameraSelector = document.getElementById('camera-selector');
+        const selectedCamera = cameraSelector.value;
+        
+        if (selectedCamera === 'webcam') {
+            // Utiliser la webcam de l'ordinateur
+            initializeWebcam();
+        } else if (selectedCamera && selectedCamera !== 'null') {
+            // Utiliser une caméra de surveillance
+            initializeRemoteCamera(selectedCamera);
+        } else {
+            console.warn('Aucune caméra sélectionnée pour le streaming');
+            showNoCamera();
+        }
+    }
+
+    function initializeWebcam() {
+        console.log('🎥 Initialisation de la webcam...');
+        
+        // Vérifier la compatibilité du navigateur
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            console.error('❌ getUserMedia non supporté par ce navigateur');
+            const userAgent = navigator.userAgent.toLowerCase();
+            let browserInfo = 'Navigateur non supporté';
+            
+            if (userAgent.includes('chrome')) {
+                browserInfo = 'Chrome détecté mais getUserMedia non disponible';
+            } else if (userAgent.includes('firefox')) {
+                browserInfo = 'Firefox détecté mais getUserMedia non disponible';
+            } else if (userAgent.includes('safari')) {
+                browserInfo = 'Safari détecté mais getUserMedia non disponible';
+            } else if (userAgent.includes('edge')) {
+                browserInfo = 'Edge détecté mais getUserMedia non disponible';
+            }
+            
+            const errorMsg = `Accès webcam non disponible. ${browserInfo}. 
+            Solutions possibles:
+            • Utilisez Chrome, Firefox ou Safari récent
+            • Vérifiez que vous êtes sur HTTPS ou localhost
+            • Activez la webcam dans les paramètres du navigateur`;
+            
+            showError(errorMsg);
+            showWebcamError('⚠️ Navigateur non compatible\n\n' + browserInfo + '\n\nEssayez Chrome, Firefox\nou Safari récent');
+            
+            // Offrir une alternative avec un flux vidéo simulé
+            setTimeout(() => {
+                if (confirm('Voulez-vous utiliser une simulation de webcam pour tester l\'interface ?')) {
+                    initializeSimulatedWebcam();
+                }
+            }, 3000);
+            return;
+        }
+        
+        navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                width: { ideal: 800 }, 
+                height: { ideal: 600 },
+                facingMode: 'user' 
+            }, 
+            audio: false 
+        })
+        .then(function(stream) {
+            console.log('✅ Webcam connectée');
+            const canvas = document.getElementById('video-canvas');
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.autoplay = true;
+            video.playsInline = true;
+            
+            // Dessiner la vidéo sur le canvas
+            video.addEventListener('loadedmetadata', function() {
+                video.play();
+                drawWebcamToCanvas(video, canvas);
+            });
+            
+            // Stocker la référence pour pouvoir l'arrêter plus tard
+            window.currentWebcamStream = stream;
+            
+            // Mettre à jour l'affichage
+            updateCameraInfo('Webcam de l\'ordinateur', 'Local');
+        })
+        .catch(function(error) {
+            console.error('❌ Erreur webcam:', error);
+            let errorMessage = 'Impossible d\'accéder à la webcam. ';
+            
+            switch(error.name) {
+                case 'NotAllowedError':
+                    errorMessage += 'Permissions refusées. Cliquez sur l\'icône caméra dans la barre d\'adresse pour autoriser.';
+                    break;
+                case 'NotFoundError':
+                    errorMessage += 'Aucune caméra détectée sur cet appareil.';
+                    break;
+                case 'NotReadableError':
+                    errorMessage += 'Caméra déjà utilisée par une autre application.';
+                    break;
+                case 'OverconstrainedError':
+                    errorMessage += 'Paramètres de caméra non supportés.';
+                    break;
+                case 'SecurityError':
+                    errorMessage += 'Accès non sécurisé. Essayez avec HTTPS ou localhost.';
+                    break;
+                default:
+                    errorMessage += 'Erreur inconnue: ' + error.message;
+            }
+            
+            showError(errorMessage);
+            showWebcamError(errorMessage);
+        });
+    }
+
+    function drawWebcamToCanvas(video, canvas) {
+        const ctx = canvas.getContext('2d');
+        
+        function draw() {
+            if (!video.paused && !video.ended) {
+                // Dessiner la frame vidéo
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Ajouter un overlay d'information
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(10, 10, 200, 30);
+                ctx.fillStyle = 'white';
+                ctx.font = '14px Arial';
+                ctx.fillText('🎥 Webcam - ' + new Date().toLocaleTimeString(), 15, 30);
+                
+                requestAnimationFrame(draw);
+            }
+        }
+        draw();
+    }
+
+    function initializeRemoteCamera(cameraId) {
+        console.log('📹 Connexion à la caméra:', cameraId);
+        
+        // Fermer la webcam si elle était active
+        stopWebcam();
+        
+        // Connexion WebSocket pour le streaming vidéo
+        videoSocket = new WebSocket(
+            'ws://localhost:8001/ws/video/' + cameraId + '/'
+        );
+
+        videoSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            handleVideoData(data);
+        };
+
+        videoSocket.onerror = function(e) {
+            console.error('Erreur WebSocket vidéo:', e);
+            showError('Erreur de connexion à la caméra de surveillance');
+        };
+    }
+
+    function stopWebcam() {
+        if (window.currentWebcamStream) {
+            window.currentWebcamStream.getTracks().forEach(track => track.stop());
+            window.currentWebcamStream = null;
+            console.log('🛑 Webcam arrêtée');
+        }
+    }
+
+    function showNoCamera() {
+        const canvas = document.getElementById('video-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Fond noir
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Message "Aucune caméra"
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('📹 Aucune caméra disponible', canvas.width/2, canvas.height/2 - 20);
+        ctx.font = '16px Arial';
+        ctx.fillStyle = '#cccccc';
+        ctx.fillText('Sélectionnez une caméra dans la liste', canvas.width/2, canvas.height/2 + 20);
+        ctx.textAlign = 'left';
+    }
+
+    function updateCameraInfo(name, zone) {
+        document.getElementById('current-camera').textContent = name;
+        document.getElementById('current-zone').textContent = zone;
+    }
+
+    function initializeSimulatedWebcam() {
+        console.log('🎮 Initialisation d\'une webcam simulée...');
+        const canvas = document.getElementById('video-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let frame = 0;
+        let detectionCounter = 0;
+        
+        function drawSimulatedWebcam() {
+            // Fond dégradé animé
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            const hue = (frame * 0.5) % 360;
+            gradient.addColorStop(0, `hsl(${hue}, 20%, 15%)`);
+            gradient.addColorStop(1, `hsl(${hue + 60}, 20%, 25%)`);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Grille animée
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 1;
+            const offset = (frame * 0.5) % 40;
+            for(let i = -offset; i < canvas.width; i += 40) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+            }
+            for(let j = -offset; j < canvas.height; j += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, j);
+                ctx.lineTo(canvas.width, j);
+                ctx.stroke();
+            }
+            
+            // Éléments simulés (personnes, objets)
+            drawSimulatedElements(ctx, frame);
+            
+            // Overlay d'information
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(10, 10, 250, 60);
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText('🎥 Webcam Simulée', 15, 30);
+            ctx.font = '12px Arial';
+            ctx.fillStyle = '#00ff00';
+            ctx.fillText(`✅ Statut: Actif | FPS: 30`, 15, 45);
+            ctx.fillText(`🕐 ${new Date().toLocaleTimeString()}`, 15, 60);
+            
+            // Détections simulées aléatoires
+            if (frame % 180 === 0) { // Toutes les 6 secondes
+                detectionCounter++;
+                showSimulatedDetection(ctx, detectionCounter);
+            }
+            
+            frame++;
+        }
+        
+        function drawSimulatedElements(ctx, frame) {
+            // Personne simulée qui bouge
+            const personX = 100 + Math.sin(frame * 0.02) * 50;
+            const personY = 200;
+            
+            ctx.fillStyle = 'rgba(100, 150, 255, 0.8)';
+            ctx.beginPath();
+            ctx.ellipse(personX, personY, 20, 30, 0, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Objet simulé
+            const objectX = 400 + Math.cos(frame * 0.015) * 30;
+            const objectY = 300;
+            
+            ctx.fillStyle = 'rgba(255, 200, 100, 0.8)';
+            ctx.fillRect(objectX - 15, objectY - 15, 30, 30);
+            
+            // Texte "SIMULATION"
+            ctx.font = 'bold 24px Arial';
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+            ctx.textAlign = 'center';
+            ctx.fillText('SIMULATION', canvas.width/2, canvas.height - 50);
+            ctx.textAlign = 'left';
+        }
+        
+        function showSimulatedDetection(ctx, count) {
+            // Simuler une détection avec boîte de couleur
+            const colors = ['#00ff00', '#ffff00', '#ff0000'];
+            const types = ['Personne détectée', 'Mouvement suspect', 'Objet abandonné'];
+            const color = colors[count % colors.length];
+            const type = types[count % types.length];
+            
+            // Boîte de détection
+            const x = 50 + (count * 100) % (canvas.width - 150);
+            const y = 150 + (count * 50) % (canvas.height - 200);
+            
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x, y, 100, 80);
+            
+            // Label
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y - 25, 120, 20);
+            ctx.fillStyle = 'black';
+            ctx.font = '12px Arial';
+            ctx.fillText(type, x + 5, y - 10);
+            
+            console.log('🔍 Détection simulée:', type);
+        }
+        
+        // Démarrer l'animation
+        const interval = setInterval(drawSimulatedWebcam, 33); // ~30 FPS
+        
+        // Sauvegarder l'intervalle pour pouvoir l'arrêter
+        window.simulatedWebcamInterval = interval;
+        
+        // Mettre à jour l'affichage
+        updateCameraInfo('Webcam Simulée', 'Mode Test');
+        
+        console.log('✅ Webcam simulée initialisée avec succès');
+        showToast('Webcam simulée activée ! Parfait pour tester l\'interface.', 'success');
+    }
+
+    function showWebcamError(message) {
+        const canvas = document.getElementById('video-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Fond rouge foncé
+        ctx.fillStyle = '#2d1b1b';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Icône d'erreur
+        ctx.fillStyle = '#e74c3c';
+        ctx.font = '48px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚠️', canvas.width/2, canvas.height/2 - 40);
+        
+        // Message d'erreur
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '16px Arial';
+        const lines = wrapText(ctx, message, canvas.width - 40);
+        lines.forEach((line, index) => {
+            ctx.fillText(line, canvas.width/2, canvas.height/2 + 20 + (index * 25));
+        });
+        
+        // Bouton "Réessayer"
+        ctx.fillStyle = '#3498db';
+        ctx.fillRect(canvas.width/2 - 60, canvas.height - 60, 120, 40);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 14px Arial';
+        ctx.fillText('🔄 Réessayer', canvas.width/2, canvas.height - 35);
+        
+        // Ajouter un écouteur de clic pour le bouton "Réessayer"
+        canvas.onclick = function(event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            // Vérifier si le clic est sur le bouton "Réessayer"
+            if (x >= canvas.width/2 - 60 && x <= canvas.width/2 + 60 && 
+                y >= canvas.height - 60 && y <= canvas.height - 20) {
+                console.log('🔄 Nouvelle tentative d\'accès à la webcam');
+                canvas.onclick = null; // Supprimer l'écouteur
+                initializeWebcam();
+            }
+        };
+        
+        ctx.textAlign = 'left';
+    }
+    
+    function wrapText(context, text, maxWidth) {
+        const words = text.split(' ');
+        const lines = [];
+        let currentLine = words[0];
+        
+        for (let i = 1; i < words.length; i++) {
+            const word = words[i];
+            const width = context.measureText(currentLine + ' ' + word).width;
+            if (width < maxWidth) {
+                currentLine += ' ' + word;
+            } else {
+                lines.push(currentLine);
+                currentLine = word;
+            }
+        }
+        lines.push(currentLine);
+        return lines;
+    }
+
+    function handleVideoData(data) {
+        if (data.type === 'video_frame' && !isPaused) {
+            // Afficher la frame vidéo
+            displayVideoFrame(data);
+        } else if (data.type === 'detection') {
+            // Afficher la détection
+            displayDetection(data.detection_data);
+        } else if (data.type === 'error') {
+            showError(data.message);
+        }
+    }
+
+    function displayVideoFrame(data) {
+        const canvas = document.getElementById('video-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const img = new Image();
+        img.onload = function() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        };
+        img.src = 'data:image/jpeg;base64,' + data.data;
+    }
+
+    function displayDetection(detection) {
+        const overlay = document.getElementById('detection-overlay');
+        
+        // Créer les boîtes de détection
+        detection.bounding_boxes.forEach(box => {
+            const detectionDiv = document.createElement('div');
+            detectionDiv.className = `detection-box ${getSeverityClass(detection.severity)}`;
+            detectionDiv.style.left = box.x + 'px';
+            detectionDiv.style.top = box.y + 'px';
+            detectionDiv.style.width = box.width + 'px';
+            detectionDiv.style.height = box.height + 'px';
+            
+            const label = document.createElement('div');
+            label.className = 'detection-label';
+            label.textContent = `${detection.event_type} (${Math.round(detection.confidence * 100)}%)`;
+            
+            detectionDiv.appendChild(label);
+            overlay.appendChild(detectionDiv);
+            
+            // Supprimer après 5 secondes
+            setTimeout(() => {
+                if (detectionDiv.parentNode) {
+                    detectionDiv.parentNode.removeChild(detectionDiv);
+                }
+            }, 5000);
+        });
+
+        // Déclencher une alerte si nécessaire
+        if (detection.severity === 'high' || detection.severity === 'critical') {
+            showAlert(detection);
+        }
+    }
+
+    function initializeAlertSystem() {
+        // Connexion WebSocket pour les alertes
+        alertSocket = new WebSocket(
+            'ws://localhost:8001/ws/alerts/1/'
+        );
+
+        alertSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            handleAlertData(data);
+        };
+    }
+
+    function handleAlertData(data) {
+        if (data.type === 'new_alert') {
+            addAlertToPanel(data.alert);
+            updateAlertCounters();
+            
+            if (data.sound) {
+                playAlertSound();
+            }
+            
+            if (data.alert.priority === 'critical') {
+                showCriticalAlert(data.alert);
+            }
+        } else if (data.type === 'recent_alerts') {
+            displayRecentAlerts(data.alerts);
+        }
+    }
+
+    function addAlertToPanel(alert) {
+        const alertPanel = document.getElementById('real-time-alerts');
+        const noAlertsDiv = document.getElementById('no-alerts');
+        
+        if (noAlertsDiv) {
+            noAlertsDiv.remove();
+        }
+
+        const alertItem = document.createElement('div');
+        alertItem.className = `alert-item ${alert.priority}`;
+        alertItem.dataset.alertId = alert.id;
+        alertItem.innerHTML = `
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <div class="fw-bold">${alert.title}</div>
+                    <div class="small text-muted mb-2">${alert.detection_event.camera_name} - ${alert.detection_event.zone_name}</div>
+                    <div class="small">${alert.message}</div>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-${getPriorityClass(alert.priority)}">${alert.priority}</span>
+                    <div class="small text-muted mt-1">${formatTime(alert.created_at)}</div>
+                </div>
+            </div>
+        `;
+        
+        alertItem.onclick = () => showAlertDetails(alert.id);
+        alertPanel.insertBefore(alertItem, alertPanel.firstChild);
+    }
+
+    function showAlertDetails(alertId) {
+        currentAlertId = alertId;
+        // Charger et afficher les détails de l'alerte
+        const modal = new bootstrap.Modal(document.getElementById('alertDetailModal'));
+        
+        // Ici vous chargeriez les détails complets via AJAX
+        document.getElementById('alert-detail-content').innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Chargement...</span>
+                </div>
+            </div>
+        `;
+        
+        modal.show();
+    }
+
+    function initializeDashboard() {
+        // Connexion WebSocket pour le tableau de bord
+        dashboardSocket = new WebSocket(
+            'ws://localhost:8001/ws/monitoring/dashboard/'
+        );
+
+        dashboardSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            if (data.type === 'dashboard_stats') {
+                updateDashboardStats(data.stats);
+            }
+        };
+    }
+
+    function updateDashboardStats(stats) {
+        document.getElementById('camera-count').textContent = stats.cameras.total;
+        document.getElementById('online-cameras').textContent = stats.cameras.online;
+        document.getElementById('active-alerts').textContent = stats.recent_alerts;
+        document.getElementById('detections-today').textContent = stats.detections_today.total;
+        document.getElementById('last-update').textContent = new Date(stats.last_update).toLocaleTimeString('fr-FR');
+    }
+
+    function startPeriodicUpdates() {
+        // Mise à jour de la timeline des événements
+        setInterval(updateEventsTimeline, 30000); // Chaque 30 secondes
+        
+        // Mise à jour des zones d'activité
+        setInterval(updateZoneActivity, 60000); // Chaque minute
+    }
+    
+    function updateZoneActivity() {
+        // Charger les données d'activité des zones
+        fetch('/api/stats/zone-activity/')
+            .then(response => response.json())
+            .then(data => {
+                // Mettre à jour l'affichage des zones
+                updateZoneHeatmap(data.zones);
+            })
+            .catch(error => console.error('Erreur chargement zones:', error));
+    }
+    
+    function updateZoneHeatmap(zones) {
+        zones.forEach(zone => {
+            const zoneElement = document.querySelector(`[data-zone-id="${zone.id}"]`);
+            if (zoneElement) {
+                // Mettre à jour le niveau d'activité
+                zoneElement.className = `zone-item ${zone.activity_level}`;
+                const badge = zoneElement.querySelector('.badge');
+                if (badge) {
+                    badge.textContent = zone.detection_count;
+                }
+            }
+        });
+    }
+
+    function updateEventsTimeline() {
+        // Charger les derniers événements
+        fetch('/api/events/recent/')
+            .then(response => response.json())
+            .then(data => displayEventsTimeline(data.events))
+            .catch(error => console.error('Erreur chargement événements:', error));
+    }
+
+    function displayEventsTimeline(events) {
+        const timeline = document.getElementById('events-timeline');
+        timeline.innerHTML = '<h6 class="mb-3"><i class="fas fa-clock me-2"></i>Chronologie des Événements</h6>';
+        
+        events.forEach(event => {
+            const timelineItem = document.createElement('div');
+            timelineItem.className = 'timeline-item';
+            timelineItem.innerHTML = `
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="fw-bold">${event.title}</div>
+                        <div class="small text-muted">${event.camera_name} - ${event.zone_name}</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="small text-muted">${formatTime(event.timestamp)}</div>
+                        <span class="badge bg-${getSeverityClass(event.severity)}">${event.severity}</span>
+                    </div>
+                </div>
+            `;
+            timeline.appendChild(timelineItem);
+        });
+    }
+
+    // Fonctions utilitaires
+    function getSeverityClass(severity) {
+        const classes = {
+            'low': 'normal',
+            'medium': 'suspicious',
+            'high': 'suspicious',
+            'critical': 'danger'
+        };
+        return classes[severity] || 'normal';
+    }
+
+    function getPriorityClass(priority) {
+        const classes = {
+            'critical': 'danger',
+            'high': 'warning',
+            'medium': 'info',
+            'low': 'secondary'
+        };
+        return classes[priority] || 'secondary';
+    }
+
+    function formatTime(timestamp) {
+        return new Date(timestamp).toLocaleString('fr-FR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    }
+
+    function showError(message) {
+        // Afficher une notification d'erreur
+        const toast = document.createElement('div');
+        toast.className = 'toast align-items-center text-white bg-danger border-0';
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+        
+        setTimeout(() => toast.remove(), 5000);
+    }
+
+    // Contrôles vidéo
+    function togglePause() {
+        isPaused = !isPaused;
+        const icon = document.getElementById('pause-icon');
+        icon.className = isPaused ? 'fas fa-play' : 'fas fa-pause';
+    }
+
+    function takeScreenshot() {
+        const canvas = document.getElementById('video-canvas');
+        const link = document.createElement('a');
+        link.download = `surveillance-${new Date().getTime()}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+    }
+
+    function toggleFullscreen() {
+        const container = document.getElementById('main-video-container');
+        if (!document.fullscreenElement) {
+            container.requestFullscreen();
+        } else {
+            document.exitFullscreen();
+        }
+    }
+
+    function acknowledgeAlert() {
+        if (currentAlertId) {
+            alertSocket.send(JSON.stringify({
+                type: 'acknowledge_alert',
+                alert_id: currentAlertId
+            }));
+            
+            bootstrap.Modal.getInstance(document.getElementById('alertDetailModal')).hide();
+        }
+    }
+
+    function resolveAlert() {
+        if (currentAlertId) {
+            alertSocket.send(JSON.stringify({
+                type: 'resolve_alert',
+                alert_id: currentAlertId
+            }));
+            
+            bootstrap.Modal.getInstance(document.getElementById('alertDetailModal')).hide();
+        }
+    }
+
+    function clearAlerts() {
+        document.getElementById('real-time-alerts').innerHTML = `
+            <div class="text-center text-muted py-3" id="no-alerts">
+                <i class="fas fa-shield-alt fa-2x mb-2"></i>
+                <div>Aucune alerte active</div>
+            </div>
+        `;
+    }
+
+    // Changement de caméra
+    document.getElementById('camera-selector').addEventListener('change', function(e) {
+        const selectedValue = e.target.value;
+        
+        // Fermer l'ancienne connexion WebSocket
+        if (videoSocket) {
+            videoSocket.close();
+            videoSocket = null;
+        }
+        
+        // Arrêter la webcam si elle était active
+        stopWebcam();
+        
+        // Initialiser la nouvelle source vidéo
+        if (selectedValue === 'webcam') {
+            initializeWebcam();
+        } else if (selectedValue && selectedValue !== 'null') {
+            currentCamera = selectedValue;
+            initializeRemoteCamera(selectedValue);
+            
+            // Mettre à jour l'affichage pour les caméras de surveillance
+            const selectedOption = e.target.selectedOptions[0];
+            const optionText = selectedOption.text.replace('📹 ', '');
+            const parts = optionText.split(' - ');
+            updateCameraInfo(parts[0] || 'Caméra', parts[1] || 'Zone inconnue');
+        } else {
+            showNoCamera();
+            updateCameraInfo('Aucune', 'Non sélectionnée');
+        }
+    });
+
+    // Bouton actualiser caméra
+    document.getElementById('refresh-camera-btn').addEventListener('click', function() {
+        console.log('🔄 Actualisation de la caméra');
+        const selector = document.getElementById('camera-selector');
+        const selectedValue = selector.value;
+        
+        // Déclencher manuellement le changement
+        selector.dispatchEvent(new Event('change'));
+        
+        showToast('Caméra actualisée', 'success');
+    });
+
+    // Bouton aide permissions
+    document.getElementById('permissions-help-btn').addEventListener('click', function() {
+        showPermissionsHelp();
+    });
+
+    function showPermissionsHelp() {
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.innerHTML = `
+            <div class="modal-dialog">
+                <div class="modal-content bg-dark text-light">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-video me-2"></i>
+                            Aide - Accès à la Webcam
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle me-2"></i>Étapes pour activer la webcam :</h6>
+                            <ol class="mb-0">
+                                <li><strong>Cliquez sur l'icône 🎥 ou 🔒</strong> dans la barre d'adresse</li>
+                                <li><strong>Sélectionnez "Autoriser"</strong> pour la caméra</li>
+                                <li><strong>Actualisez la page</strong> si nécessaire</li>
+                                <li><strong>Essayez différentes caméras</strong> si vous en avez plusieurs</li>
+                            </ol>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <h6><i class="fas fa-exclamation-triangle me-2"></i>Solutions aux problèmes courants :</h6>
+                            <ul class="mb-0">
+                                <li><strong>Erreur "Permission refusée"</strong> : Vérifiez les paramètres de votre navigateur</li>
+                                <li><strong>Caméra non trouvée</strong> : Branchez une webcam ou utilisez un ordinateur portable</li>
+                                <li><strong>Caméra déjà utilisée</strong> : Fermez les autres applications utilisant la caméra</li>
+                            </ul>
+                        </div>
+
+                        <div class="alert alert-success">
+                            <h6><i class="fas fa-lightbulb me-2"></i>Navigation recommandée :</h6>
+                            <p class="mb-0">Utilisez <strong>Chrome, Firefox ou Safari récent</strong> pour une meilleure compatibilité avec les fonctionnalités webcam.</p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" onclick="window.open('https://support.google.com/chrome/answer/2693767', '_blank')">
+                            <i class="fas fa-external-link-alt me-1"></i>
+                            Aide Chrome
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        
+        // Supprimer le modal après fermeture
+        modal.addEventListener('hidden.bs.modal', () => modal.remove());
+    }
+
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'primary'} border-0`;
+        toast.style.position = 'fixed';
+        toast.style.top = '20px';
+        toast.style.right = '20px';
+        toast.style.zIndex = '9999';
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+        
+        setTimeout(() => toast.remove(), 5000);
+    }
+</script>
+{% endblock %} 
