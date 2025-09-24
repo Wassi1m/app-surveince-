@@ -2,7 +2,7 @@ services:
   - type: web
     name: surveillance-ia
     env: python
-    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput --settings=surveillance_system.settings_production && python manage.py migrate --settings=surveillance_system.settings_production
     startCommand: daphne -b 0.0.0.0 -p $PORT surveillance_system.asgi:application
     envVars:
       - key: PYTHON_VERSION
