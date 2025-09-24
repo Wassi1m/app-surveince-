@@ -2,15 +2,17 @@ services:
   - type: web
     name: surveillance-ia
     env: python
-    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput --settings=surveillance_system.settings_production && python manage.py migrate --settings=surveillance_system.settings_production
-    startCommand: daphne -b 0.0.0.0 -p $PORT surveillance_system.asgi:application
+    buildCommand: chmod +x render_build.sh && ./render_build.sh
+    startCommand: chmod +x start_on_render.sh && ./start_on_render.sh
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
       - key: DEBUG
-        value: False
+        value: "False"
       - key: SECRET_KEY
         generateValue: true
+      - key: DJANGO_SETTINGS_MODULE
+        value: surveillance_system.settings_production
       - key: DATABASE_URL
         fromDatabase:
           name: surveillance-db
@@ -24,7 +26,7 @@ services:
   - type: redis
     name: surveillance-redis
     plan: starter
-    ipAllowList: 
+    ipAllowList:
       - source: 0.0.0.0/0
         description: "Allow all IPs"
 
