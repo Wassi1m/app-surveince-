@@ -13,8 +13,15 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-default-key-for-rende
 ALLOWED_HOSTS = [
     '.onrender.com',
     'surveillance-ia.onrender.com',
+    'app-surveillance.onrender.com',
     'localhost',
     '127.0.0.1'
+]
+
+# CSRF Trusted Origins
+CSRF_TRUSTED_ORIGINS = [
+    'https://app-surveillance.onrender.com',
+    'https://*.onrender.com'
 ]
 
 # Database
@@ -55,6 +62,8 @@ MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 # CORS pour production
 CORS_ALLOWED_ORIGINS = [
     "https://surveillance-ia.onrender.com",
+    "https://app-surveillance.onrender.com",
+    "https://*.onrender.com",
 ]
 
 # Logging pour production
