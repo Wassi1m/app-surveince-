@@ -7,7 +7,7 @@ from .settings import *
 DEBUG = False
 
 # Security
-SECRET_KEY = config('SECRET_KEY')
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-default-key-for-render-deployment-change-me')
 
 # Allowed hosts
 ALLOWED_HOSTS = [
@@ -20,20 +20,28 @@ ALLOWED_HOSTS = [
 # Database
 DATABASES = {
     'default': dj_database_url.config(
-        default=config('DATABASE_URL')
+        default=config('DATABASE_URL', default='sqlite:///db.sqlite3')
     )
 }
 
 # Redis/Channels
-redis_url = config('REDIS_URL')
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [redis_url],
+# Utiliser Redis si disponible, sinon InMemoryChannelLayer
+redis_url = config('REDIS_URL', default=None)
+if redis_url:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [redis_url],
+            },
         },
-    },
-}
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer"
+        }
+    }
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
