@@ -68,7 +68,6 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # WhiteNoise et Middlewares de sécurité
 MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 MIDDLEWARE.insert(-1, 'surveillance_system.middleware.SessionTimeoutMiddleware')
-MIDDLEWARE.insert(-1, 'surveillance_system.middleware.TokenExpirationMiddleware')
 MIDDLEWARE.insert(-1, 'surveillance_system.middleware.SecurityHeadersMiddleware')
 
 # CORS pour production
