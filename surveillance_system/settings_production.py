@@ -64,8 +64,11 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# WhiteNoise
+# WhiteNoise et Middlewares de sécurité
 MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+MIDDLEWARE.insert(-1, 'surveillance_system.middleware.SessionTimeoutMiddleware')
+MIDDLEWARE.insert(-1, 'surveillance_system.middleware.TokenExpirationMiddleware')
+MIDDLEWARE.insert(-1, 'surveillance_system.middleware.SecurityHeadersMiddleware')
 
 # CORS pour production
 CORS_ALLOWED_ORIGINS = [
@@ -131,4 +134,28 @@ SECURE_HSTS_PRELOAD = True
 SESSION_COOKIE_SECURE = False  # False pour HTTP, True pour HTTPS
 CSRF_COOKIE_SECURE = False     # False pour HTTP, True pour HTTPS
 SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY = True 
+CSRF_COOKIE_HTTPONLY = True
+
+# Session timeout - 2 heures maximum
+SESSION_COOKIE_AGE = 7200  # 2 heures en secondes (2 * 60 * 60)
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True  # Renouveler à chaque requête
+
+# Token expiration pour REST Framework
+from datetime import timedelta
+
+# REST Framework settings avec expiration des tokens
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20
+} 
