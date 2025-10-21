@@ -1,6 +1,7 @@
 import os
 import dj_database_url
 from decouple import config
+from datetime import timedelta
 from .settings import *
 
 # Production settings
@@ -142,7 +143,6 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_SAVE_EVERY_REQUEST = True  # Renouveler à chaque requête
 
 # Token expiration pour REST Framework
-from datetime import timedelta
 
 # REST Framework settings avec expiration des tokens
 REST_FRAMEWORK = {
