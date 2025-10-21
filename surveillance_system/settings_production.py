@@ -29,9 +29,14 @@ CSRF_TRUSTED_ORIGINS = [
 
 # Database
 DATABASES = {
-    'default': dj_database_url.config(
-        default=config('DATABASE_URL', default='sqlite:///db.sqlite3')
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'surveillance_db',
+        'USER': 'surveillance_user',
+        'PASSWORD': 'm77dq3RxTJHPCrF',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
 }
 
 # Redis/Channels
