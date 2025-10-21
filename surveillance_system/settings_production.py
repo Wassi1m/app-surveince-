@@ -65,10 +65,11 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# WhiteNoise et Middlewares de sécurité
+# WhiteNoise
 MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
-MIDDLEWARE.insert(-1, 'surveillance_system.middleware.SessionTimeoutMiddleware')
-MIDDLEWARE.insert(-1, 'surveillance_system.middleware.SecurityHeadersMiddleware')
+# Middlewares personnalisés désactivés temporairement pour debug
+# MIDDLEWARE.insert(-1, 'surveillance_system.middleware.SessionTimeoutMiddleware')
+# MIDDLEWARE.insert(-1, 'surveillance_system.middleware.SecurityHeadersMiddleware')
 
 # CORS pour production
 CORS_ALLOWED_ORIGINS = [
