@@ -22,6 +22,7 @@ ALLOWED_HOSTS = [
 # CSRF Trusted Origins
 CSRF_TRUSTED_ORIGINS = [
     'http://51.75.253.11',
+    'http://51.75.253.11:8090',
     'https://app-surveillance.onrender.com',
     'https://*.onrender.com'
 ]
@@ -64,6 +65,7 @@ MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 # CORS pour production
 CORS_ALLOWED_ORIGINS = [
     "http://51.75.253.11",
+    "http://51.75.253.11:8090",
     "https://surveillance-ia.onrender.com",
     "https://app-surveillance.onrender.com",
     "https://*.onrender.com",
