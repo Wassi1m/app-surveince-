@@ -15,4 +15,17 @@ urlpatterns = [
     
     # API Simulation (pour tests)
     path('simulate/detection/', views.api_simulate_detection, name='simulate_detection'),
+    
+    # API Configuration caméras
+    path('cameras/', views.api_cameras_list, name='cameras_list'),
+    path('cameras/create/', views.api_create_camera, name='create_camera'),
+    path('cameras/<int:camera_id>/config/', views.api_camera_config, name='camera_config'),
+    path('cameras/<int:camera_id>/stats/', views.api_camera_stats, name='camera_stats'),
+    
+    path('zones/', views.api_zones_list, name='zones_list'),
+    path('zones/create/', views.api_create_zone, name='create_zone'),
+    path('zones/<int:zone_id>/', views.api_zone_detail, name='zone_detail'),
+    path('zones/<int:zone_id>/activity/', views.api_zone_activity, name='zone_activity'),
+    
+    path('dashboard/stats/', views.api_dashboard_stats, name='dashboard_stats'),
 ] 

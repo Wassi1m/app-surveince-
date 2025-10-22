@@ -42,22 +42,8 @@ DATABASES = {
 
 # Redis/Channels
 # Utiliser Redis si disponible, sinon InMemoryChannelLayer
-redis_url = config('REDIS_URL', default=None)
-if redis_url:
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
-            'CONFIG': {
-                'hosts': [redis_url],
-            },
-        },
-    }
-else:
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels.layers.InMemoryChannelLayer"
-        }
-    }
+# WebSocket support supprimé - utilisation d'API REST uniquement
+# redis_url = config('REDIS_URL', default=None)
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'

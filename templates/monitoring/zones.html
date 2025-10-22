@@ -1,0 +1,554 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion des Zones - Monitoring{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="margin-top: 70px;">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-map-marked-alt me-2"></i>Gestion des Zones</h2>
+                    <p class="text-muted">Configuration des zones de surveillance et niveaux de risque</p>
+                </div>
+                <div>
+                    <button class="btn btn-primary" onclick="addNewZone()">
+                        <i class="fas fa-plus me-1"></i> Ajouter une zone
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        {% for zone in zones %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card bg-dark text-light">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">{{ zone.name }}</h6>
+                    <span class="badge bg-{% if zone.risk_level == 'high' %}danger{% elif zone.risk_level == 'medium' %}warning{% else %}success{% endif %}">
+                        {{ zone.get_risk_level_display }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <strong>Localisation:</strong> {{ zone.location.name }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Caméras:</strong> {{ zone.camera_set.count }}
+                    </div>
+                    <div class="mb-3">
+                        <strong>Description:</strong> 
+                        <p class="small text-muted">{{ zone.description|default:"Aucune description" }}</p>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-primary" onclick="viewZone({{ zone.id }})">
+                            <i class="fas fa-eye"></i> Voir
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="editZone({{ zone.id }})">
+                            <i class="fas fa-edit"></i> Modifier
+                        </button>
+                        <button class="btn btn-sm btn-info" onclick="showZoneStats({{ zone.id }})">
+                            <i class="fas fa-chart-line"></i> Stats
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card bg-dark text-light">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-map fa-3x text-muted mb-3"></i>
+                    <h4>Aucune zone configurée</h4>
+                    <p class="text-muted">Commencez par définir des zones de surveillance.</p>
+                    <button class="btn btn-primary" onclick="addNewZone()">
+                        <i class="fas fa-plus me-1"></i> Créer la première zone
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal de configuration de zone -->
+<div class="modal fade" id="zoneConfigModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title">Configuration de la Zone</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="zone-config-content">
+                <!-- Contenu dynamique -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                <button type="button" class="btn btn-primary" onclick="saveZoneConfig()">Sauvegarder</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal des statistiques de zone -->
+<div class="modal fade" id="zoneStatsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title">Statistiques de la Zone</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="zone-stats-content">
+                <!-- Contenu dynamique -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de visualisation de zone -->
+<div class="modal fade" id="zoneViewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title">Visualisation de la Zone</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="zone-view-content">
+                <!-- Contenu dynamique -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Fonction pour obtenir le token CSRF
+function getCsrfToken() {
+    const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrftoken='))
+        ?.split('=')[1];
+    return cookieValue || '';
+}
+
+// Fonction pour afficher un toast
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'primary'} border-0`;
+    toast.style.position = 'fixed';
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '9999';
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    setTimeout(() => toast.remove(), 5000);
+}
+function addNewZone() {
+    const content = document.getElementById('zone-config-content');
+    content.innerHTML = `
+        <form id="zone-config-form">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Nom de la zone</label>
+                        <input type="text" class="form-control" name="name" placeholder="Ex: Entrée principale" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Localisation</label>
+                        <select class="form-select" name="location_id" required>
+                            <option value="">Sélectionner une localisation</option>
+                            {% for location in locations %}
+                            <option value="{{ location.id }}">{{ location.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Niveau de risque</label>
+                        <select class="form-select" name="risk_level">
+                            <option value="low">Faible</option>
+                            <option value="medium" selected>Moyen</option>
+                            <option value="high">Élevé</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="3" placeholder="Description de la zone..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Coordonnées (JSON)</label>
+                        <textarea class="form-control" name="coordinates" rows="4" placeholder='[{"x": 0, "y": 0}, {"x": 100, "y": 100}]'></textarea>
+                        <small class="form-text text-muted">Format JSON pour définir la zone sur la carte</small>
+                    </div>
+                </div>
+            </div>
+            <input type="hidden" name="zone_id" value="new">
+        </form>
+    `;
+    
+    const modal = new bootstrap.Modal(document.getElementById('zoneConfigModal'));
+    modal.show();
+}
+
+function editZone(zoneId) {
+    // Charger les données de la zone
+    fetch(`/api/zones/${zoneId}/`)
+        .then(response => response.json())
+        .then(data => {
+            const content = document.getElementById('zone-config-content');
+            content.innerHTML = `
+                <form id="zone-config-form">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Nom de la zone</label>
+                                <input type="text" class="form-control" name="name" value="${data.name || ''}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Localisation</label>
+                                <select class="form-select" name="location_id" required>
+                                    {% for location in locations %}
+                                    <option value="{{ location.id }}" ${data.location_id == {{ location.id }} ? 'selected' : ''}>{{ location.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Niveau de risque</label>
+                                <select class="form-select" name="risk_level">
+                                    <option value="low" ${data.risk_level === 'low' ? 'selected' : ''}>Faible</option>
+                                    <option value="medium" ${data.risk_level === 'medium' ? 'selected' : ''}>Moyen</option>
+                                    <option value="high" ${data.risk_level === 'high' ? 'selected' : ''}>Élevé</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control" name="description" rows="3">${data.description || ''}</textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Coordonnées (JSON)</label>
+                                <textarea class="form-control" name="coordinates" rows="4">${JSON.stringify(data.coordinates || [])}</textarea>
+                                <small class="form-text text-muted">Format JSON pour définir la zone sur la carte</small>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" name="zone_id" value="${zoneId}">
+                </form>
+            `;
+            
+            const modal = new bootstrap.Modal(document.getElementById('zoneConfigModal'));
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Erreur chargement zone:', error);
+            alert('Erreur lors du chargement des données de la zone');
+        });
+}
+
+function saveZoneConfig() {
+    const form = document.getElementById('zone-config-form');
+    const formData = new FormData(form);
+    const zoneId = formData.get('zone_id');
+    
+    let coordinates = [];
+    try {
+        const coordsText = formData.get('coordinates');
+        if (coordsText.trim()) {
+            coordinates = JSON.parse(coordsText);
+        }
+    } catch (e) {
+        alert('Format JSON invalide pour les coordonnées');
+        return;
+    }
+    
+    const data = {
+        name: formData.get('name'),
+        location_id: parseInt(formData.get('location_id')),
+        risk_level: formData.get('risk_level'),
+        description: formData.get('description'),
+        coordinates: coordinates
+    };
+    
+    const url = zoneId === 'new' ? '/api/zones/create/' : `/api/zones/${zoneId}/`;
+    const method = zoneId === 'new' ? 'POST' : 'PUT';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('zoneConfigModal')).hide();
+            showToast(result.message || 'Sauvegarde réussie', 'success');
+            location.reload();
+        } else {
+            alert('Erreur lors de la sauvegarde: ' + result.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur sauvegarde:', error);
+        alert('Erreur lors de la sauvegarde');
+    });
+}
+
+function viewZone(zoneId) {
+    const content = document.getElementById('zone-view-content');
+    content.innerHTML = `
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card bg-secondary">
+                    <div class="card-header">
+                        <h6 class="mb-0">Carte de la Zone</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="zone-map" style="height: 400px; background: #2d3436; border-radius: 8px; position: relative;">
+                            <div class="d-flex align-items-center justify-content-center h-100">
+                                <div class="text-center">
+                                    <i class="fas fa-map fa-3x text-muted mb-3"></i>
+                                    <h6 class="text-muted">Carte de la zone</h6>
+                                    <p class="small text-muted">Visualisation des limites et caméras</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-secondary mb-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">Caméras dans cette zone</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="zone-cameras">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-video fa-2x mb-2"></i>
+                                <p>Chargement des caméras...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card bg-secondary">
+                    <div class="card-header">
+                        <h6 class="mb-0">Activité récente</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="zone-activity">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-chart-line fa-2x mb-2"></i>
+                                <p>Chargement de l'activité...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const modal = new bootstrap.Modal(document.getElementById('zoneViewModal'));
+    modal.show();
+    
+    // Charger les données de la zone
+    loadZoneDetails(zoneId);
+}
+
+function loadZoneDetails(zoneId) {
+    // Charger les vraies données de la zone
+    fetch(`/api/zones/${zoneId}/`)
+        .then(response => response.json())
+        .then(zone => {
+            // Charger les caméras de cette zone
+            fetch(`/api/cameras/?zone_id=${zoneId}`)
+                .then(response => response.json())
+                .then(cameras => {
+                    const camerasContainer = document.getElementById('zone-cameras');
+                    if (cameras.length === 0) {
+                        camerasContainer.innerHTML = `
+                            <div class="text-center text-muted">
+                                <i class="fas fa-video fa-2x mb-2"></i>
+                                <p>Aucune caméra dans cette zone</p>
+                            </div>
+                        `;
+                    } else {
+                        camerasContainer.innerHTML = `
+                            <div class="list-group list-group-flush">
+                                ${cameras.map(camera => `
+                                    <div class="list-group-item bg-transparent text-light border-secondary">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="fas fa-video ${camera.status === 'online' ? 'text-success' : 'text-danger'} me-2"></i>
+                                                ${camera.name}
+                                            </div>
+                                            <span class="badge bg-${camera.status === 'online' ? 'success' : 'danger'}">
+                                                ${camera.status === 'online' ? 'En ligne' : 'Hors ligne'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur chargement caméras:', error);
+                    document.getElementById('zone-cameras').innerHTML = `
+                        <div class="text-center text-danger">
+                            <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                            <p>Erreur lors du chargement des caméras</p>
+                        </div>
+                    `;
+                });
+            
+            // Charger les statistiques d'activité de la zone
+            fetch(`/api/zones/${zoneId}/activity/`)
+                .then(response => response.json())
+                .then(activity => {
+                    const activityLevels = {
+                        'low': { label: 'Faible', color: 'success' },
+                        'medium': { label: 'Moyen', color: 'warning' },
+                        'high': { label: 'Élevé', color: 'danger' }
+                    };
+                    
+                    const level = activityLevels[activity.level] || { label: 'Inconnu', color: 'secondary' };
+                    
+                    document.getElementById('zone-activity').innerHTML = `
+                        <div class="small">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Détections aujourd'hui:</span>
+                                <strong>${activity.detections_today || 0}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Alertes actives:</span>
+                                <strong class="text-warning">${activity.active_alerts || 0}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Niveau d'activité:</span>
+                                <span class="badge bg-${level.color}">${level.label}</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Dernière détection:</span>
+                                <small class="text-muted">${activity.last_detection ? new Date(activity.last_detection).toLocaleString('fr-FR') : 'Aucune'}</small>
+                            </div>
+                        </div>
+                    `;
+                })
+                .catch(error => {
+                    console.error('Erreur chargement activité:', error);
+                    document.getElementById('zone-activity').innerHTML = `
+                        <div class="text-center text-danger">
+                            <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                            <p>Erreur lors du chargement de l'activité</p>
+                        </div>
+                    `;
+                });
+        })
+        .catch(error => {
+            console.error('Erreur chargement zone:', error);
+            alert('Erreur lors du chargement des détails de la zone');
+        });
+}
+
+function showZoneStats(zoneId) {
+    const content = document.getElementById('zone-stats-content');
+    content.innerHTML = `
+        <div class="alert alert-info">
+            <h6><i class="fas fa-info-circle me-2"></i>Statistiques de Zone</h6>
+            <p>Analyse détaillée de l'activité dans cette zone de surveillance.</p>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white mb-3">
+                    <div class="card-body text-center">
+                        <h4>156</h4>
+                        <p class="mb-0">Détections ce mois</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white mb-3">
+                    <div class="card-body text-center">
+                        <h4>89.2%</h4>
+                        <p class="mb-0">Précision IA</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white mb-3">
+                    <div class="card-body text-center">
+                        <h4>12</h4>
+                        <p class="mb-0">Alertes générées</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white mb-3">
+                    <div class="card-body text-center">
+                        <h4>14h-18h</h4>
+                        <p class="mb-0">Pic d'activité</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card bg-secondary">
+                    <div class="card-header">
+                        <h6 class="mb-0">Répartition par type d'événement</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="progress mb-2">
+                            <div class="progress-bar bg-success" style="width: 60%">Mouvement normal (60%)</div>
+                        </div>
+                        <div class="progress mb-2">
+                            <div class="progress-bar bg-warning" style="width: 25%">Activité suspecte (25%)</div>
+                        </div>
+                        <div class="progress mb-2">
+                            <div class="progress-bar bg-danger" style="width: 15%">Intrusion (15%)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card bg-secondary">
+                    <div class="card-header">
+                        <h6 class="mb-0">Activité par heure</h6>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="hourly-activity-chart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const modal = new bootstrap.Modal(document.getElementById('zoneStatsModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+
+{% block title %}{{ camera.name }} - Détails Caméra{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="margin-top: 70px;">
+    
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>
+                        <i class="fas fa-video me-2"></i>
+                        {{ camera.name }}
+                        <span class="badge bg-{% if camera.status == 'online' %}success{% elif camera.status == 'offline' %}danger{% else %}warning{% endif %} ms-2">
+                            {{ camera.get_status_display }}
+                        </span>
+                    </h2>
+                    <p class="text-muted">{{ camera.zone.name }} - {{ camera.location.name }}</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'monitoring:cameras' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i> Retour
+                    </a>
+                    <button class="btn btn-primary" onclick="testCamera()">
+                        <i class="fas fa-play me-1"></i> Tester
+                    </button>
+                    <button class="btn btn-success" onclick="configureCamera({{ camera.id }})">
+                        <i class="fas fa-cog me-1"></i> Configurer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Flux vidéo -->
+        <div class="col-lg-8">
+            <div class="card bg-dark text-light mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-video me-2"></i>
+                        Flux Vidéo en Direct
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="video-container">
+                        <canvas id="camera-stream" width="800" height="600" class="w-100"></canvas>
+                        <div class="position-absolute bottom-0 start-0 end-0 p-3" 
+                             style="background: linear-gradient(transparent, rgba(0,0,0,0.8));">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center gap-3">
+                                    <button class="btn btn-outline-light btn-sm" onclick="toggleStream()">
+                                        <i class="fas fa-pause" id="stream-icon"></i>
+                                    </button>
+                                    <button class="btn btn-outline-light btn-sm" onclick="takeSnapshot()">
+                                        <i class="fas fa-camera"></i>
+                                    </button>
+                                    <span class="badge bg-success">LIVE</span>
+                                </div>
+                                <div class="text-end">
+                                    <div class="small text-light">
+                                        Résolution: {{ camera.resolution }}
+                                    </div>
+                                    <div class="small text-muted">
+                                        FPS: {{ camera.fps }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Détections récentes -->
+            <div class="card bg-dark text-light">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-search me-2"></i>
+                        Détections Récentes ({{ recent_detections|length }})
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if recent_detections %}
+                        <div class="table-responsive">
+                            <table class="table table-dark table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Heure</th>
+                                        <th>Type</th>
+                                        <th>Gravité</th>
+                                        <th>Confiance</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for detection in recent_detections %}
+                                    <tr>
+                                        <td>{{ detection.detected_at|date:"H:i:s" }}</td>
+                                        <td>{{ detection.get_event_type_display }}</td>
+                                        <td>
+                                            <span class="badge bg-{% if detection.severity == 'critical' %}danger{% elif detection.severity == 'high' %}warning{% elif detection.severity == 'medium' %}info{% else %}secondary{% endif %}">
+                                                {{ detection.severity }}
+                                            </span>
+                                        </td>
+                                        <td>{{ detection.confidence|floatformat:1 }}%</td>
+                                        <td>
+                                            <a href="{% url 'monitoring:detection_detail' detection.id %}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                            <h6 class="text-muted">Aucune détection récente</h6>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Informations et statistiques -->
+        <div class="col-lg-4">
+            <!-- Informations techniques -->
+            <div class="card bg-dark text-light mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Informations Techniques
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Adresse IP:</strong>
+                        </div>
+                        <div class="col-6">
+                            {{ camera.ip_address }}
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Port:</strong>
+                        </div>
+                        <div class="col-6">
+                            {{ camera.port }}
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Résolution:</strong>
+                        </div>
+                        <div class="col-6">
+                            {{ camera.resolution }}
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>FPS:</strong>
+                        </div>
+                        <div class="col-6">
+                            {{ camera.fps }}
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>IA Activée:</strong>
+                        </div>
+                        <div class="col-6">
+                            {% if camera.is_ai_enabled %}
+                                <span class="badge bg-success">Oui</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Non</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Dernière activité:</strong>
+                        </div>
+                        <div class="col-6">
+                            {% if camera.last_seen %}
+                                {{ camera.last_seen|date:"d/m/Y H:i" }}
+                            {% else %}
+                                <span class="text-muted">Jamais</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistiques -->
+            <div class="card bg-dark text-light mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Statistiques
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h4 class="text-primary">{{ stats.detections_today }}</h4>
+                                <small class="text-muted">Détections Aujourd'hui</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-warning">{{ stats.false_positives }}</h4>
+                            <small class="text-muted">Faux Positifs</small>
+                        </div>
+                    </div>
+                    <hr class="my-3">
+                    <div class="text-center">
+                        <h4 class="text-success">{{ stats.avg_confidence|floatformat:1 }}%</h4>
+                        <small class="text-muted">Confiance Moyenne</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions rapides -->
+            <div class="card bg-dark text-light">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-tools me-2"></i>
+                        Actions Rapides
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="startRecording()">
+                            <i class="fas fa-record-vinyl me-2"></i>
+                            Démarrer l'enregistrement
+                        </button>
+                        <button class="btn btn-outline-info" onclick="calibrateCamera()">
+                            <i class="fas fa-crosshairs me-2"></i>
+                            Calibrer la caméra
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="resetCamera()">
+                            <i class="fas fa-redo me-2"></i>
+                            Redémarrer la caméra
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let isStreaming = true;
+let isRecording = false;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCameraStream();
+});
+
+function initializeCameraStream() {
+    const canvas = document.getElementById('camera-stream');
+    const ctx = canvas.getContext('2d');
+    
+    // Simuler un flux vidéo
+    function drawSimulatedStream() {
+        if (!isStreaming) return;
+        
+        // Fond dégradé
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, '#2d3436');
+        gradient.addColorStop(1, '#636e72');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Grille de simulation
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.lineWidth = 1;
+        for(let i = 0; i < canvas.width; i += 40) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, canvas.height);
+            ctx.stroke();
+        }
+        for(let j = 0; j < canvas.height; j += 40) {
+            ctx.beginPath();
+            ctx.moveTo(0, j);
+            ctx.lineTo(canvas.width, j);
+            ctx.stroke();
+        }
+        
+        // Texte de simulation
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('{{ camera.name }}', canvas.width/2, canvas.height/2 - 20);
+        ctx.font = '16px Arial';
+        ctx.fillText('Flux simulé - ' + new Date().toLocaleTimeString(), canvas.width/2, canvas.height/2 + 20);
+        
+        setTimeout(drawSimulatedStream, 100);
+    }
+    
+    drawSimulatedStream();
+}
+
+function toggleStream() {
+    isStreaming = !isStreaming;
+    const icon = document.getElementById('stream-icon');
+    icon.className = isStreaming ? 'fas fa-pause' : 'fas fa-play';
+    
+    if (isStreaming) {
+        initializeCameraStream();
+    }
+}
+
+function takeSnapshot() {
+    const canvas = document.getElementById('camera-stream');
+    const link = document.createElement('a');
+    link.download = `{{ camera.name }}-${new Date().getTime()}.png`;
+    link.href = canvas.toDataURL();
+    link.click();
+}
+
+function testCamera() {
+    fetch(`/api/cameras/{{ camera.id }}/test/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Test réussi: ' + data.message);
+        } else {
+            alert('Test échoué: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur test:', error);
+        alert('Erreur lors du test de la caméra');
+    });
+}
+
+function configureCamera(cameraId) {
+    // Rediriger vers la page de configuration
+    window.location.href = `/monitoring/cameras/${cameraId}/config/`;
+}
+
+function startRecording() {
+    if (!isRecording) {
+        isRecording = true;
+        alert('Enregistrement démarré');
+        // Ici, implémenter la logique d'enregistrement
+    } else {
+        isRecording = false;
+        alert('Enregistrement arrêté');
+    }
+}
+
+function calibrateCamera() {
+    alert('Calibration de la caméra en cours...');
+    // Ici, implémenter la logique de calibration
+}
+
+function resetCamera() {
+    if (confirm('Êtes-vous sûr de vouloir redémarrer cette caméra ?')) {
+        alert('Redémarrage de la caméra...');
+        // Ici, implémenter la logique de redémarrage
+    }
+}
+</script>
+{% endblock %}

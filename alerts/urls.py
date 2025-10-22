@@ -21,6 +21,9 @@ urlpatterns = [
     path('channels/create/', views.create_channel, name='create_channel'),
     path('channels/<int:channel_id>/test/', views.test_channel, name='test_channel'),
     
+    # Centre de notifications avancé
+    path('notifications/', views.notifications_center, name='notifications_center'),
+    
     # Historique des notifications
     path('notifications/history/', views.notification_history, name='notification_history'),
 ] 

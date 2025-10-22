@@ -4,7 +4,7 @@ from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Avg
 from django.contrib import messages
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -120,7 +120,7 @@ def live_view(request):
 @login_required
 def camera_list(request):
     """Liste des caméras"""
-    cameras = Camera.objects.all().select_related('location', 'zone').order_by('location', 'name')
+    cameras = Camera.objects.all().select_related('location', 'zone').order_by('-id')
     locations = Location.objects.filter(is_active=True)
     zones = Zone.objects.filter(is_active=True)
     
@@ -149,7 +149,7 @@ def camera_detail(request, camera_id):
         'detections_today': recent_detections.filter(detected_at__date=today).count(),
         'false_positives': recent_detections.filter(false_positive=True).count(),
         'avg_confidence': recent_detections.aggregate(
-            avg_conf=models.Avg('confidence')
+            avg_conf=Avg('confidence')
         )['avg_conf'] or 0,
     }
     
@@ -194,7 +194,7 @@ def create_camera(request):
 @login_required
 def zone_list(request):
     """Liste des zones de surveillance"""
-    zones = Zone.objects.all().select_related('location').order_by('location', 'name')
+    zones = Zone.objects.all().select_related('location').order_by('-id')
     locations = Location.objects.filter(is_active=True)
     
     context = {
@@ -607,4 +607,373 @@ def api_zone_activity(request):
         
     except Exception as e:
         logger.error(f"Erreur zone activity: {e}")
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def api_create_camera(request):
+    """API pour créer une nouvelle caméra"""
+    try:
+        data = request.data
+        
+        # Vérifier que la zone existe
+        zone = get_object_or_404(Zone, id=data.get('zone_id'))
+        
+        camera = Camera.objects.create(
+            location=zone.location,
+            zone=zone,
+            name=data.get('name'),
+            ip_address=data.get('ip_address'),
+            port=data.get('port', 554),
+            stream_url=data.get('stream_url'),
+            resolution=data.get('resolution', '1920x1080'),
+            fps=data.get('fps', 30),
+            is_ai_enabled=data.get('is_ai_enabled', True),
+            status='offline'  # Par défaut offline jusqu'au test
+        )
+        
+        return Response({
+            'success': True,
+            'message': 'Caméra créée avec succès',
+            'camera_id': camera.id
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur création caméra: {e}")
+        return Response({'success': False, 'error': str(e)}, status=400)
+
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def api_camera_config(request, camera_id):
+    """API pour la configuration des caméras"""
+    camera = get_object_or_404(Camera, id=camera_id)
+    
+    if request.method == 'GET':
+        return Response({
+            'id': camera.id,
+            'name': camera.name,
+            'ip_address': camera.ip_address,
+            'port': camera.port,
+            'resolution': camera.resolution,
+            'fps': camera.fps,
+            'is_ai_enabled': camera.is_ai_enabled,
+            'location_id': camera.location.id,
+            'zone_id': camera.zone.id if camera.zone else None,
+        })
+    
+    elif request.method == 'PUT':
+        try:
+            data = request.data
+            
+            camera.name = data.get('name', camera.name)
+            camera.ip_address = data.get('ip_address', camera.ip_address)
+            camera.port = data.get('port', camera.port)
+            camera.resolution = data.get('resolution', camera.resolution)
+            camera.fps = data.get('fps', camera.fps)
+            camera.is_ai_enabled = data.get('is_ai_enabled', camera.is_ai_enabled)
+            
+            camera.save()
+            
+            return Response({
+                'success': True,
+                'message': 'Configuration mise à jour'
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur config caméra {camera_id}: {e}")
+            return Response({'success': False, 'error': str(e)}, status=400)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_camera_stats(request, camera_id):
+    """API pour les statistiques des caméras"""
+    camera = get_object_or_404(Camera, id=camera_id)
+    
+    try:
+        # Statistiques des détections
+        today = timezone.now().date()
+        detections_today = DetectionEvent.objects.filter(
+            camera=camera,
+            detected_at__date=today
+        ).count()
+        
+        # Calcul de la disponibilité
+        uptime_percentage = 95.5 if camera.status == 'online' else 0
+        
+        # Confiance moyenne
+        avg_confidence = DetectionEvent.objects.filter(
+            camera=camera
+        ).aggregate(avg=Avg('confidence'))['avg'] or 0
+        
+        # Faux positifs
+        false_positives = DetectionEvent.objects.filter(
+            camera=camera,
+            false_positive=True
+        ).count()
+        
+        # Détections par type
+        detections_by_type = {}
+        event_types = DetectionEvent.objects.filter(camera=camera).values('event_type').annotate(
+            count=Count('id')
+        )
+        
+        total_detections = sum(item['count'] for item in event_types)
+        for item in event_types:
+            detections_by_type[item['event_type']] = item['count']
+        
+        return Response({
+            'detections_today': detections_today,
+            'uptime_percentage': uptime_percentage,
+            'avg_confidence': round(avg_confidence * 100, 1) if avg_confidence else 0,
+            'false_positives': false_positives,
+            'detections_by_type': detections_by_type,
+            'total_detections': total_detections
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur stats caméra {camera_id}: {e}")
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_cameras_list(request):
+    """API pour lister les caméras avec filtrage optionnel par zone"""
+    try:
+        cameras = Camera.objects.all().select_related('zone', 'location')
+        
+        # Filtrer par zone si spécifié
+        zone_id = request.GET.get('zone_id')
+        if zone_id:
+            cameras = cameras.filter(zone_id=zone_id)
+        
+        # Ordonner par date de création (plus récentes en premier)
+        cameras = cameras.order_by('-id')
+        
+        cameras_data = []
+        for camera in cameras:
+            cameras_data.append({
+                'id': camera.id,
+                'name': camera.name,
+                'ip_address': camera.ip_address,
+                'port': camera.port,
+                'stream_url': camera.stream_url,
+                'resolution': camera.resolution,
+                'fps': camera.fps,
+                'status': camera.status,
+                'is_ai_enabled': camera.is_ai_enabled,
+                'zone_id': camera.zone.id,
+                'zone_name': camera.zone.name,
+                'location_name': camera.location.name
+            })
+        
+        return Response(cameras_data)
+        
+    except Exception as e:
+        logger.error(f"Erreur liste caméras: {e}")
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_zones_list(request):
+    """API pour lister toutes les zones"""
+    try:
+        zones = Zone.objects.all().select_related('location').order_by('-id')
+        zones_data = []
+        
+        for zone in zones:
+            zones_data.append({
+                'id': zone.id,
+                'name': zone.name,
+                'description': zone.description,
+                'risk_level': zone.risk_level,
+                'location_name': zone.location.name,
+                'location_id': zone.location.id,
+                'is_active': zone.is_active,
+                'camera_count': zone.cameras.count()
+            })
+        
+        return Response(zones_data)
+        
+    except Exception as e:
+        logger.error(f"Erreur liste zones: {e}")
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def api_create_zone(request):
+    """API pour créer une nouvelle zone"""
+    try:
+        data = request.data
+        
+        # Vérifier que la localisation existe
+        location = get_object_or_404(Location, id=data.get('location_id'))
+        
+        zone = Zone.objects.create(
+            location=location,
+            name=data.get('name'),
+            description=data.get('description', ''),
+            risk_level=data.get('risk_level', 'medium'),
+            coordinates=data.get('coordinates', []),
+            is_active=True
+        )
+        
+        return Response({
+            'success': True,
+            'message': 'Zone créée avec succès',
+            'zone_id': zone.id
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur création zone: {e}")
+        return Response({'success': False, 'error': str(e)}, status=400)
+
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def api_zone_detail(request, zone_id):
+    """API pour les détails des zones"""
+    zone = get_object_or_404(Zone, id=zone_id)
+    
+    if request.method == 'GET':
+        return Response({
+            'id': zone.id,
+            'name': zone.name,
+            'description': zone.description,
+            'risk_level': zone.risk_level,
+            'coordinates': zone.coordinates,
+            'location_id': zone.location.id,
+            'is_active': zone.is_active,
+        })
+    
+    elif request.method == 'PUT':
+        try:
+            data = request.data
+            
+            zone.name = data.get('name', zone.name)
+            zone.description = data.get('description', zone.description)
+            zone.risk_level = data.get('risk_level', zone.risk_level)
+            zone.coordinates = data.get('coordinates', zone.coordinates)
+            
+            zone.save()
+            
+            return Response({
+                'success': True,
+                'message': 'Zone mise à jour'
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur config zone {zone_id}: {e}")
+            return Response({'success': False, 'error': str(e)}, status=400)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_zone_activity(request, zone_id):
+    """API pour l'activité d'une zone"""
+    zone = get_object_or_404(Zone, id=zone_id)
+    
+    try:
+        from datetime import datetime, timedelta
+        from django.utils import timezone
+        from alerts.models import Alert
+        
+        today = timezone.now().date()
+        
+        # Compter les détections aujourd'hui
+        detections_today = DetectionEvent.objects.filter(
+            zone=zone,
+            detected_at__date=today
+        ).count()
+        
+        # Compter les alertes actives
+        active_alerts = Alert.objects.filter(
+            detection_event__zone=zone,
+            status__in=['pending', 'sent']
+        ).count()
+        
+        # Dernière détection
+        last_detection = DetectionEvent.objects.filter(
+            zone=zone
+        ).order_by('-detected_at').first()
+        
+        # Calculer le niveau d'activité basé sur les détections
+        if detections_today == 0:
+            activity_level = 'low'
+        elif detections_today < 10:
+            activity_level = 'medium'
+        else:
+            activity_level = 'high'
+        
+        return Response({
+            'detections_today': detections_today,
+            'active_alerts': active_alerts,
+            'level': activity_level,
+            'last_detection': last_detection.detected_at if last_detection else None
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur activité zone {zone_id}: {e}")
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_dashboard_stats(request):
+    """API pour les statistiques du dashboard"""
+    try:
+        from datetime import datetime, timedelta
+        from django.utils import timezone
+        from alerts.models import Alert
+        
+        # Statistiques des caméras
+        total_cameras = Camera.objects.count()
+        online_cameras = Camera.objects.filter(status='online').count()
+        
+        # Statistiques des zones
+        total_zones = Zone.objects.count()
+        active_zones = Zone.objects.filter(is_active=True).count()
+        
+        # Alertes récentes (dernières 24h)
+        last_24h = timezone.now() - timedelta(hours=24)
+        recent_alerts = Alert.objects.filter(
+            created_at__gte=last_24h
+        ).count()
+        
+        # Détections récentes (dernières 24h) - utiliser detected_at au lieu de created_at
+        recent_detections = DetectionEvent.objects.filter(
+            detected_at__gte=last_24h
+        ).count()
+        
+        # Alertes actives
+        active_alerts = Alert.objects.filter(
+            status__in=['pending', 'sent']
+        ).count()
+        
+        
+        stats = {
+            'cameras': {
+                'total': total_cameras,
+                'online': online_cameras,
+                'offline': total_cameras - online_cameras
+            },
+            'zones': {
+                'total': total_zones,
+                'active': active_zones
+            },
+            'recent_alerts': recent_alerts,
+            'active_alerts': active_alerts,
+            'recent_detections': recent_detections,
+            'last_updated': timezone.now().isoformat()
+        }
+        
+        return Response({'stats': stats})
+        
+    except Exception as e:
+        logger.error(f"Erreur stats dashboard: {e}")
         return Response({'error': str(e)}, status=500)

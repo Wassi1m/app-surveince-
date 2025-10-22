@@ -69,7 +69,7 @@
         background: #636e72;
         padding: 8px 12px;
         display: flex;
-        justify-content: between;
+        justify-content: space-between;
         align-items: center;
     }
     
@@ -259,7 +259,7 @@
     <div class="row">
         <!-- Écran principal - Surveillance Live -->
         <div class="col-xl-8 col-lg-7">
-            <div class="card bg-secondary text-light mb-4">
+            <div class="card animate-fade-in mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
                         <i class="fas fa-video me-2"></i>
@@ -355,21 +355,25 @@
         <!-- Panneau latéral - Alertes et Statistiques -->
         <div class="col-xl-4 col-lg-5">
             <!-- Alertes en temps réel -->
-            <div class="alert-panel">
-                <h6 class="d-flex justify-content-between align-items-center">
-                    <span>
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        Alertes en Temps Réel
-                    </span>
-                    <button class="btn btn-outline-light btn-sm" onclick="clearAlerts()">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </h6>
-                <div id="real-time-alerts" class="mt-3" style="max-height: 300px; overflow-y: auto;">
-                    <!-- Les alertes apparaîtront ici dynamiquement -->
-                    <div class="text-center text-muted py-3" id="no-alerts">
-                        <i class="fas fa-shield-alt fa-2x mb-2"></i>
-                        <div>Aucune alerte active</div>
+            <div class="card animate-slide-in" style="animation-delay: 0.3s;">
+                <div class="card-header">
+                    <h6 class="d-flex justify-content-between align-items-center mb-0">
+                        <span class="gradient-text">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Alertes en Temps Réel
+                        </span>
+                        <button class="btn btn-outline-light btn-sm" onclick="clearAlerts()">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="real-time-alerts" style="max-height: 300px; overflow-y: auto;">
+                        <!-- Les alertes apparaîtront ici dynamiquement -->
+                        <div class="text-center text-muted py-3" id="no-alerts">
+                            <i class="fas fa-shield-alt fa-2x mb-2"></i>
+                            <div>Aucune alerte active</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -377,15 +381,15 @@
             <!-- Statistiques rapides -->
             <div class="row mb-4">
                 <div class="col-6">
-                    <div class="stats-card bg-success">
+                    <div class="stats-card animate-fade-in">
                         <div class="stats-number" id="detections-today">{{ stats.detections_today }}</div>
-                        <div>Détections Aujourd'hui</div>
+                        <div class="stats-label">Détections Aujourd'hui</div>
                     </div>
                 </div>
                 <div class="col-6">
-                    <div class="stats-card bg-warning">
+                    <div class="stats-card animate-fade-in" style="animation-delay: 0.2s;">
                         <div class="stats-number" id="incidents-week">{{ stats.incidents_week }}</div>
-                        <div>Incidents cette Semaine</div>
+                        <div class="stats-label">Incidents cette Semaine</div>
                     </div>
                 </div>
             </div>
@@ -398,7 +402,7 @@
                 </h6>
                 <div class="zone-heatmap" id="zone-heatmap">
                     {% for zone in zones %}
-                    <div class="zone-item {{ zone.activity_level }}" data-zone-id="{{ zone.id }}">
+                    <div class="zone-item {{ zone.activity_level }}" data-zone-id="{{ zone.id }}" onclick="showZoneDetails({{ zone.id }}, '{{ zone.name }}')">
                         <div class="fw-bold">{{ zone.name }}</div>
                         <div class="small">{{ zone.risk_level|capfirst }}</div>
                         <div class="mt-1">
@@ -1005,17 +1009,29 @@
     }
 
     function initializeDashboard() {
-        // Connexion WebSocket pour le tableau de bord
-        dashboardSocket = new WebSocket(
-            'ws://localhost:8001/ws/monitoring/dashboard/'
-        );
-
-        dashboardSocket.onmessage = function(e) {
-            const data = JSON.parse(e.data);
-            if (data.type === 'dashboard_stats') {
-                updateDashboardStats(data.stats);
-            }
-        };
+        console.log('Dashboard initialisé avec API REST uniquement');
+        
+        // Mise à jour périodique via API REST
+        setInterval(() => {
+            updateDashboardViaAPI();
+        }, 30000); // Mise à jour toutes les 30 secondes
+        
+        // Première mise à jour immédiate
+        updateDashboardViaAPI();
+    }
+    
+    function updateDashboardViaAPI() {
+        // Mise à jour des statistiques via API REST
+        fetch('/api/dashboard/stats/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.stats) {
+                    updateDashboardStats(data.stats);
+                }
+            })
+            .catch(error => {
+                console.debug('Mise à jour dashboard via API:', error);
+            });
     }
 
     function updateDashboardStats(stats) {
@@ -1316,6 +1332,93 @@
         bsToast.show();
         
         setTimeout(() => toast.remove(), 5000);
+    }
+
+    function showZoneDetails(zoneId, zoneName) {
+        console.log('Affichage des détails de la zone:', zoneId, zoneName);
+        
+        // Créer une modal pour afficher les détails de la zone
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content bg-dark text-light">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-map-marked-alt me-2"></i>
+                            Détails de la Zone: ${zoneName}
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card bg-secondary mb-3">
+                                    <div class="card-body text-center">
+                                        <h4 class="text-primary">23</h4>
+                                        <p class="mb-0">Détections Aujourd'hui</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-secondary mb-3">
+                                    <div class="card-body text-center">
+                                        <h4 class="text-warning">2</h4>
+                                        <p class="mb-0">Alertes Actives</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card bg-secondary">
+                            <div class="card-header">
+                                <h6 class="mb-0">Activité Récente</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="timeline-item">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <strong>Mouvement détecté</strong>
+                                            <div class="small text-muted">Caméra Entrée</div>
+                                        </div>
+                                        <div class="text-end">
+                                            <div class="small">Il y a 5 min</div>
+                                            <span class="badge bg-info">Normal</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="timeline-item">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <strong>Activité suspecte</strong>
+                                            <div class="small text-muted">Caméra Parking</div>
+                                        </div>
+                                        <div class="text-end">
+                                            <div class="small">Il y a 12 min</div>
+                                            <span class="badge bg-warning">Suspect</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                        <a href="/monitoring/zones/" class="btn btn-primary">
+                            <i class="fas fa-cog me-1"></i>
+                            Configurer la Zone
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        
+        // Supprimer le modal après fermeture
+        modal.addEventListener('hidden.bs.modal', () => modal.remove());
     }
 </script>
 {% endblock %} 

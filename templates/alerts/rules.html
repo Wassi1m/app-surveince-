@@ -1,0 +1,784 @@
+{% extends "base.html" %}
+
+{% block title %}Règles d'Alerte - Surveillance IA{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="margin-top: 70px;">
+    
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-bell me-2"></i>Règles d'Alerte</h2>
+                    <p class="text-muted">Configuration des règles de déclenchement d'alertes</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" onclick="addNewRule()">
+                        <i class="fas fa-plus me-1"></i> Nouvelle règle
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des règles -->
+    <div class="row">
+        {% for rule in rules %}
+        <div class="col-lg-6 col-xl-4 mb-4">
+            <div class="card bg-dark text-light">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">{{ rule.name }}</h6>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-{% if rule.priority == 1 %}danger{% elif rule.priority == 2 %}warning{% else %}info{% endif %}">
+                            Priorité {{ rule.priority }}
+                        </span>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" 
+                                   {% if rule.is_active %}checked{% endif %}
+                                   onchange="toggleRule({{ rule.id }}, this.checked)">
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <strong>Localisation:</strong> {{ rule.location.name }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Type de déclencheur:</strong> {{ rule.get_trigger_type_display }}
+                    </div>
+                    <div class="mb-2">
+                        <strong>Cooldown:</strong> {{ rule.cooldown_minutes }} minutes
+                    </div>
+                    <div class="mb-3">
+                        <strong>Description:</strong>
+                        <p class="small text-muted">{{ rule.description|default:"Aucune description" }}</p>
+                    </div>
+                    
+                    <!-- Statistiques rapides -->
+                    <div class="row text-center mb-3">
+                        <div class="col-4">
+                            <div class="border-end">
+                                <small class="text-muted">Déclenchements</small>
+                                <div class="fw-bold">{{ rule.trigger_count|default:0 }}</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border-end">
+                                <small class="text-muted">Cette semaine</small>
+                                <div class="fw-bold text-warning">{{ rule.weekly_triggers|default:0 }}</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <small class="text-muted">Dernière fois</small>
+                            <div class="fw-bold text-info">
+                                {% if rule.last_triggered %}
+                                    {{ rule.last_triggered|timesince }}
+                                {% else %}
+                                    Jamais
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-primary" onclick="viewRule({{ rule.id }})">
+                            <i class="fas fa-eye"></i> Voir
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="editRule({{ rule.id }})">
+                            <i class="fas fa-edit"></i> Modifier
+                        </button>
+                        <button class="btn btn-sm btn-info" onclick="testRule({{ rule.id }})">
+                            <i class="fas fa-play"></i> Tester
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteRule({{ rule.id }})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="card bg-dark text-light">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-bell-slash fa-3x text-muted mb-3"></i>
+                    <h4>Aucune règle d'alerte configurée</h4>
+                    <p class="text-muted">Créez des règles pour automatiser les alertes de sécurité.</p>
+                    <button class="btn btn-primary" onclick="addNewRule()">
+                        <i class="fas fa-plus me-1"></i> Créer la première règle
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal de configuration de règle -->
+<div class="modal fade" id="ruleConfigModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title">Configuration de la Règle</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="rule-config-content">
+                <!-- Contenu dynamique -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                <button type="button" class="btn btn-primary" onclick="saveRuleConfig()">Sauvegarder</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de détails de règle -->
+<div class="modal fade" id="ruleViewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title">Détails de la Règle</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="rule-view-content">
+                <!-- Contenu dynamique -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Fonction pour obtenir le token CSRF
+function getCsrfToken() {
+    const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrftoken='))
+        ?.split('=')[1];
+    return cookieValue || '';
+}
+
+// Fonction pour afficher un toast
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'primary'} border-0`;
+    toast.style.position = 'fixed';
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '9999';
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    setTimeout(() => toast.remove(), 5000);
+}
+function addNewRule() {
+    const content = document.getElementById('rule-config-content');
+    content.innerHTML = `
+        <form id="rule-config-form">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Nom de la règle</label>
+                        <input type="text" class="form-control" name="name" placeholder="Ex: Intrusion nocturne" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Localisation</label>
+                        <select class="form-select" name="location_id" required>
+                            <option value="">Sélectionner une localisation</option>
+                            {% for location in locations %}
+                            <option value="{{ location.id }}">{{ location.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Type de déclencheur</label>
+                        <select class="form-select" name="trigger_type" onchange="updateTriggerOptions(this.value)">
+                            <option value="detection">Détection d'événement</option>
+                            <option value="time_based">Basé sur le temps</option>
+                            <option value="zone_activity">Activité de zone</option>
+                            <option value="camera_status">Statut de caméra</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Priorité</label>
+                        <select class="form-select" name="priority">
+                            <option value="3">Faible (3)</option>
+                            <option value="2" selected>Moyenne (2)</option>
+                            <option value="1">Élevée (1)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="3" placeholder="Description de la règle..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Cooldown (minutes)</label>
+                        <input type="number" class="form-control" name="cooldown_minutes" value="5" min="1" max="1440">
+                        <small class="form-text text-muted">Temps d'attente avant de pouvoir redéclencher</small>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="is_active" checked>
+                            <label class="form-check-label">Règle active</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-12">
+                    <h6>Conditions de déclenchement</h6>
+                    <div id="trigger-conditions">
+                        <!-- Conditions dynamiques selon le type -->
+                    </div>
+                </div>
+            </div>
+            
+            <input type="hidden" name="rule_id" value="new">
+        </form>
+    `;
+    
+    // Initialiser les conditions par défaut
+    updateTriggerOptions('detection');
+    
+    const modal = new bootstrap.Modal(document.getElementById('ruleConfigModal'));
+    modal.show();
+}
+
+function updateTriggerOptions(triggerType) {
+    const container = document.getElementById('trigger-conditions');
+    
+    switch(triggerType) {
+        case 'detection':
+            container.innerHTML = `
+                <div class="card bg-secondary">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Type d'événement</label>
+                                    <select class="form-select" name="event_type">
+                                        <option value="">Tous les types</option>
+                                        <option value="intrusion">Intrusion</option>
+                                        <option value="theft">Vol</option>
+                                        <option value="suspicious">Activité suspecte</option>
+                                        <option value="fire">Incendie</option>
+                                        <option value="accident">Accident</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Niveau de gravité minimum</label>
+                                    <select class="form-select" name="min_severity">
+                                        <option value="low">Faible</option>
+                                        <option value="medium" selected>Moyen</option>
+                                        <option value="high">Élevé</option>
+                                        <option value="critical">Critique</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Confiance minimum (%)</label>
+                                    <input type="number" class="form-control" name="min_confidence" value="75" min="0" max="100">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Zone spécifique</label>
+                                    <select class="form-select" name="zone_id">
+                                        <option value="">Toutes les zones</option>
+                                        <!-- Options dynamiques selon la localisation -->
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            break;
+            
+        case 'time_based':
+            container.innerHTML = `
+                <div class="card bg-secondary">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Heure de début</label>
+                                    <input type="time" class="form-control" name="start_time" value="22:00">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Heure de fin</label>
+                                    <input type="time" class="form-control" name="end_time" value="06:00">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Jours de la semaine</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="weekdays" value="1" checked>
+                                        <label class="form-check-label">Lundi</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="weekdays" value="2" checked>
+                                        <label class="form-check-label">Mardi</label>
+                                    </div>
+                                    <!-- Autres jours... -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            break;
+            
+        case 'zone_activity':
+            container.innerHTML = `
+                <div class="card bg-secondary">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Seuil d'activité</label>
+                                    <select class="form-select" name="activity_threshold">
+                                        <option value="low">Activité faible</option>
+                                        <option value="medium">Activité moyenne</option>
+                                        <option value="high" selected>Activité élevée</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Période d'observation (minutes)</label>
+                                    <input type="number" class="form-control" name="observation_period" value="15" min="1" max="60">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            break;
+            
+        case 'camera_status':
+            container.innerHTML = `
+                <div class="card bg-secondary">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Statut à surveiller</label>
+                                    <select class="form-select" name="camera_status">
+                                        <option value="offline" selected>Hors ligne</option>
+                                        <option value="error">Erreur</option>
+                                        <option value="maintenance">Maintenance</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Délai avant alerte (minutes)</label>
+                                    <input type="number" class="form-control" name="status_delay" value="2" min="1" max="60">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            break;
+    }
+}
+
+function editRule(ruleId) {
+    // Charger les données de la règle
+    fetch(`/api/alerts/rules/${ruleId}/`)
+        .then(response => response.json())
+        .then(data => {
+            // Remplir le formulaire avec les données existantes
+            addNewRule(); // Créer le formulaire de base
+            
+            // Remplir les champs
+            document.querySelector('[name="name"]').value = data.name || '';
+            document.querySelector('[name="description"]').value = data.description || '';
+            document.querySelector('[name="location_id"]').value = data.location_id || '';
+            document.querySelector('[name="trigger_type"]').value = data.trigger_type || 'detection';
+            document.querySelector('[name="priority"]').value = data.priority || 2;
+            document.querySelector('[name="cooldown_minutes"]').value = data.cooldown_minutes || 5;
+            document.querySelector('[name="is_active"]').checked = data.is_active || false;
+            document.querySelector('[name="rule_id"]').value = ruleId;
+            
+            // Mettre à jour les conditions
+            updateTriggerOptions(data.trigger_type || 'detection');
+        })
+        .catch(error => {
+            console.error('Erreur chargement règle:', error);
+            alert('Erreur lors du chargement de la règle');
+        });
+}
+
+function saveRuleConfig() {
+    const form = document.getElementById('rule-config-form');
+    const formData = new FormData(form);
+    const ruleId = formData.get('rule_id');
+    
+    // Validation côté client
+    const name = formData.get('name');
+    const triggerType = formData.get('trigger_type');
+    const locationId = formData.get('location_id');
+    const priority = formData.get('priority');
+    
+    if (!name || !name.trim()) {
+        alert('Le nom de la règle est requis');
+        return;
+    }
+    
+    if (!triggerType) {
+        alert('Le type de déclenchement est requis');
+        return;
+    }
+    
+    if (!locationId) {
+        alert('La localisation est requise');
+        return;
+    }
+    
+    if (!priority) {
+        alert('La priorité est requise');
+        return;
+    }
+    
+    // Collecter les conditions de déclenchement
+    const triggerConditions = {};
+    
+    // Ajouter les conditions selon le type
+    switch(triggerType) {
+        case 'detection':
+            triggerConditions.event_type = formData.get('event_type') || 'intrusion';
+            triggerConditions.min_severity = formData.get('min_severity') || 'medium';
+            triggerConditions.min_confidence = parseInt(formData.get('min_confidence')) || 70;
+            triggerConditions.zone_id = formData.get('zone_id') || null;
+            break;
+        case 'time_based':
+            triggerConditions.start_time = formData.get('start_time') || '22:00';
+            triggerConditions.end_time = formData.get('end_time') || '06:00';
+            triggerConditions.weekdays = Array.from(formData.getAll('weekdays')).map(Number);
+            break;
+        case 'zone_activity':
+            triggerConditions.max_detections = parseInt(formData.get('max_detections')) || 10;
+            triggerConditions.time_window = parseInt(formData.get('time_window')) || 60;
+            break;
+        case 'camera_status':
+            triggerConditions.status_change = formData.get('status_change') || 'offline';
+            triggerConditions.duration_minutes = parseInt(formData.get('duration_minutes')) || 5;
+            break;
+    }
+    
+    const data = {
+        name: name.trim(),
+        description: formData.get('description') || '',
+        location_id: parseInt(locationId),
+        trigger_type: triggerType,
+        trigger_conditions: triggerConditions,
+        priority: parseInt(priority),
+        cooldown_minutes: parseInt(formData.get('cooldown_minutes')) || 5,
+        is_active: formData.has('is_active')
+    };
+    
+    console.log('Données à envoyer:', data); // Debug
+    
+    const url = ruleId === 'new' ? '/api/alerts/rules/create/' : `/api/alerts/rules/${ruleId}/`;
+    const method = ruleId === 'new' ? 'POST' : 'PUT';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('ruleConfigModal')).hide();
+            showToast(result.message || 'Sauvegarde réussie', 'success');
+            location.reload();
+        } else {
+            console.error('Erreur API:', result);
+            alert('Erreur lors de la sauvegarde: ' + (result.error || 'Erreur inconnue'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur sauvegarde:', error);
+        alert('Erreur lors de la sauvegarde: ' + error.message);
+    });
+}
+
+function toggleRule(ruleId, isActive) {
+    fetch(`/alerts/rules/${ruleId}/toggle/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken()
+        }
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            const message = isActive ? 'Règle activée' : 'Règle désactivée';
+            showToast(message, 'success');
+        } else {
+            alert('Erreur lors de la modification: ' + result.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur toggle:', error);
+        alert('Erreur lors de la modification');
+    });
+}
+
+function viewRule(ruleId) {
+    // Charger les données de la règle
+    fetch(`/api/alerts/rules/${ruleId}/`)
+        .then(response => response.json())
+        .then(rule => {
+            // Charger les statistiques de la règle
+            return Promise.all([
+                Promise.resolve(rule),
+                fetch(`/api/alerts/rules/${ruleId}/stats/`).then(r => r.json()).catch(() => ({}))
+            ]);
+        })
+        .then(([rule, stats]) => {
+            const priorityLabels = {1: 'Faible', 2: 'Moyenne', 3: 'Élevée', 4: 'Critique'};
+            const priorityColors = {1: 'secondary', 2: 'warning', 3: 'danger', 4: 'danger'};
+            const triggerLabels = {
+                'detection': 'Détection d\'événement',
+                'time_based': 'Basée sur le temps',
+                'zone_activity': 'Activité de zone'
+            };
+            
+            const content = document.getElementById('rule-view-content');
+            content.innerHTML = `
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>Détails de la Règle: ${rule.name}</h6>
+                    <p>${rule.description || 'Aucune description disponible'}</p>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="card bg-secondary mb-4">
+                            <div class="card-header">
+                                <h6 class="mb-0">Historique des déclenchements</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-dark table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Date/Heure</th>
+                                                <th>Événement</th>
+                                                <th>Caméra</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="rule-history-tbody">
+                                            <tr>
+                                                <td colspan="4" class="text-center text-muted">
+                                                    <i class="fas fa-spinner fa-spin me-2"></i>Chargement de l'historique...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="card bg-secondary mb-3">
+                            <div class="card-header">
+                                <h6 class="mb-0">Statistiques</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="text-center mb-3">
+                                    <h4 class="text-primary">${stats.triggers_this_month || 0}</h4>
+                                    <small class="text-muted">Déclenchements ce mois</small>
+                                </div>
+                                <div class="text-center mb-3">
+                                    <h4 class="text-success">${stats.accuracy_rate || 0}%</h4>
+                                    <small class="text-muted">Taux de précision</small>
+                                </div>
+                                <div class="text-center">
+                                    <h4 class="text-info">${stats.avg_response_time || 0} min</h4>
+                                    <small class="text-muted">Temps de réponse moyen</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card bg-secondary">
+                            <div class="card-header">
+                                <h6 class="mb-0">Configuration actuelle</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="small">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>Type:</span>
+                                        <strong>${triggerLabels[rule.trigger_type] || rule.trigger_type}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>Priorité:</span>
+                                        <span class="badge bg-${priorityColors[rule.priority] || 'secondary'}">${priorityLabels[rule.priority] || 'Inconnue'}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>Cooldown:</span>
+                                        <strong>${rule.cooldown_minutes} minutes</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Statut:</span>
+                                        <span class="badge bg-${rule.is_active ? 'success' : 'secondary'}">${rule.is_active ? 'Active' : 'Inactive'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Charger l'historique des alertes pour cette règle
+            fetch(`/api/alerts/active/?rule_id=${ruleId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('rule-history-tbody');
+                    const alerts = data.alerts || [];
+                    
+                    if (alerts.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">
+                                    Aucun déclenchement récent
+                                </td>
+                            </tr>
+                        `;
+                    } else {
+                        tbody.innerHTML = alerts.slice(0, 10).map(alert => `
+                            <tr>
+                                <td>${new Date(alert.created_at).toLocaleString('fr-FR')}</td>
+                                <td>${alert.title}</td>
+                                <td>${alert.detection_event?.camera_name || 'N/A'}</td>
+                                <td><span class="badge bg-${alert.status === 'sent' ? 'success' : 'warning'}">${alert.status === 'sent' ? 'Alerte envoyée' : 'En attente'}</span></td>
+                            </tr>
+                        `).join('');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur chargement historique:', error);
+                    document.getElementById('rule-history-tbody').innerHTML = `
+                        <tr>
+                            <td colspan="4" class="text-center text-danger">
+                                Erreur lors du chargement de l'historique
+                            </td>
+                        </tr>
+                    `;
+                });
+            
+            const modal = new bootstrap.Modal(document.getElementById('ruleViewModal'));
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Erreur chargement règle:', error);
+            alert('Erreur lors du chargement des détails de la règle');
+        });
+}
+
+function testRule(ruleId) {
+    if (confirm('Voulez-vous tester cette règle ? Cela déclenchera une alerte de test.')) {
+        fetch(`/api/alerts/rules/${ruleId}/test/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Test réussi ! Une alerte de test a été générée.');
+            } else {
+                alert('Erreur lors du test: ' + result.error);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur test:', error);
+            alert('Erreur lors du test de la règle');
+        });
+    }
+}
+
+function deleteRule(ruleId) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette règle ? Cette action est irréversible.')) {
+        fetch(`/api/alerts/rules/${ruleId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (result.success) {
+                showToast(result.message || 'Règle supprimée', 'success');
+                location.reload();
+            } else {
+                console.error('Erreur API:', result);
+                alert('Erreur lors de la suppression: ' + (result.error || 'Erreur inconnue'));
+            }
+        })
+        .catch(error => {
+            console.error('Erreur suppression:', error);
+            alert('Erreur lors de la suppression: ' + error.message);
+        });
+    }
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : 'primary'} border-0`;
+    toast.style.position = 'fixed';
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '9999';
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    setTimeout(() => toast.remove(), 5000);
+}
+</script>
+{% endblock %}

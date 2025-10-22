@@ -1,0 +1,733 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Centre de Notifications - Surveillance IA{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notification-center {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    .notification-item {
+        background: var(--card-bg);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        transition: var(--transition-smooth);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .notification-item:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .notification-item.unread {
+        border-left: 4px solid var(--primary-color);
+        background: rgba(102, 126, 234, 0.05);
+    }
+    
+    .notification-item.urgent {
+        border-left: 4px solid #fa709a;
+        background: rgba(250, 112, 154, 0.05);
+        animation: pulse 2s infinite;
+    }
+    
+    .notification-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.75rem;
+    }
+    
+    .notification-title {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: var(--text-primary);
+        margin: 0;
+    }
+    
+    .notification-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: var(--text-muted);
+    }
+    
+    .notification-message {
+        color: var(--text-secondary);
+        margin-bottom: 1rem;
+        line-height: 1.5;
+    }
+    
+    .notification-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .notification-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .priority-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .priority-1, .priority-2 { background: var(--danger-gradient); }
+    .priority-3 { background: var(--warning-gradient); }
+    .priority-4 { background: var(--info-gradient); }
+    
+    .type-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    .type-alert { background: rgba(250, 112, 154, 0.2); color: #fa709a; }
+    .type-warning { background: rgba(255, 153, 0, 0.2); color: #ff9900; }
+    .type-success { background: rgba(67, 233, 123, 0.2); color: #43e97b; }
+    .type-info { background: rgba(79, 172, 254, 0.2); color: #4facfe; }
+    .type-error { background: rgba(250, 112, 154, 0.2); color: #fa709a; }
+    .type-system { background: rgba(136, 146, 176, 0.2); color: #8892b0; }
+    
+    .filters-bar {
+        background: var(--card-bg);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stats-overview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        text-align: center;
+        transition: var(--transition-smooth);
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-lg);
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 800;
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-muted);
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+    }
+    
+    .preferences-modal .modal-content {
+        background: var(--card-bg);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .loading-skeleton {
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        background-size: 200% 100%;
+        animation: loading 1.5s infinite;
+        border-radius: var(--border-radius-sm);
+        height: 1rem;
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid notification-center">
+    <!-- En-tête -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="gradient-text mb-2">
+                <i class="fas fa-bell me-2"></i>
+                Centre de Notifications
+            </h1>
+            <p class="text-muted mb-0">Gérez vos notifications et alertes en temps réel</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-light" onclick="markAllAsRead()">
+                <i class="fas fa-check-double me-1"></i>
+                Tout marquer comme lu
+            </button>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#preferencesModal">
+                <i class="fas fa-cog me-1"></i>
+                Préférences
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="stats-overview">
+        <div class="stat-card animate-fade-in">
+            <div class="stat-number" id="total-notifications">0</div>
+            <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-card animate-fade-in" style="animation-delay: 0.1s;">
+            <div class="stat-number" id="unread-notifications">0</div>
+            <div class="stat-label">Non lues</div>
+        </div>
+        <div class="stat-card animate-fade-in" style="animation-delay: 0.2s;">
+            <div class="stat-number" id="urgent-notifications">0</div>
+            <div class="stat-label">Urgentes</div>
+        </div>
+        <div class="stat-card animate-fade-in" style="animation-delay: 0.3s;">
+            <div class="stat-number" id="today-notifications">0</div>
+            <div class="stat-label">Aujourd'hui</div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="filters-bar animate-fade-in" style="animation-delay: 0.4s;">
+        <div class="row align-items-center">
+            <div class="col-md-3">
+                <label class="form-label">Type</label>
+                <select class="form-select" id="filter-type">
+                    <option value="">Tous les types</option>
+                    <option value="alert">Alertes</option>
+                    <option value="warning">Avertissements</option>
+                    <option value="info">Informations</option>
+                    <option value="success">Succès</option>
+                    <option value="error">Erreurs</option>
+                    <option value="system">Système</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Priorité</label>
+                <select class="form-select" id="filter-priority">
+                    <option value="">Toutes priorités</option>
+                    <option value="1">Critique</option>
+                    <option value="2">Élevée</option>
+                    <option value="3">Normale</option>
+                    <option value="4">Faible</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Statut</label>
+                <select class="form-select" id="filter-status">
+                    <option value="">Tous</option>
+                    <option value="unread">Non lues</option>
+                    <option value="read">Lues</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-light flex-fill" onclick="applyFilters()">
+                        <i class="fas fa-filter me-1"></i>
+                        Filtrer
+                    </button>
+                    <button class="btn btn-outline-light" onclick="clearFilters()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des notifications -->
+    <div id="notifications-container" class="animate-fade-in" style="animation-delay: 0.5s;">
+        <!-- Les notifications seront chargées ici -->
+        <div class="loading-state">
+            <div class="notification-item">
+                <div class="loading-skeleton" style="width: 60%;"></div>
+                <div class="loading-skeleton" style="width: 80%;"></div>
+                <div class="loading-skeleton" style="width: 40%;"></div>
+            </div>
+            <div class="notification-item">
+                <div class="loading-skeleton" style="width: 70%;"></div>
+                <div class="loading-skeleton" style="width: 90%;"></div>
+                <div class="loading-skeleton" style="width: 50%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bouton charger plus -->
+    <div class="text-center mt-4">
+        <button class="btn btn-outline-light" id="load-more-btn" onclick="loadMoreNotifications()" style="display: none;">
+            <i class="fas fa-plus me-1"></i>
+            Charger plus
+        </button>
+    </div>
+</div>
+
+<!-- Modal Préférences -->
+<div class="modal fade" id="preferencesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content preferences-modal">
+            <div class="modal-header">
+                <h5 class="modal-title gradient-text">
+                    <i class="fas fa-cog me-2"></i>
+                    Préférences de Notification
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="preferences-form">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Fréquence des notifications</label>
+                                <select class="form-select" name="digest_frequency">
+                                    <option value="immediate">Immédiat</option>
+                                    <option value="hourly">Toutes les heures</option>
+                                    <option value="daily">Quotidien</option>
+                                    <option value="weekly">Hebdomadaire</option>
+                                    <option value="never">Jamais</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Priorité minimale</label>
+                                <select class="form-select" name="min_priority">
+                                    <option value="1">Critique</option>
+                                    <option value="2">Élevée</option>
+                                    <option value="3">Normale</option>
+                                    <option value="4">Faible</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Heures silencieuses - Début</label>
+                                <input type="time" class="form-control" name="quiet_hours_start">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Heures silencieuses - Fin</label>
+                                <input type="time" class="form-control" name="quiet_hours_end">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="mb-3">Options avancées</h6>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="enable_sound" id="enable_sound">
+                                <label class="form-check-label" for="enable_sound">
+                                    Activer les sons
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="enable_vibration" id="enable_vibration">
+                                <label class="form-check-label" for="enable_vibration">
+                                    Activer les vibrations
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="enable_email_digest" id="enable_email_digest">
+                                <label class="form-check-label" for="enable_email_digest">
+                                    Recevoir un résumé par email
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="savePreferences()">
+                    <i class="fas fa-save me-1"></i>
+                    Sauvegarder
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class NotificationCenter {
+    constructor() {
+        this.notifications = [];
+        this.currentPage = 1;
+        this.hasMore = true;
+        this.filters = {};
+        
+        this.init();
+    }
+    
+    init() {
+        this.loadNotifications();
+        this.loadPreferences();
+        this.setupEventListeners();
+    }
+    
+    setupEventListeners() {
+        // Filtres
+        document.getElementById('filter-type').addEventListener('change', () => this.applyFilters());
+        document.getElementById('filter-priority').addEventListener('change', () => this.applyFilters());
+        document.getElementById('filter-status').addEventListener('change', () => this.applyFilters());
+        
+        // Actualisation automatique
+        setInterval(() => {
+            this.loadNotifications(true);
+        }, 30000); // Toutes les 30 secondes
+    }
+    
+    async loadNotifications(refresh = false) {
+        try {
+            if (refresh) {
+                this.currentPage = 1;
+                this.notifications = [];
+            }
+            
+            const params = new URLSearchParams({
+                limit: 20,
+                ...this.filters
+            });
+            
+            const response = await fetch(`/api/alerts/notifications/?${params}`);
+            const data = await response.json();
+            
+            if (refresh) {
+                this.notifications = data.notifications;
+            } else {
+                this.notifications.push(...data.notifications);
+            }
+            
+            this.renderNotifications();
+            this.updateStats(data);
+            
+            // Masquer le loading
+            document.querySelector('.loading-state').style.display = 'none';
+            
+        } catch (error) {
+            console.error('Erreur chargement notifications:', error);
+            this.showError('Erreur lors du chargement des notifications');
+        }
+    }
+    
+    renderNotifications() {
+        const container = document.getElementById('notifications-container');
+        
+        if (this.notifications.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-bell-slash"></i>
+                    <h5>Aucune notification</h5>
+                    <p>Vous n'avez aucune notification pour le moment.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const html = this.notifications.map(notification => this.renderNotification(notification)).join('');
+        container.innerHTML = html;
+    }
+    
+    renderNotification(notification) {
+        const isUnread = !notification.is_read;
+        const isUrgent = notification.is_urgent;
+        const createdAt = new Date(notification.created_at);
+        const timeAgo = this.getTimeAgo(createdAt);
+        
+        return `
+            <div class="notification-item ${isUnread ? 'unread' : ''} ${isUrgent ? 'urgent' : ''}" 
+                 data-id="${notification.id}">
+                <div class="notification-header">
+                    <h6 class="notification-title">${notification.title}</h6>
+                    <div class="notification-meta">
+                        <span class="type-badge type-${notification.type}">${notification.type}</span>
+                        <span class="priority-badge priority-${notification.priority}">${notification.priority_display}</span>
+                        <small>${timeAgo}</small>
+                    </div>
+                </div>
+                
+                <div class="notification-message">
+                    ${notification.message}
+                </div>
+                
+                <div class="notification-footer">
+                    <div class="notification-actions">
+                        ${notification.action_url ? `
+                            <a href="${notification.action_url}" class="btn btn-sm btn-outline-light">
+                                <i class="fas fa-external-link-alt me-1"></i>
+                                ${notification.action_label || 'Voir'}
+                            </a>
+                        ` : ''}
+                        ${isUnread ? `
+                            <button class="btn btn-sm btn-outline-light" onclick="notificationCenter.markAsRead(${notification.id})">
+                                <i class="fas fa-check me-1"></i>
+                                Marquer comme lu
+                            </button>
+                        ` : ''}
+                    </div>
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        ${createdAt.toLocaleString('fr-FR')}
+                    </small>
+                </div>
+            </div>
+        `;
+    }
+    
+    updateStats(data) {
+        document.getElementById('total-notifications').textContent = data.count;
+        document.getElementById('unread-notifications').textContent = data.unread_count;
+        
+        // Calculer les urgentes et aujourd'hui
+        const urgent = this.notifications.filter(n => n.is_urgent).length;
+        const today = this.notifications.filter(n => {
+            const created = new Date(n.created_at);
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            return created >= todayStart;
+        }).length;
+        
+        document.getElementById('urgent-notifications').textContent = urgent;
+        document.getElementById('today-notifications').textContent = today;
+    }
+    
+    async markAsRead(notificationId) {
+        try {
+            const response = await fetch(`/api/alerts/notifications/${notificationId}/read/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': this.getCsrfToken(),
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                // Mettre à jour l'interface
+                const notificationElement = document.querySelector(`[data-id="${notificationId}"]`);
+                if (notificationElement) {
+                    notificationElement.classList.remove('unread');
+                    notificationElement.querySelector('.notification-actions').innerHTML = '';
+                }
+                
+                // Mettre à jour les stats
+                const unreadCount = document.getElementById('unread-notifications');
+                unreadCount.textContent = Math.max(0, parseInt(unreadCount.textContent) - 1);
+                
+                this.showSuccess('Notification marquée comme lue');
+            }
+        } catch (error) {
+            console.error('Erreur marquage lecture:', error);
+            this.showError('Erreur lors du marquage');
+        }
+    }
+    
+    async markAllAsRead() {
+        try {
+            const unreadNotifications = this.notifications.filter(n => !n.is_read);
+            
+            for (const notification of unreadNotifications) {
+                await this.markAsRead(notification.id);
+            }
+            
+            this.showSuccess('Toutes les notifications ont été marquées comme lues');
+        } catch (error) {
+            console.error('Erreur marquage global:', error);
+            this.showError('Erreur lors du marquage global');
+        }
+    }
+    
+    applyFilters() {
+        this.filters = {
+            type: document.getElementById('filter-type').value,
+            priority: document.getElementById('filter-priority').value,
+            unread_only: document.getElementById('filter-status').value === 'unread' ? 'true' : ''
+        };
+        
+        // Supprimer les filtres vides
+        Object.keys(this.filters).forEach(key => {
+            if (!this.filters[key]) {
+                delete this.filters[key];
+            }
+        });
+        
+        this.loadNotifications(true);
+    }
+    
+    clearFilters() {
+        document.getElementById('filter-type').value = '';
+        document.getElementById('filter-priority').value = '';
+        document.getElementById('filter-status').value = '';
+        this.filters = {};
+        this.loadNotifications(true);
+    }
+    
+    async loadPreferences() {
+        try {
+            const response = await fetch('/api/alerts/notifications/preferences/');
+            const data = await response.json();
+            
+            // Remplir le formulaire
+            const form = document.getElementById('preferences-form');
+            Object.keys(data).forEach(key => {
+                const input = form.querySelector(`[name="${key}"]`);
+                if (input) {
+                    if (input.type === 'checkbox') {
+                        input.checked = data[key];
+                    } else {
+                        input.value = data[key] || '';
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Erreur chargement préférences:', error);
+        }
+    }
+    
+    async savePreferences() {
+        try {
+            const form = document.getElementById('preferences-form');
+            const formData = new FormData(form);
+            const data = {};
+            
+            for (const [key, value] of formData.entries()) {
+                data[key] = value;
+            }
+            
+            // Gérer les checkboxes
+            ['enable_sound', 'enable_vibration', 'enable_email_digest'].forEach(field => {
+                data[field] = form.querySelector(`[name="${field}"]`).checked;
+            });
+            
+            const response = await fetch('/api/alerts/notifications/preferences/', {
+                method: 'PUT',
+                headers: {
+                    'X-CSRFToken': this.getCsrfToken(),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (response.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
+                this.showSuccess('Préférences sauvegardées');
+            }
+        } catch (error) {
+            console.error('Erreur sauvegarde préférences:', error);
+            this.showError('Erreur lors de la sauvegarde');
+        }
+    }
+    
+    getTimeAgo(date) {
+        const now = new Date();
+        const diff = now - date;
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+        
+        if (minutes < 1) return 'À l\'instant';
+        if (minutes < 60) return `Il y a ${minutes}min`;
+        if (hours < 24) return `Il y a ${hours}h`;
+        return `Il y a ${days}j`;
+    }
+    
+    getCsrfToken() {
+        return document.querySelector('[name=csrfmiddlewaretoken]').value;
+    }
+    
+    showSuccess(message) {
+        this.showToast(message, 'success');
+    }
+    
+    showError(message) {
+        this.showToast(message, 'error');
+    }
+    
+    showToast(message, type = 'info') {
+        // Créer un toast Bootstrap ou une notification simple
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} position-fixed`;
+        toast.style.cssText = 'top: 100px; right: 20px; z-index: 9999; min-width: 300px;';
+        toast.innerHTML = `
+            <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : type === 'success' ? 'check' : 'info-circle'} me-2"></i>
+            ${message}
+        `;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.remove();
+        }, 5000);
+    }
+}
+
+// Initialiser le centre de notifications
+let notificationCenter;
+
+document.addEventListener('DOMContentLoaded', function() {
+    notificationCenter = new NotificationCenter();
+});
+
+// Fonctions globales pour les boutons
+function markAllAsRead() {
+    notificationCenter.markAllAsRead();
+}
+
+function applyFilters() {
+    notificationCenter.applyFilters();
+}
+
+function clearFilters() {
+    notificationCenter.clearFilters();
+}
+
+function savePreferences() {
+    notificationCenter.savePreferences();
+}
+
+function loadMoreNotifications() {
+    notificationCenter.currentPage++;
+    notificationCenter.loadNotifications();
+}
+</script>
+{% endblock %}

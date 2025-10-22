@@ -12,7 +12,7 @@
                     <p class="text-muted">Configuration et monitoring des caméras de surveillance</p>
                 </div>
                 <div>
-                    <button class="btn btn-primary">
+                    <button class="btn btn-primary" onclick="addNewCamera()">
                         <i class="fas fa-plus me-1"></i> Ajouter une caméra
                     </button>
                 </div>
@@ -41,13 +41,13 @@
                         <strong>Résolution:</strong> {{ camera.resolution|default:"Non spécifiée" }}
                     </div>
                     <div class="d-flex gap-2">
-                        <button class="btn btn-sm btn-primary">
+                        <a href="{% url 'monitoring:camera_detail' camera.id %}" class="btn btn-sm btn-primary">
                             <i class="fas fa-eye"></i> Voir
-                        </button>
-                        <button class="btn btn-sm btn-secondary">
+                        </a>
+                        <button class="btn btn-sm btn-secondary" onclick="configureCamera({{ camera.id }})">
                             <i class="fas fa-cog"></i> Config
                         </button>
-                        <button class="btn btn-sm btn-info">
+                        <button class="btn btn-sm btn-info" onclick="showCameraStats({{ camera.id }})">
                             <i class="fas fa-chart-line"></i> Stats
                         </button>
                     </div>
@@ -61,7 +61,7 @@
                     <i class="fas fa-video-slash fa-3x text-muted mb-3"></i>
                     <h4>Aucune caméra configurée</h4>
                     <p class="text-muted">Commencez par ajouter des caméras de surveillance.</p>
-                    <button class="btn btn-primary">
+                    <button class="btn btn-primary" onclick="addNewCamera()">
                         <i class="fas fa-plus me-1"></i> Ajouter la première caméra
                     </button>
                 </div>
@@ -70,4 +70,377 @@
         {% endfor %}
     </div>
 </div>
+
+<!-- Modal de configuration de caméra -->
+<div class="modal fade" id="cameraConfigModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title">Configuration de la Caméra</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="camera-config-content">
+                <!-- Contenu dynamique -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                <button type="button" class="btn btn-primary" onclick="saveCameraConfig()">Sauvegarder</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal des statistiques de caméra -->
+<div class="modal fade" id="cameraStatsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title">Statistiques de la Caméra</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="camera-stats-content">
+                <!-- Contenu dynamique -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function configureCamera(cameraId) {
+    console.log('Configuration de la caméra:', cameraId);
+    
+    // Charger la configuration de la caméra
+    fetch(`/api/cameras/${cameraId}/config/`)
+        .then(response => response.json())
+        .then(data => {
+            const content = document.getElementById('camera-config-content');
+            content.innerHTML = `
+                <form id="camera-config-form">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Nom de la caméra</label>
+                                <input type="text" class="form-control" name="name" value="${data.name || ''}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Adresse IP</label>
+                                <input type="text" class="form-control" name="ip_address" value="${data.ip_address || ''}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Port</label>
+                                <input type="number" class="form-control" name="port" value="${data.port || 554}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Résolution</label>
+                                <select class="form-select" name="resolution">
+                                    <option value="1920x1080" ${data.resolution === '1920x1080' ? 'selected' : ''}>1920x1080 (Full HD)</option>
+                                    <option value="1280x720" ${data.resolution === '1280x720' ? 'selected' : ''}>1280x720 (HD)</option>
+                                    <option value="640x480" ${data.resolution === '640x480' ? 'selected' : ''}>640x480 (VGA)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">FPS</label>
+                                <input type="number" class="form-control" name="fps" value="${data.fps || 30}" min="1" max="60">
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="is_ai_enabled" ${data.is_ai_enabled ? 'checked' : ''}>
+                                    <label class="form-check-label">IA activée</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" name="camera_id" value="${cameraId}">
+                </form>
+            `;
+            
+            const modal = new bootstrap.Modal(document.getElementById('cameraConfigModal'));
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Erreur chargement config:', error);
+            alert('Erreur lors du chargement de la configuration');
+        });
+}
+
+function saveCameraConfig() {
+    const form = document.getElementById('camera-config-form');
+    const formData = new FormData(form);
+    const cameraId = formData.get('camera_id');
+    
+    const data = {
+        name: formData.get('name'),
+        ip_address: formData.get('ip_address'),
+        port: parseInt(formData.get('port')),
+        resolution: formData.get('resolution'),
+        fps: parseInt(formData.get('fps')),
+        is_ai_enabled: formData.has('is_ai_enabled')
+    };
+    
+    // Si c'est une nouvelle caméra, ajouter les champs requis
+    if (cameraId === 'new') {
+        data.stream_url = formData.get('stream_url');
+        data.zone_id = parseInt(formData.get('zone_id'));
+    }
+    
+    // Choisir l'URL et la méthode selon le cas
+    const url = cameraId === 'new' ? '/api/cameras/create/' : `/api/cameras/${cameraId}/config/`;
+    const method = cameraId === 'new' ? 'POST' : 'PUT';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('cameraConfigModal')).hide();
+            showToast(result.message || 'Sauvegarde réussie', 'success');
+            location.reload();
+        } else {
+            alert('Erreur lors de la sauvegarde: ' + result.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur sauvegarde:', error);
+        alert('Erreur lors de la sauvegarde: ' + error.message);
+    });
+}
+
+function showCameraStats(cameraId) {
+    console.log('Statistiques de la caméra:', cameraId);
+    
+    // Charger les statistiques de la caméra
+    fetch(`/api/cameras/${cameraId}/stats/`)
+        .then(response => response.json())
+        .then(data => {
+            const content = document.getElementById('camera-stats-content');
+            content.innerHTML = `
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card bg-primary text-white mb-3">
+                            <div class="card-body text-center">
+                                <h4>${data.detections_today || 0}</h4>
+                                <p class="mb-0">Détections Aujourd'hui</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white mb-3">
+                            <div class="card-body text-center">
+                                <h4>${data.uptime_percentage || 0}%</h4>
+                                <p class="mb-0">Disponibilité</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white mb-3">
+                            <div class="card-body text-center">
+                                <h4>${data.avg_confidence || 0}%</h4>
+                                <p class="mb-0">Confiance Moyenne</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white mb-3">
+                            <div class="card-body text-center">
+                                <h4>${data.false_positives || 0}</h4>
+                                <p class="mb-0">Faux Positifs</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-12">
+                        <h6>Détections par Type</h6>
+                        <div class="table-responsive">
+                            <table class="table table-dark table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Nombre</th>
+                                        <th>Pourcentage</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${Object.entries(data.detections_by_type || {}).map(([type, count]) => `
+                                        <tr>
+                                            <td>${type}</td>
+                                            <td>${count}</td>
+                                            <td>${((count / (data.total_detections || 1)) * 100).toFixed(1)}%</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(document.getElementById('cameraStatsModal'));
+            modal.show();
+        })
+        .catch(error => {
+            console.error('Erreur chargement stats:', error);
+            // Afficher des données simulées en cas d'erreur
+            const content = document.getElementById('camera-stats-content');
+            content.innerHTML = `
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>Statistiques Simulées</h6>
+                    <p>Les données réelles seront disponibles une fois le système de surveillance actif.</p>
+                </div>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card bg-primary text-white mb-3">
+                            <div class="card-body text-center">
+                                <h4>42</h4>
+                                <p class="mb-0">Détections Aujourd'hui</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white mb-3">
+                            <div class="card-body text-center">
+                                <h4>98.5%</h4>
+                                <p class="mb-0">Disponibilité</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-info text-white mb-3">
+                            <div class="card-body text-center">
+                                <h4>87.3%</h4>
+                                <p class="mb-0">Confiance Moyenne</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white mb-3">
+                            <div class="card-body text-center">
+                                <h4>3</h4>
+                                <p class="mb-0">Faux Positifs</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const modal = new bootstrap.Modal(document.getElementById('cameraStatsModal'));
+            modal.show();
+        });
+}
+
+// Fonction pour ajouter une nouvelle caméra
+function addNewCamera() {
+    const content = document.getElementById('camera-config-content');
+    content.innerHTML = `
+        <form id="camera-config-form">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Nom de la caméra</label>
+                        <input type="text" class="form-control" name="name" placeholder="Ex: Caméra Entrée" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Adresse IP</label>
+                        <input type="text" class="form-control" name="ip_address" placeholder="192.168.1.100" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Port</label>
+                        <input type="number" class="form-control" name="port" value="554">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">URL de Stream</label>
+                        <input type="text" class="form-control" name="stream_url" placeholder="rtsp://192.168.1.100:554/stream" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Zone</label>
+                        <select class="form-select" name="zone_id" required>
+                            <option value="">Sélectionner une zone</option>
+                            {% for zone in zones %}
+                            <option value="{{ zone.id }}">{{ zone.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Résolution</label>
+                        <select class="form-select" name="resolution">
+                            <option value="1920x1080">1920x1080 (Full HD)</option>
+                            <option value="1280x720">1280x720 (HD)</option>
+                            <option value="640x480">640x480 (VGA)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">FPS</label>
+                        <input type="number" class="form-control" name="fps" value="30" min="1" max="60">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="is_ai_enabled" checked>
+                            <label class="form-check-label">IA activée</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <input type="hidden" name="camera_id" value="new">
+        </form>
+    `;
+    
+    const modal = new bootstrap.Modal(document.getElementById('cameraConfigModal'));
+    modal.show();
+}
+
+// Fonction pour obtenir le token CSRF
+function getCsrfToken() {
+    const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrftoken='))
+        ?.split('=')[1];
+    return cookieValue || '';
+}
+
+// Fonction pour afficher un toast
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'primary'} border-0`;
+    toast.style.position = 'fixed';
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '9999';
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    setTimeout(() => toast.remove(), 5000);
+}
+
+// Ajouter l'événement au bouton "Ajouter une caméra"
+document.addEventListener('DOMContentLoaded', function() {
+    const addButton = document.querySelector('.btn-primary');
+    if (addButton && addButton.textContent.includes('Ajouter')) {
+        addButton.onclick = addNewCamera;
+    }
+});
+</script>
 {% endblock %} 

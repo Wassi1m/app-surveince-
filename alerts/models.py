@@ -2,6 +2,13 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 from monitoring.models import DetectionEvent, Location, Camera
+import json
+
+# Import des nouveaux modèles de notifications
+from .models_notifications import (
+    NotificationChannel, NotificationTemplate, 
+    Notification, NotificationPreference
+)
 
 
 class AlertRule(models.Model):
@@ -34,32 +41,6 @@ class AlertRule(models.Model):
         verbose_name = "Règle d'alerte"
         verbose_name_plural = "Règles d'alerte"
         ordering = ['priority', '-created_at']
-
-
-class NotificationChannel(models.Model):
-    """Canaux de notification (email, SMS, webhook, etc.)"""
-    CHANNEL_TYPES = [
-        ('email', 'Email'),
-        ('sms', 'SMS'),
-        ('webhook', 'Webhook'),
-        ('push', 'Notification push'),
-        ('slack', 'Slack'),
-        ('teams', 'Microsoft Teams'),
-    ]
-    
-    name = models.CharField(max_length=100, verbose_name="Nom du canal")
-    channel_type = models.CharField(max_length=20, choices=CHANNEL_TYPES)
-    configuration = models.JSONField(help_text="Configuration spécifique au canal")
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    last_used = models.DateTimeField(null=True, blank=True)
-    
-    def __str__(self):
-        return f"{self.name} ({self.get_channel_type_display()})"
-    
-    class Meta:
-        verbose_name = "Canal de notification"
-        verbose_name_plural = "Canaux de notification"
 
 
 class Alert(models.Model):
@@ -114,54 +95,8 @@ class Alert(models.Model):
         ordering = ['-created_at']
 
 
-class NotificationLog(models.Model):
-    """Journal des notifications envoyées"""
-    STATUS_CHOICES = [
-        ('pending', 'En attente'),
-        ('sending', 'Envoi en cours'),
-        ('sent', 'Envoyée'),
-        ('delivered', 'Délivrée'),
-        ('failed', 'Échec'),
-        ('bounced', 'Rejetée'),
-    ]
-    
-    alert = models.ForeignKey(Alert, on_delete=models.CASCADE, related_name='notifications')
-    channel = models.ForeignKey(NotificationChannel, on_delete=models.CASCADE)
-    recipient = models.CharField(max_length=255, help_text="Email, numéro de téléphone, etc.")
-    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='pending')
-    sent_at = models.DateTimeField(null=True, blank=True)
-    delivered_at = models.DateTimeField(null=True, blank=True)
-    error_message = models.TextField(blank=True)
-    external_id = models.CharField(max_length=255, blank=True, help_text="ID externe du service")
-    retry_count = models.PositiveIntegerField(default=0)
-    metadata = models.JSONField(default=dict)
-    
-    def __str__(self):
-        return f"Notification {self.alert.title} -> {self.recipient}"
-    
-    class Meta:
-        verbose_name = "Journal de notification"
-        verbose_name_plural = "Journal des notifications"
-        ordering = ['-sent_at']
-
-
-class AlertRecipient(models.Model):
-    """Destinataires des alertes"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    location = models.ForeignKey(Location, on_delete=models.CASCADE)
-    channels = models.ManyToManyField(NotificationChannel)
-    is_active = models.BooleanField(default=True)
-    priority_filter = models.JSONField(default=list, help_text="Priorités d'alertes à recevoir")
-    time_restrictions = models.JSONField(default=dict, help_text="Restrictions horaires")
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    def __str__(self):
-        return f"{self.user.username} - {self.location.name}"
-    
-    class Meta:
-        verbose_name = "Destinataire d'alerte"
-        verbose_name_plural = "Destinataires d'alerte"
-        unique_together = ['user', 'location']
+# Anciens modèles NotificationLog et AlertRecipient supprimés
+# Remplacés par le nouveau système de notifications avancé
 
 
 class AlertSchedule(models.Model):
