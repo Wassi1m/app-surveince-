@@ -444,6 +444,52 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--border-radius-sm);
     color: var(--text-primary);
+    padding: 0.75rem 1rem;
+    transition: var(--transition-fast);
+}
+
+.form-select:focus {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+    color: var(--text-primary);
+}
+
+/* Styles pour les options des select */
+.form-select option {
+    background-color: #2d3436;
+    color: #ffffff;
+    padding: 0.5rem;
+}
+
+.form-select option:hover,
+.form-select option:focus,
+.form-select option:checked {
+    background-color: var(--primary-color);
+    color: #ffffff;
+}
+
+/* Styles pour tous les éléments select */
+select {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: var(--border-radius-sm) !important;
+    color: var(--text-primary) !important;
+    padding: 0.75rem 1rem !important;
+}
+
+select option {
+    background-color: #2d3436 !important;
+    color: #ffffff !important;
+    padding: 0.5rem !important;
+}
+
+select option:hover,
+select option:focus,
+select option:checked,
+select option:active {
+    background-color: var(--primary-color) !important;
+    color: #ffffff !important;
 }
 
 .form-label {
@@ -755,6 +801,41 @@ body {
     color: var(--bs-dropdown-link-hover-color, #1e2125);
 }
 
+/* ===== FIXES POUR FORMULAIRES DANS MODALES ===== */
+.modal .form-select,
+.modal select {
+    background-color: #2d3436 !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.modal .form-select option,
+.modal select option {
+    background-color: #2d3436 !important;
+    color: #ffffff !important;
+}
+
+.modal .form-control {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.modal .form-control:focus {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    color: #ffffff !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* ===== FIXES GÉNÉRAUX POUR TOUS LES CONTEXTES ===== */
+input, textarea, select {
+    color: #ffffff !important;
+}
+
+input::placeholder, textarea::placeholder {
+    color: rgba(255, 255, 255, 0.6) !important;
+}
+
 /* ===== UTILITAIRES ===== */
 .glass {
     background: var(--glass-bg);
@@ -785,6 +866,37 @@ body {
     background: rgba(15, 15, 35, 0.95);
     backdrop-filter: blur(20px);
     box-shadow: var(--shadow-lg);
+}
+
+/* ===== DROPDOWN MENUS FIXES ===== */
+.dropdown-menu {
+    background-color: #2d3436 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: var(--shadow-lg) !important;
+}
+
+.dropdown-item {
+    color: #ffffff !important;
+    background-color: transparent !important;
+    padding: 0.5rem 1rem !important;
+    transition: var(--transition-fast) !important;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus,
+.dropdown-item:active {
+    background-color: var(--primary-color) !important;
+    color: #ffffff !important;
+}
+
+.dropdown-menu-dark .dropdown-item {
+    color: #ffffff !important;
+}
+
+.dropdown-menu-dark .dropdown-item:hover,
+.dropdown-menu-dark .dropdown-item:focus {
+    background-color: var(--primary-color) !important;
+    color: #ffffff !important;
 }
 
 .navbar .dropdown-menu-dark .dropdown-item {
