@@ -74,6 +74,28 @@ body {
     right: 0;
     z-index: 1030;
     width: 100%;
+    min-height: 76px;
+    padding: 0.5rem 0;
+}
+
+/* Amélioration du container de la navbar */
+.navbar .container-fluid {
+    max-width: none;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+/* Ajustement de la navbar sur mobile */
+@media (max-width: 1199.98px) {
+    .navbar {
+        min-height: 70px;
+        padding: 0.25rem 0;
+    }
+    
+    .navbar .container-fluid {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
 }
 
 .navbar-brand {
@@ -95,11 +117,28 @@ body {
 .navbar-nav .nav-link {
     color: var(--text-secondary) !important;
     font-weight: 500;
-    padding: 0.75rem 1.25rem !important;
+    padding: 0.5rem 0.75rem !important;
     border-radius: var(--border-radius-sm);
     transition: var(--transition-fast);
     position: relative;
     overflow: hidden;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+}
+
+/* Ajustement des liens sur différentes tailles d'écran */
+@media (min-width: 1200px) {
+    .navbar-nav .nav-link {
+        padding: 0.75rem 1rem !important;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .navbar-nav .nav-link {
+        padding: 0.5rem 1rem !important;
+        margin-bottom: 0.25rem;
+    }
 }
 
 .navbar-nav .nav-link:hover,
@@ -255,11 +294,30 @@ body {
 /* ===== BADGES MODERNES ===== */
 .badge {
     font-weight: 600;
-    padding: 0.5rem 1rem;
+    padding: 0.35rem 0.65rem;
     border-radius: 50px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    line-height: 1;
+}
+
+/* Badges dans la navbar */
+.navbar .badge {
+    font-size: 0.65rem;
+    padding: 0.25rem 0.5rem;
+    min-width: 1.5rem;
+    text-align: center;
+}
+
+/* Badge de notification */
+#notification-badge {
+    font-size: 0.6em !important;
+    min-width: 1.2rem;
+    height: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .badge.bg-success {
@@ -524,9 +582,42 @@ body {
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 1199.98px) {
+    body {
+        padding-top: 70px; /* Navbar plus petite sur écrans moyens */
+    }
+    
+    .main-content {
+        min-height: calc(100vh - 70px);
+    }
+}
+
+@media (max-width: 991.98px) {
+    .navbar-collapse {
+        background: rgba(15, 15, 35, 0.98);
+        border-radius: var(--border-radius-sm);
+        margin-top: 0.5rem;
+        padding: 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .navbar-nav {
+        width: 100%;
+    }
+    
+    .navbar-nav .nav-item {
+        width: 100%;
+    }
+    
+    .navbar-nav .nav-link {
+        border-radius: var(--border-radius-sm);
+        margin-bottom: 0.25rem;
+    }
+}
+
 @media (max-width: 768px) {
     body {
-        padding-top: 70px; /* Navbar plus petite sur mobile */
+        padding-top: 70px;
     }
     
     .main-content {
@@ -550,6 +641,34 @@ body {
     .btn {
         padding: 0.625rem 1.25rem;
         font-size: 0.8rem;
+    }
+    
+    /* Ajustements spécifiques pour mobile */
+    .navbar-brand {
+        font-size: 1.5rem;
+    }
+    
+    .notification-dropdown {
+        width: 280px !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .navbar .container-fluid {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    
+    .navbar-brand {
+        font-size: 1.25rem;
+    }
+    
+    .notification-dropdown {
+        width: 250px !important;
+    }
+    
+    .dropdown-menu {
+        font-size: 0.875rem;
     }
 }
 
@@ -657,6 +776,59 @@ body {
 .border-gradient {
     border: 1px solid;
     border-image: var(--primary-gradient) 1;
+}
+
+/* ===== NAVBAR RESPONSIVE AMÉLIORÉE ===== */
+/* Dropdown menus dans la navbar */
+.navbar .dropdown-menu {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(15, 15, 35, 0.95);
+    backdrop-filter: blur(20px);
+    box-shadow: var(--shadow-lg);
+}
+
+.navbar .dropdown-menu-dark .dropdown-item {
+    color: var(--text-secondary);
+    transition: var(--transition-fast);
+}
+
+.navbar .dropdown-menu-dark .dropdown-item:hover {
+    background: rgba(102, 126, 234, 0.2);
+    color: var(--text-primary);
+}
+
+/* Amélioration de l'alignement des éléments de droite */
+.navbar .d-flex {
+    gap: 0.5rem;
+}
+
+@media (max-width: 991.98px) {
+    .navbar .d-flex {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .navbar .d-flex > * {
+        align-self: center;
+    }
+}
+
+/* Amélioration du toggler */
+.navbar-toggler {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 0.375rem 0.5rem;
+}
+
+.navbar-toggler:focus {
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
+}
+
+.navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.8%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
 }
 
 /* ===== EFFETS SPÉCIAUX ===== */

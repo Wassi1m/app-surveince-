@@ -350,6 +350,7 @@ def notifications_center(request):
     return render(request, 'alerts/notifications.html')
 
 
+
 @login_required
 def notification_history(request):
     """Historique des notifications"""

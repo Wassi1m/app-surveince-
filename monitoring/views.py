@@ -138,17 +138,18 @@ def camera_detail(request, camera_id):
     """Détails d'une caméra"""
     camera = get_object_or_404(Camera, id=camera_id)
     
-    # Détections récentes
-    recent_detections = DetectionEvent.objects.filter(
-        camera=camera
-    ).order_by('-detected_at')[:50]
+    # QuerySet de base pour les détections de cette caméra
+    camera_detections = DetectionEvent.objects.filter(camera=camera)
     
-    # Statistiques
+    # Détections récentes (limitées à 50)
+    recent_detections = camera_detections.order_by('-detected_at')[:50]
+    
+    # Statistiques (utiliser le QuerySet de base, pas la version slicée)
     today = timezone.now().date()
     stats = {
-        'detections_today': recent_detections.filter(detected_at__date=today).count(),
-        'false_positives': recent_detections.filter(false_positive=True).count(),
-        'avg_confidence': recent_detections.aggregate(
+        'detections_today': camera_detections.filter(detected_at__date=today).count(),
+        'false_positives': camera_detections.filter(false_positive=True).count(),
+        'avg_confidence': camera_detections.aggregate(
             avg_conf=Avg('confidence')
         )['avg_conf'] or 0,
     }
