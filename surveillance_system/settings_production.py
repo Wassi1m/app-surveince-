@@ -124,7 +124,8 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
 SESSION_COOKIE_SECURE = False  # False pour HTTP, True pour HTTPS
 CSRF_COOKIE_SECURE = False     # False pour HTTP, True pour HTTPS
 SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False   # False pour permettre l'accès JavaScript au token CSRF
+CSRF_COOKIE_SAMESITE = 'Lax'   # Permettre les requêtes cross-site avec le même site
 
 # Session timeout - 2 heures maximum
 SESSION_COOKIE_AGE = 7200  # 2 heures en secondes (2 * 60 * 60)

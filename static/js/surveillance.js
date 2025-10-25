@@ -668,9 +668,16 @@ class SurveillanceSystem {
     }
 
     /**
-     * Obtenir le token CSRF depuis les cookies
+     * Obtenir le token CSRF depuis les cookies ou meta tag
      */
     getCsrfToken() {
+        // Essayer d'abord la meta tag
+        const metaToken = document.querySelector('meta[name="csrf-token"]');
+        if (metaToken) {
+            return metaToken.getAttribute('content');
+        }
+        
+        // Sinon, utiliser les cookies
         const name = 'csrftoken';
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
