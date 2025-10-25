@@ -6,6 +6,7 @@
 class SurveillanceSystem {
     constructor() {
         this.isInitialized = false;
+        this.websockets = {}; // Initialiser les websockets comme objet vide
         this.config = {
             alertSoundEnabled: true,
             notificationTimeout: 5000,
@@ -591,12 +592,14 @@ class SurveillanceSystem {
     cleanup() {
         console.log('🧹 Nettoyage du système de surveillance');
         
-        // Fermer toutes les connexions WebSocket
-        Object.values(this.websockets).forEach(ws => {
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.close();
-            }
-        });
+        // Fermer toutes les connexions WebSocket (vérifier que websockets existe)
+        if (this.websockets && typeof this.websockets === 'object') {
+            Object.values(this.websockets).forEach(ws => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.close();
+                }
+            });
+        }
         
         // Arrêter les timers
         if (this.updateInterval) {
@@ -665,15 +668,47 @@ class SurveillanceSystem {
     }
 
     /**
+     * Obtenir le token CSRF depuis les cookies
+     */
+    getCsrfToken() {
+        const name = 'csrftoken';
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    /**
+     * Obtenir les headers par défaut pour les requêtes API
+     */
+    getApiHeaders() {
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        
+        const csrfToken = this.getCsrfToken();
+        if (csrfToken) {
+            headers['X-CSRFToken'] = csrfToken;
+        }
+        
+        return headers;
+    }
+
+    /**
      * Signaler une erreur au serveur
      */
     reportError(error) {
         fetch('/api/system/error-report/', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': this.getCsrfToken()
-            },
+            headers: this.getApiHeaders(),
             body: JSON.stringify({
                 error: error.toString(),
                 stack: error.stack,

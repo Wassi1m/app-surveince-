@@ -24,6 +24,7 @@ ALLOWED_HOSTS = [
 CSRF_TRUSTED_ORIGINS = [
     'http://51.75.253.11',
     'http://51.75.253.11:8090',
+    'http://51.75.253.11:80',
     'https://app-surveillance.onrender.com',
     'https://*.onrender.com'
 ]
@@ -53,9 +54,8 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # WhiteNoise
 MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
-# Middlewares personnalisés désactivés temporairement pour debug
-# MIDDLEWARE.insert(-1, 'surveillance_system.middleware.SessionTimeoutMiddleware')
-# MIDDLEWARE.insert(-1, 'surveillance_system.middleware.SecurityHeadersMiddleware')
+# Middlewares personnalisés réactivés
+MIDDLEWARE.insert(-1, 'surveillance_system.middleware.SecurityHeadersMiddleware')
 
 # CORS pour production
 CORS_ALLOWED_ORIGINS = [
@@ -116,6 +116,9 @@ X_FRAME_OPTIONS = 'DENY'
 SECURE_HSTS_SECONDS = 31536000  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
+
+# Cross-Origin-Opener-Policy pour éviter les avertissements
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
 
 # Session security
 SESSION_COOKIE_SECURE = False  # False pour HTTP, True pour HTTPS

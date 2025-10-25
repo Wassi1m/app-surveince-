@@ -37,5 +37,6 @@ class SecurityHeadersMiddleware:
         response['X-Frame-Options'] = 'DENY'
         response['X-XSS-Protection'] = '1; mode=block'
         response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response['Cross-Origin-Opener-Policy'] = 'same-origin-allow-popups'
         
         return response
