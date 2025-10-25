@@ -658,3 +658,75 @@ def generate_report_insights(content, report):
     ]
     
     return summary, "\n".join(f"- {rec}" for rec in recommendations)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_report_data(request):
+    """API: Données pour la page de rapports"""
+    try:
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        now = timezone.now()
+        today = now.date()
+        week_ago = now - timedelta(days=7)
+        
+        # Statistiques principales
+        total_cameras = Camera.objects.count()
+        online_cameras = Camera.objects.filter(status='online').count()
+        
+        # Alertes actives
+        active_alerts = Alert.objects.filter(status__in=['pending', 'sent']).count()
+        
+        # Détections aujourd'hui
+        detections_today = DetectionEvent.objects.filter(detected_at__date=today).count()
+        
+        # Détections par jour (7 derniers jours)
+        daily_detections = []
+        for i in range(7):
+            date = (now - timedelta(days=6-i)).date()
+            count = DetectionEvent.objects.filter(detected_at__date=date).count()
+            daily_detections.append({
+                'date': date.strftime('%d/%m'),
+                'count': count
+            })
+        
+        # Types de détections (dernière semaine)
+        detection_types = DetectionEvent.objects.filter(
+            detected_at__gte=week_ago
+        ).values('event_type').annotate(
+            count=Count('id')
+        ).order_by('-count')[:5]
+        
+        # Formater les types pour le graphique
+        formatted_types = []
+        for dt in detection_types:
+            type_name = dt['event_type']
+            # Traduire les types d'événements
+            type_translations = {
+                'suspicious': 'Suspect',
+                'intrusion': 'Intrusion',
+                'theft': 'Vol',
+                'fire': 'Incendie',
+                'accident': 'Accident',
+                'person_detected': 'Personne détectée',
+                'motion': 'Mouvement',
+                'loitering': 'Rôdage'
+            }
+            formatted_types.append({
+                'type': type_translations.get(type_name, type_name.title()),
+                'count': dt['count']
+            })
+        
+        return Response({
+            'total_cameras': total_cameras,
+            'online_cameras': online_cameras,
+            'active_alerts': active_alerts,
+            'detections_today': detections_today,
+            'daily_detections': daily_detections,
+            'detection_types': formatted_types
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur API report data: {e}")
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

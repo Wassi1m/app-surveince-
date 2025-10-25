@@ -10,4 +10,5 @@ urlpatterns = [
     
     # API Rapports
     path('reports/generate/', views.api_generate_report, name='generate_report'),
+    path('report-data/', views.api_report_data, name='report_data'),
 ] 

@@ -2,28 +2,603 @@
 
 {% block title %}Rapports - Analytics{% endblock %}
 
+{% block extra_css %}
+<style>
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 15px;
+        transition: transform 0.3s ease;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .chart-card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+    }
+    
+    .metric-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+    }
+    
+    .report-section {
+        margin-bottom: 2rem;
+    }
+    
+    .activity-item {
+        padding: 10px;
+        border-left: 3px solid #007bff;
+        margin-bottom: 10px;
+        background: rgba(0, 123, 255, 0.1);
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
+    .status-online { background: rgba(40, 167, 69, 0.2); color: #28a745; }
+    .status-offline { background: rgba(220, 53, 69, 0.2); color: #dc3545; }
+    .status-maintenance { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid py-4" style="margin-top: 70px;">
+    <!-- Header -->
     <div class="row mb-4">
         <div class="col-12">
-            <h2><i class="fas fa-chart-line me-2"></i>Rapports et Analytics</h2>
-            <p class="text-muted">Analyses statistiques et rapports de surveillance</p>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-chart-line me-2 text-primary"></i>Rapports et Analytics</h2>
+                    <p class="text-muted">Analyses en temps réel du système de surveillance</p>
+                </div>
+                <div>
+                    <button class="btn btn-outline-primary me-2" onclick="refreshReports()">
+                        <i class="fas fa-sync-alt me-1"></i> Actualiser
+                    </button>
+                    <button class="btn btn-primary" onclick="exportReport()">
+                        <i class="fas fa-download me-1"></i> Exporter
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
+    <!-- Statistiques principales -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="metric-icon bg-primary bg-opacity-25 text-primary me-3">
+                            <i class="fas fa-video"></i>
+                        </div>
+                        <div>
+                            <h3 class="mb-0" id="total-cameras">{{ stats.total_cameras|default:0 }}</h3>
+                            <small>Caméras Totales</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="metric-icon bg-success bg-opacity-25 text-success me-3">
+                            <i class="fas fa-eye"></i>
+                        </div>
+                        <div>
+                            <h3 class="mb-0" id="online-cameras">{{ stats.online_cameras|default:0 }}</h3>
+                            <small>Caméras Actives</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="metric-icon bg-warning bg-opacity-25 text-warning me-3">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div>
+                            <h3 class="mb-0" id="active-alerts">{{ stats.active_alerts|default:0 }}</h3>
+                            <small>Alertes Actives</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="metric-icon bg-info bg-opacity-25 text-info me-3">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <div>
+                            <h3 class="mb-0" id="detections-today">{{ stats.detections_today|default:0 }}</h3>
+                            <small>Détections Aujourd'hui</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphiques et analyses -->
+    <div class="row mb-4">
+        <!-- Graphique des détections -->
+        <div class="col-lg-8 mb-4">
+            <div class="card chart-card text-light">
+                <div class="card-header bg-transparent border-0">
+                    <h5><i class="fas fa-chart-area me-2"></i>Détections par Jour (7 derniers jours)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="detectionsChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Répartition par type -->
+        <div class="col-lg-4 mb-4">
+            <div class="card chart-card text-light">
+                <div class="card-header bg-transparent border-0">
+                    <h5><i class="fas fa-chart-pie me-2"></i>Types de Détections</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="typesChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statut des caméras et activité récente -->
+    <div class="row">
+        <!-- Statut des caméras -->
+        <div class="col-lg-6 mb-4">
+            <div class="card chart-card text-light">
+                <div class="card-header bg-transparent border-0">
+                    <h5><i class="fas fa-video me-2"></i>Statut des Caméras par Zone</h5>
+                </div>
+                <div class="card-body">
+                    <div id="cameras-status">
+                        <!-- Sera rempli par JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Activité récente -->
+        <div class="col-lg-6 mb-4">
+            <div class="card chart-card text-light">
+                <div class="card-header bg-transparent border-0">
+                    <h5><i class="fas fa-clock me-2"></i>Activité Récente</h5>
+                </div>
+                <div class="card-body">
+                    <div id="recent-activity" style="max-height: 400px; overflow-y: auto;">
+                        <!-- Sera rempli par JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rapport détaillé -->
     <div class="row">
         <div class="col-12">
-            <div class="card bg-dark text-light">
-                <div class="card-body text-center py-5">
-                    <i class="fas fa-chart-bar fa-3x text-primary mb-3"></i>
-                    <h4>Analytics en cours de développement</h4>
-                    <p class="text-muted">Cette section contiendra bientôt des graphiques et des rapports détaillés.</p>
-                    <a href="/dashboard/" class="btn btn-primary">
-                        <i class="fas fa-arrow-left me-1"></i> Retour au Dashboard
-                    </a>
+            <div class="card chart-card text-light">
+                <div class="card-header bg-transparent border-0">
+                    <h5><i class="fas fa-file-alt me-2"></i>Rapport Détaillé du Système</h5>
+                </div>
+                <div class="card-body">
+                    <div id="detailed-report">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Chargement...</span>
+                            </div>
+                            <p class="mt-2">Génération du rapport en cours...</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Modal d'export -->
+<div class="modal fade" id="exportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Exporter le Rapport</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Format d'export</label>
+                    <select id="exportFormat" class="form-select bg-dark text-light border-secondary">
+                        <option value="pdf">PDF</option>
+                        <option value="excel">Excel</option>
+                        <option value="csv">CSV</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Période</label>
+                    <select id="exportPeriod" class="form-select bg-dark text-light border-secondary">
+                        <option value="today">Aujourd'hui</option>
+                        <option value="week">Cette semaine</option>
+                        <option value="month">Ce mois</option>
+                        <option value="custom">Période personnalisée</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="downloadReport()">Télécharger</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Variables globales pour les graphiques
+let detectionsChart, typesChart;
+
+// Initialisation au chargement de la page
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    loadReportData();
+    loadCamerasStatus();
+    loadRecentActivity();
+    
+    // Actualisation automatique toutes les 30 secondes
+    setInterval(refreshReports, 30000);
+});
+
+// Initialiser les graphiques
+function initializeCharts() {
+    // Graphique des détections par jour
+    const detectionsCtx = document.getElementById('detectionsChart').getContext('2d');
+    detectionsChart = new Chart(detectionsCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Détections',
+                data: [],
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: { color: '#ffffff' }
+                }
+            },
+            scales: {
+                x: { 
+                    ticks: { color: '#ffffff' },
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                },
+                y: { 
+                    ticks: { color: '#ffffff' },
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                }
+            }
+        }
+    });
+
+    // Graphique des types de détections
+    const typesCtx = document.getElementById('typesChart').getContext('2d');
+    typesChart = new Chart(typesCtx, {
+        type: 'doughnut',
+        data: {
+            labels: [],
+            datasets: [{
+                data: [],
+                backgroundColor: [
+                    '#007bff', '#28a745', '#ffc107', '#dc3545', '#6f42c1'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: '#ffffff' }
+                }
+            }
+        }
+    });
+}
+
+// Charger les données du rapport
+function loadReportData() {
+    fetch('/api/analytics/report-data/')
+        .then(response => response.json())
+        .then(data => {
+            // Mettre à jour les statistiques
+            document.getElementById('total-cameras').textContent = data.total_cameras || 0;
+            document.getElementById('online-cameras').textContent = data.online_cameras || 0;
+            document.getElementById('active-alerts').textContent = data.active_alerts || 0;
+            document.getElementById('detections-today').textContent = data.detections_today || 0;
+            
+            // Mettre à jour les graphiques
+            updateDetectionsChart(data.daily_detections || []);
+            updateTypesChart(data.detection_types || []);
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement des données:', error);
+        });
+}
+
+// Mettre à jour le graphique des détections
+function updateDetectionsChart(data) {
+    const labels = data.map(item => item.date);
+    const values = data.map(item => item.count);
+    
+    detectionsChart.data.labels = labels;
+    detectionsChart.data.datasets[0].data = values;
+    detectionsChart.update();
+}
+
+// Mettre à jour le graphique des types
+function updateTypesChart(data) {
+    const labels = data.map(item => item.type);
+    const values = data.map(item => item.count);
+    
+    typesChart.data.labels = labels;
+    typesChart.data.datasets[0].data = values;
+    typesChart.update();
+}
+
+// Charger le statut des caméras
+function loadCamerasStatus() {
+    fetch('/api/cameras/status/')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('cameras-status');
+            let html = '';
+            
+            if (data.cameras && data.cameras.length > 0) {
+                data.cameras.forEach(camera => {
+                    const statusClass = camera.status === 'online' ? 'status-online' : 
+                                       camera.status === 'maintenance' ? 'status-maintenance' : 'status-offline';
+                    
+                    html += `
+                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded" style="background: rgba(255,255,255,0.05);">
+                            <div>
+                                <strong>${camera.name}</strong>
+                                <br><small class="text-muted">${camera.location}</small>
+                            </div>
+                            <span class="status-badge ${statusClass}">${camera.status_display}</span>
+                        </div>
+                    `;
+                });
+            } else {
+                html = '<p class="text-muted text-center">Aucune caméra configurée</p>';
+            }
+            
+            container.innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement du statut des caméras:', error);
+            document.getElementById('cameras-status').innerHTML = 
+                '<p class="text-danger text-center">Erreur de chargement</p>';
+        });
+}
+
+// Charger l'activité récente
+function loadRecentActivity() {
+    fetch('/api/events/recent/')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('recent-activity');
+            let html = '';
+            
+            if (data.events && data.events.length > 0) {
+                data.events.forEach(event => {
+                    const timeAgo = new Date(event.timestamp).toLocaleString('fr-FR');
+                    html += `
+                        <div class="activity-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>${event.title}</strong>
+                                    <br><small class="text-muted">${event.camera_name} - ${event.zone_name}</small>
+                                </div>
+                                <small class="text-muted">${timeAgo}</small>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                html = '<p class="text-muted text-center">Aucune activité récente</p>';
+            }
+            
+            container.innerHTML = html;
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement de l\'activité:', error);
+            document.getElementById('recent-activity').innerHTML = 
+                '<p class="text-danger text-center">Erreur de chargement</p>';
+        });
+}
+
+// Actualiser tous les rapports
+function refreshReports() {
+    loadReportData();
+    loadCamerasStatus();
+    loadRecentActivity();
+    
+    // Afficher une notification de rafraîchissement
+    const toast = document.createElement('div');
+    toast.className = 'toast-container position-fixed top-0 end-0 p-3';
+    toast.innerHTML = `
+        <div class="toast show" role="alert">
+            <div class="toast-header bg-primary text-white">
+                <i class="fas fa-sync-alt me-2"></i>
+                <strong class="me-auto">Rapports</strong>
+            </div>
+            <div class="toast-body bg-dark text-light">
+                Données actualisées avec succès
+            </div>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+// Exporter le rapport
+function exportReport() {
+    const modal = new bootstrap.Modal(document.getElementById('exportModal'));
+    modal.show();
+}
+
+// Fonction de téléchargement réelle
+function downloadReport() {
+    const formatSelect = document.getElementById('exportFormat');
+    const periodSelect = document.getElementById('exportPeriod');
+    
+    if (!formatSelect || !periodSelect) {
+        console.error('Sélecteurs non trouvés');
+        return;
+    }
+    
+    const format = formatSelect.value;
+    const period = periodSelect.value;
+    
+    // Créer un rapport PDF simple avec jsPDF
+    if (format === 'pdf') {
+        generatePDFReport(period);
+    } else if (format === 'csv') {
+        generateCSVReport(period);
+    } else {
+        // Pour Excel, utiliser CSV pour l'instant
+        generateCSVReport(period);
+    }
+    
+    // Fermer le modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('exportModal'));
+    modal.hide();
+}
+
+// Générer un rapport PDF
+function generatePDFReport(period) {
+    try {
+        // Utiliser html2canvas et jsPDF si disponibles
+        if (typeof html2canvas !== 'undefined' && typeof jsPDF !== 'undefined') {
+            const element = document.querySelector('.container-fluid');
+            html2canvas(element).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF();
+                const imgWidth = 210;
+                const pageHeight = 295;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                let heightLeft = imgHeight;
+                
+                let position = 0;
+                
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+                
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+                
+                pdf.save(`rapport-surveillance-${period}-${new Date().toISOString().split('T')[0]}.pdf`);
+            });
+        } else {
+            // Fallback : télécharger les données en JSON
+            downloadDataAsJSON(period);
+        }
+    } catch (error) {
+        console.error('Erreur génération PDF:', error);
+        downloadDataAsJSON(period);
+    }
+}
+
+// Générer un rapport CSV
+function generateCSVReport(period) {
+    const stats = {
+        'Total Caméras': document.getElementById('total-cameras').textContent,
+        'Caméras Actives': document.getElementById('online-cameras').textContent,
+        'Alertes Actives': document.getElementById('active-alerts').textContent,
+        'Détections Aujourd\'hui': document.getElementById('detections-today').textContent,
+        'Période': period,
+        'Date Génération': new Date().toLocaleString('fr-FR')
+    };
+    
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Métrique,Valeur\n";
+    
+    Object.entries(stats).forEach(([key, value]) => {
+        csvContent += `"${key}","${value}"\n`;
+    });
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `rapport-surveillance-${period}-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Télécharger les données en JSON (fallback)
+function downloadDataAsJSON(period) {
+    const reportData = {
+        generated_at: new Date().toISOString(),
+        period: period,
+        statistics: {
+            total_cameras: document.getElementById('total-cameras').textContent,
+            online_cameras: document.getElementById('online-cameras').textContent,
+            active_alerts: document.getElementById('active-alerts').textContent,
+            detections_today: document.getElementById('detections-today').textContent
+        },
+        charts_data: {
+            detections_chart: detectionsChart ? detectionsChart.data : null,
+            types_chart: typesChart ? typesChart.data : null
+        }
+    };
+    
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(reportData, null, 2));
+    const link = document.createElement("a");
+    link.setAttribute("href", dataStr);
+    link.setAttribute("download", `rapport-surveillance-${period}-${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+</script>
 {% endblock %} 
