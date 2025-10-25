@@ -55,7 +55,7 @@ class Camera(models.Model):
     location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='cameras')
     zone = models.ForeignKey(Zone, on_delete=models.CASCADE, related_name='cameras')
     name = models.CharField(max_length=100, verbose_name="Nom de la caméra")
-    ip_address = models.GenericIPAddressField(verbose_name="Adresse IP")
+    ip_address = models.CharField(max_length=255, verbose_name="Adresse IP ou URL", help_text="Adresse IP (ex: 192.168.1.100) ou URL complète")
     port = models.PositiveIntegerField(default=554)
     username = models.CharField(max_length=100, blank=True)
     password = models.CharField(max_length=100, blank=True)
