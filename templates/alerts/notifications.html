@@ -9,7 +9,7 @@
         max-width: 1200px;
         margin: 0 auto;
     }
-    
+
     .notification-item {
         background: var(--card-bg);
         backdrop-filter: blur(20px);
@@ -21,37 +21,37 @@
         position: relative;
         overflow: hidden;
     }
-    
+
     .notification-item:hover {
         transform: translateY(-2px);
         box-shadow: var(--shadow-lg);
     }
-    
+
     .notification-item.unread {
         border-left: 4px solid var(--primary-color);
         background: rgba(102, 126, 234, 0.05);
     }
-    
+
     .notification-item.urgent {
         border-left: 4px solid #fa709a;
         background: rgba(250, 112, 154, 0.05);
         animation: pulse 2s infinite;
     }
-    
+
     .notification-header {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
         margin-bottom: 0.75rem;
     }
-    
+
     .notification-title {
         font-weight: 600;
         font-size: 1.1rem;
         color: var(--text-primary);
         margin: 0;
     }
-    
+
     .notification-meta {
         display: flex;
         align-items: center;
@@ -59,24 +59,24 @@
         font-size: 0.875rem;
         color: var(--text-muted);
     }
-    
+
     .notification-message {
         color: var(--text-secondary);
         margin-bottom: 1rem;
         line-height: 1.5;
     }
-    
+
     .notification-footer {
         display: flex;
         justify-content: space-between;
         align-items: center;
     }
-    
+
     .notification-actions {
         display: flex;
         gap: 0.5rem;
     }
-    
+
     .priority-badge {
         padding: 0.25rem 0.75rem;
         border-radius: 50px;
@@ -84,25 +84,25 @@
         font-weight: 600;
         text-transform: uppercase;
     }
-    
+
     .priority-1, .priority-2 { background: var(--danger-gradient); }
     .priority-3 { background: var(--warning-gradient); }
     .priority-4 { background: var(--info-gradient); }
-    
+
     .type-badge {
         padding: 0.25rem 0.75rem;
         border-radius: 50px;
         font-size: 0.75rem;
         font-weight: 500;
     }
-    
+
     .type-alert { background: rgba(250, 112, 154, 0.2); color: #fa709a; }
     .type-warning { background: rgba(255, 153, 0, 0.2); color: #ff9900; }
     .type-success { background: rgba(67, 233, 123, 0.2); color: #43e97b; }
     .type-info { background: rgba(79, 172, 254, 0.2); color: #4facfe; }
     .type-error { background: rgba(250, 112, 154, 0.2); color: #fa709a; }
     .type-system { background: rgba(136, 146, 176, 0.2); color: #8892b0; }
-    
+
     .filters-bar {
         background: var(--card-bg);
         backdrop-filter: blur(20px);
@@ -111,14 +111,14 @@
         padding: 1.5rem;
         margin-bottom: 2rem;
     }
-    
+
     .stats-overview {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1rem;
         margin-bottom: 2rem;
     }
-    
+
     .stat-card {
         background: var(--card-bg);
         backdrop-filter: blur(20px);
@@ -128,12 +128,12 @@
         text-align: center;
         transition: var(--transition-smooth);
     }
-    
+
     .stat-card:hover {
         transform: translateY(-3px);
         box-shadow: var(--shadow-lg);
     }
-    
+
     .stat-number {
         font-size: 2rem;
         font-weight: 800;
@@ -143,32 +143,32 @@
         background-clip: text;
         margin-bottom: 0.5rem;
     }
-    
+
     .stat-label {
         color: var(--text-secondary);
         font-size: 0.875rem;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
-    
+
     .empty-state {
         text-align: center;
         padding: 3rem;
         color: var(--text-muted);
     }
-    
+
     .empty-state i {
         font-size: 4rem;
         margin-bottom: 1rem;
         opacity: 0.3;
     }
-    
+
     .preferences-modal .modal-content {
         background: var(--card-bg);
         backdrop-filter: blur(20px);
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
-    
+
     .loading-skeleton {
         background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
         background-size: 200% 100%;
@@ -314,8 +314,8 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Fréquence des notifications</label>
-                                <select class="form-select" name="digest_frequency">
-                                    <option value="immediate">Immédiat</option>
+                                <select class="form-select" name="digest_frequency" id="digest-frequency-select">
+                                    <option value="immediate" selected>Immédiat</option>
                                     <option value="hourly">Toutes les heures</option>
                                     <option value="daily">Quotidien</option>
                                     <option value="weekly">Hebdomadaire</option>
@@ -335,8 +335,8 @@
                             </div>
                         </div>
                     </div>
-                    
-                    <div class="row">
+
+                    <div class="row" id="quiet-hours-row">
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Heures silencieuses - Début</label>
@@ -350,7 +350,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="row">
                         <div class="col-12">
                             <h6 class="mb-3">Options avancées</h6>
@@ -396,64 +396,81 @@ class NotificationCenter {
         this.currentPage = 1;
         this.hasMore = true;
         this.filters = {};
-        
+
         this.init();
     }
-    
+
     init() {
         this.loadNotifications();
         this.loadPreferences();
         this.setupEventListeners();
+        // UI logic for quiet hours section in modal
+        this.setupDigestFrequencyObserver();
     }
-    
+
     setupEventListeners() {
         // Filtres
         document.getElementById('filter-type').addEventListener('change', () => this.applyFilters());
         document.getElementById('filter-priority').addEventListener('change', () => this.applyFilters());
         document.getElementById('filter-status').addEventListener('change', () => this.applyFilters());
-        
+
         // Actualisation automatique
         setInterval(() => {
             this.loadNotifications(true);
         }, 30000); // Toutes les 30 secondes
     }
-    
+
+    setupDigestFrequencyObserver() {
+        const digestSelect = document.getElementById('digest-frequency-select');
+        const quietHoursRow = document.getElementById('quiet-hours-row');
+        const toggleQuietHours = () => {
+            if (digestSelect.value === 'hourly') {
+                quietHoursRow.style.display = 'none';
+            } else {
+                quietHoursRow.style.display = '';
+            }
+        };
+        digestSelect.addEventListener('change', toggleQuietHours);
+        // Run once initially in case the value is set by JavaScript/data
+        toggleQuietHours();
+    }
+
     async loadNotifications(refresh = false) {
         try {
             if (refresh) {
                 this.currentPage = 1;
                 this.notifications = [];
             }
-            
+
             const params = new URLSearchParams({
                 limit: 20,
                 ...this.filters
             });
-            
+
             const response = await fetch(`/api/alerts/notifications/?${params}`);
             const data = await response.json();
-            
+
             if (refresh) {
                 this.notifications = data.notifications;
             } else {
                 this.notifications.push(...data.notifications);
             }
-            
+
             this.renderNotifications();
             this.updateStats(data);
-            
+
             // Masquer le loading
             document.querySelector('.loading-state').style.display = 'none';
-            
+
         } catch (error) {
             console.error('Erreur chargement notifications:', error);
             this.showError('Erreur lors du chargement des notifications');
         }
     }
-    
+
     renderNotifications() {
         const container = document.getElementById('notifications-container');
-        
+
         if (this.notifications.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
@@ -464,17 +481,17 @@ class NotificationCenter {
             `;
             return;
         }
-        
+
         const html = this.notifications.map(notification => this.renderNotification(notification)).join('');
         container.innerHTML = html;
     }
-    
+
     renderNotification(notification) {
         const isUnread = !notification.is_read;
         const isUrgent = notification.is_urgent;
         const createdAt = new Date(notification.created_at);
         const timeAgo = this.getTimeAgo(createdAt);
-        
+
         return `
             <div class="notification-item ${isUnread ? 'unread' : ''} ${isUrgent ? 'urgent' : ''}" 
                  data-id="${notification.id}">
@@ -514,11 +531,11 @@ class NotificationCenter {
             </div>
         `;
     }
-    
+
     updateStats(data) {
         document.getElementById('total-notifications').textContent = data.count;
         document.getElementById('unread-notifications').textContent = data.unread_count;
-        
+
         // Calculer les urgentes et aujourd'hui
         const urgent = this.notifications.filter(n => n.is_urgent).length;
         const today = this.notifications.filter(n => {
@@ -527,11 +544,11 @@ class NotificationCenter {
             todayStart.setHours(0, 0, 0, 0);
             return created >= todayStart;
         }).length;
-        
+
         document.getElementById('urgent-notifications').textContent = urgent;
         document.getElementById('today-notifications').textContent = today;
     }
-    
+
     async markAsRead(notificationId) {
         try {
             const response = await fetch(`/api/alerts/notifications/${notificationId}/read/`, {
@@ -541,7 +558,7 @@ class NotificationCenter {
                     'Content-Type': 'application/json'
                 }
             });
-            
+
             if (response.ok) {
                 // Mettre à jour l'interface
                 const notificationElement = document.querySelector(`[data-id="${notificationId}"]`);
@@ -549,11 +566,11 @@ class NotificationCenter {
                     notificationElement.classList.remove('unread');
                     notificationElement.querySelector('.notification-actions').innerHTML = '';
                 }
-                
+
                 // Mettre à jour les stats
                 const unreadCount = document.getElementById('unread-notifications');
                 unreadCount.textContent = Math.max(0, parseInt(unreadCount.textContent) - 1);
-                
+
                 this.showSuccess('Notification marquée comme lue');
             }
         } catch (error) {
@@ -561,39 +578,39 @@ class NotificationCenter {
             this.showError('Erreur lors du marquage');
         }
     }
-    
+
     async markAllAsRead() {
         try {
             const unreadNotifications = this.notifications.filter(n => !n.is_read);
-            
+
             for (const notification of unreadNotifications) {
                 await this.markAsRead(notification.id);
             }
-            
+
             this.showSuccess('Toutes les notifications ont été marquées comme lues');
         } catch (error) {
             console.error('Erreur marquage global:', error);
             this.showError('Erreur lors du marquage global');
         }
     }
-    
+
     applyFilters() {
         this.filters = {
             type: document.getElementById('filter-type').value,
             priority: document.getElementById('filter-priority').value,
             unread_only: document.getElementById('filter-status').value === 'unread' ? 'true' : ''
         };
-        
+
         // Supprimer les filtres vides
         Object.keys(this.filters).forEach(key => {
             if (!this.filters[key]) {
                 delete this.filters[key];
             }
         });
-        
+
         this.loadNotifications(true);
     }
-    
+
     clearFilters() {
         document.getElementById('filter-type').value = '';
         document.getElementById('filter-priority').value = '';
@@ -601,13 +618,13 @@ class NotificationCenter {
         this.filters = {};
         this.loadNotifications(true);
     }
-    
+
     async loadPreferences() {
         try {
             const response = await fetch('/api/alerts/notifications/preferences/');
             const data = await response.json();
-            
-            // Remplir le formulaire
+
+            // Remplir le formulaire, et cacher les heures silencieuses si besoin
             const form = document.getElementById('preferences-form');
             Object.keys(data).forEach(key => {
                 const input = form.querySelector(`[name="${key}"]`);
@@ -619,26 +636,38 @@ class NotificationCenter {
                     }
                 }
             });
+
+            // Vérifier l'affichage des heures silencieuses selon la valeur chargée
+            if (form.digest_frequency) {
+                const digestSelect = form.querySelector('[name="digest_frequency"]');
+                if (digestSelect) {
+                    if (digestSelect.value === 'hourly') {
+                        document.getElementById('quiet-hours-row').style.display = 'none';
+                    } else {
+                        document.getElementById('quiet-hours-row').style.display = '';
+                    }
+                }
+            }
         } catch (error) {
             console.error('Erreur chargement préférences:', error);
         }
     }
-    
+
     async savePreferences() {
         try {
             const form = document.getElementById('preferences-form');
             const formData = new FormData(form);
             const data = {};
-            
+
             for (const [key, value] of formData.entries()) {
                 data[key] = value;
             }
-            
+
             // Gérer les checkboxes
             ['enable_sound', 'enable_vibration', 'enable_email_digest'].forEach(field => {
                 data[field] = form.querySelector(`[name="${field}"]`).checked;
             });
-            
+
             const response = await fetch('/api/alerts/notifications/preferences/', {
                 method: 'PUT',
                 headers: {
@@ -647,7 +676,7 @@ class NotificationCenter {
                 },
                 body: JSON.stringify(data)
             });
-            
+
             if (response.ok) {
                 bootstrap.Modal.getInstance(document.getElementById('preferencesModal')).hide();
                 this.showSuccess('Préférences sauvegardées');
@@ -657,32 +686,32 @@ class NotificationCenter {
             this.showError('Erreur lors de la sauvegarde');
         }
     }
-    
+
     getTimeAgo(date) {
         const now = new Date();
         const diff = now - date;
         const minutes = Math.floor(diff / 60000);
         const hours = Math.floor(diff / 3600000);
         const days = Math.floor(diff / 86400000);
-        
+
         if (minutes < 1) return 'À l\'instant';
         if (minutes < 60) return `Il y a ${minutes}min`;
         if (hours < 24) return `Il y a ${hours}h`;
         return `Il y a ${days}j`;
     }
-    
+
     getCsrfToken() {
         return document.querySelector('[name=csrfmiddlewaretoken]').value;
     }
-    
+
     showSuccess(message) {
         this.showToast(message, 'success');
     }
-    
+
     showError(message) {
         this.showToast(message, 'error');
     }
-    
+
     showToast(message, type = 'info') {
         // Créer un toast Bootstrap ou une notification simple
         const toast = document.createElement('div');
@@ -692,9 +721,9 @@ class NotificationCenter {
             <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : type === 'success' ? 'check' : 'info-circle'} me-2"></i>
             ${message}
         `;
-        
+
         document.body.appendChild(toast);
-        
+
         setTimeout(() => {
             toast.remove();
         }, 5000);

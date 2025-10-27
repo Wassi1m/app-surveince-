@@ -149,12 +149,7 @@ function configureCamera(cameraId) {
                                 <label class="form-label">FPS</label>
                                 <input type="number" class="form-control" name="fps" value="${data.fps || 30}" min="1" max="60">
                             </div>
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="is_ai_enabled" ${data.is_ai_enabled ? 'checked' : ''}>
-                                    <label class="form-check-label">IA activée</label>
-                                </div>
-                            </div>
+                    
                         </div>
                     </div>
                     <input type="hidden" name="camera_id" value="${cameraId}">
@@ -388,12 +383,7 @@ function addNewCamera() {
                         <label class="form-label">FPS</label>
                         <input type="number" class="form-control" name="fps" value="30" min="1" max="60">
                     </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="is_ai_enabled" checked>
-                            <label class="form-check-label">IA activée</label>
-                        </div>
-                    </div>
+        
                 </div>
             </div>
             <input type="hidden" name="camera_id" value="new">

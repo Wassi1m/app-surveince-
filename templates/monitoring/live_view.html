@@ -48,30 +48,7 @@
                 </div>
                 <div class="card-body p-3">
                     <div class="camera-grid-container">
-                        <!-- Webcam option -->
-                        <div class="camera-feed-card" data-camera-id="webcam">
-                            <div class="camera-feed-header">
-                                <span class="camera-title">🎥 Webcam PC</span>
-                                <span class="camera-status online">
-                                    <i class="fas fa-circle"></i> Live
-                                </span>
-                            </div>
-                            <div class="camera-feed-container">
-                                <canvas class="camera-feed" width="320" height="240" data-camera-id="webcam"></canvas>
-                                <div class="camera-controls">
-                                    <button class="btn btn-sm btn-primary" onclick="focusCamera('webcam')">
-                                        <i class="fas fa-expand"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-success" onclick="recordCamera('webcam')">
-                                        <i class="fas fa-record-vinyl"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-secondary" onclick="takeSnapshot('webcam')">
-                                        <i class="fas fa-camera"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
+                       
                         <!-- Caméras de surveillance -->
                         {% for camera in cameras %}
                         <div class="camera-feed-card" data-camera-id="{{ camera.id }}">

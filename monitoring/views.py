@@ -106,7 +106,7 @@ def dashboard(request):
 @login_required
 def live_view(request):
     """Vue de surveillance en direct"""
-    cameras = Camera.objects.filter(status='online').select_related('location', 'zone')
+    cameras = Camera.objects.filter().select_related('location', 'zone').order_by('status')
     locations = Location.objects.filter(is_active=True)
     
     context = {
@@ -120,7 +120,7 @@ def live_view(request):
 @login_required
 def camera_list(request):
     """Liste des caméras"""
-    cameras = Camera.objects.all().select_related('location', 'zone').order_by('-id')
+    cameras = Camera.objects.all().select_related('location', 'zone').order_by('status')
     locations = Location.objects.filter(is_active=True)
     zones = Zone.objects.filter(is_active=True)
     
@@ -131,6 +131,9 @@ def camera_list(request):
     }
     
     return render(request, 'monitoring/cameras.html', context)
+
+
+
 
 
 @login_required
@@ -752,7 +755,7 @@ def api_cameras_list(request):
             cameras = cameras.filter(zone_id=zone_id)
         
         # Ordonner par date de création (plus récentes en premier)
-        cameras = cameras.order_by('-id')
+        cameras = cameras.order_by('status')
         
         cameras_data = []
         for camera in cameras:

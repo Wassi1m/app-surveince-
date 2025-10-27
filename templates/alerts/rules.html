@@ -208,9 +208,9 @@ function addNewRule() {
                         <label class="form-label">Type de déclencheur</label>
                         <select class="form-select" name="trigger_type" onchange="updateTriggerOptions(this.value)">
                             <option value="detection">Détection d'événement</option>
-                            <option value="time_based">Basé sur le temps</option>
-                            <option value="zone_activity">Activité de zone</option>
-                            <option value="camera_status">Statut de caméra</option>
+
+                            <option value="detection_type">Tous les types de détection</option>
+                         
                         </select>
                     </div>
                     <div class="mb-3">
@@ -232,12 +232,7 @@ function addNewRule() {
                         <input type="number" class="form-control" name="cooldown_minutes" value="5" min="1" max="1440">
                         <small class="form-text text-muted">Temps d'attente avant de pouvoir redéclencher</small>
                     </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="is_active" checked>
-                            <label class="form-check-label">Règle active</label>
-                        </div>
-                    </div>
+               
                 </div>
             </div>
             
@@ -310,95 +305,43 @@ function updateTriggerOptions(triggerType) {
                 </div>
             `;
             break;
-            
-        case 'time_based':
+            case 'detection_type':
             container.innerHTML = `
                 <div class="card bg-secondary">
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6">
+                              
                                 <div class="mb-3">
-                                    <label class="form-label">Heure de début</label>
-                                    <input type="time" class="form-control" name="start_time" value="22:00">
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Heure de fin</label>
-                                    <input type="time" class="form-control" name="end_time" value="06:00">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Jours de la semaine</label>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="weekdays" value="1" checked>
-                                        <label class="form-check-label">Lundi</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="weekdays" value="2" checked>
-                                        <label class="form-check-label">Mardi</label>
-                                    </div>
-                                    <!-- Autres jours... -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            break;
-            
-        case 'zone_activity':
-            container.innerHTML = `
-                <div class="card bg-secondary">
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Seuil d'activité</label>
-                                    <select class="form-select" name="activity_threshold">
-                                        <option value="low">Activité faible</option>
-                                        <option value="medium">Activité moyenne</option>
-                                        <option value="high" selected>Activité élevée</option>
+                                    <label class="form-label">Niveau de gravité minimum</label>
+                                    <select class="form-select" name="min_severity">
+                                        <option value="low">Faible</option>
+                                        <option value="medium" selected>Moyen</option>
+                                        <option value="high">Élevé</option>
+                                        <option value="critical">Critique</option>
                                     </select>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label">Période d'observation (minutes)</label>
-                                    <input type="number" class="form-control" name="observation_period" value="15" min="1" max="60">
+                                    <label class="form-label">Confiance minimum (%)</label>
+                                    <input type="number" class="form-control" name="min_confidence" value="75" min="0" max="100">
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            break;
-            
-        case 'camera_status':
-            container.innerHTML = `
-                <div class="card bg-secondary">
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label class="form-label">Statut à surveiller</label>
-                                    <select class="form-select" name="camera_status">
-                                        <option value="offline" selected>Hors ligne</option>
-                                        <option value="error">Erreur</option>
-                                        <option value="maintenance">Maintenance</option>
+                                    <label class="form-label">Zone spécifique</label>
+                                    <select class="form-select" name="zone_id">
+                                        <option value="">Toutes les zones</option>
+                                        <!-- Options dynamiques selon la localisation -->
                                     </select>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Délai avant alerte (minutes)</label>
-                                    <input type="number" class="form-control" name="status_delay" value="2" min="1" max="60">
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
             `;
             break;
+             
+             
     }
 }
 
