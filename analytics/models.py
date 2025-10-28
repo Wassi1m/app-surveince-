@@ -16,6 +16,7 @@ class StatisticsSummary(models.Model):
         ('year', 'Année'),
     ]
     
+    company = models.ForeignKey('companies.Company', on_delete=models.CASCADE, related_name='statistics', verbose_name="Entreprise", null=True, blank=True)
     location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='statistics')
     period_type = models.CharField(max_length=10, choices=PERIOD_TYPES)
     period_start = models.DateTimeField()
@@ -70,6 +71,7 @@ class StatisticsSummary(models.Model):
 
 class HeatMapData(models.Model):
     """Données pour les cartes de chaleur des zones sensibles"""
+    company = models.ForeignKey('companies.Company', on_delete=models.CASCADE, related_name='heatmap_data', verbose_name="Entreprise", null=True, blank=True)
     location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='heatmap_data')
     zone = models.ForeignKey(Zone, on_delete=models.CASCADE, related_name='heatmap_data')
     date = models.DateField()
@@ -120,6 +122,7 @@ class Report(models.Model):
         ('archived', 'Archivé'),
     ]
     
+    company = models.ForeignKey('companies.Company', on_delete=models.CASCADE, related_name='reports', verbose_name="Entreprise", null=True, blank=True)
     title = models.CharField(max_length=200, verbose_name="Titre du rapport")
     report_type = models.CharField(max_length=20, choices=REPORT_TYPES)
     location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='reports')
@@ -173,6 +176,7 @@ class PerformanceMetric(models.Model):
         ('memory_usage', 'Utilisation mémoire'),
     ]
     
+    company = models.ForeignKey('companies.Company', on_delete=models.CASCADE, related_name='performance_metrics', verbose_name="Entreprise", null=True, blank=True)
     location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='performance_metrics')
     camera = models.ForeignKey(Camera, on_delete=models.CASCADE, null=True, blank=True, related_name='performance_metrics')
     metric_type = models.CharField(max_length=30, choices=METRIC_TYPES)
@@ -216,6 +220,7 @@ class TrendAnalysis(models.Model):
         ('seasonal_trends', 'Tendances saisonnières'),
     ]
     
+    company = models.ForeignKey('companies.Company', on_delete=models.CASCADE, related_name='trend_analyses', verbose_name="Entreprise", null=True, blank=True)
     location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='trend_analyses')
     trend_type = models.CharField(max_length=30, choices=TREND_TYPES)
     analysis_period_start = models.DateTimeField()

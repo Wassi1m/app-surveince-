@@ -29,7 +29,12 @@ def alert_center(request):
     priority_filter = request.GET.get('priority')
     location_filter = request.GET.get('location')
     
-    alerts = Alert.objects.all().select_related(
+    # Filtrer par entreprise si l'utilisateur n'est pas owner
+    alert_filter = {}
+    if hasattr(request, 'current_company') and request.current_company:
+        alert_filter['company'] = request.current_company
+    
+    alerts = Alert.objects.filter(**alert_filter).select_related(
         'detection_event', 'detection_event__camera', 'detection_event__zone', 'alert_rule'
     )
     
@@ -56,23 +61,31 @@ def alert_center(request):
     stats = {
         'critical': Alert.objects.filter(
             priority='critical',
-            status__in=['pending', 'sent', 'acknowledged']
+            status__in=['pending', 'sent', 'acknowledged'],
+            **alert_filter
         ).count(),
         'high': Alert.objects.filter(
             priority='high',
-            status__in=['pending', 'sent', 'acknowledged']
+            status__in=['pending', 'sent', 'acknowledged'],
+            **alert_filter
         ).count(),
         'medium': Alert.objects.filter(
             priority='medium',
-            status__in=['pending', 'sent', 'acknowledged']
+            status__in=['pending', 'sent', 'acknowledged'],
+            **alert_filter
         ).count(),
         'resolved_today': Alert.objects.filter(
-            resolved_at__date=today
+            resolved_at__date=today,
+            **alert_filter
         ).count(),
     }
     
     # Options pour les filtres
-    locations = Location.objects.filter(is_active=True)
+    location_filter_obj = {}
+    if hasattr(request, 'current_company') and request.current_company:
+        location_filter_obj['company'] = request.current_company
+    
+    locations = Location.objects.filter(is_active=True, **location_filter_obj)
     priority_choices = Alert.PRIORITY_LEVELS
     status_choices = Alert.STATUS_CHOICES
     
@@ -95,7 +108,12 @@ def alert_center(request):
 @login_required
 def alert_detail(request, alert_id):
     """Détails d'une alerte"""
-    alert = get_object_or_404(Alert, id=alert_id)
+    # Filtrer par entreprise si l'utilisateur n'est pas owner
+    alert_filter = {'id': alert_id}
+    if hasattr(request, 'current_company') and request.current_company:
+        alert_filter['company'] = request.current_company
+    
+    alert = get_object_or_404(Alert, **alert_filter)
     
     # Notifications liées
     notifications = Notification.objects.filter(
@@ -137,7 +155,12 @@ def alert_detail(request, alert_id):
 @require_http_methods(["POST"])
 def acknowledge_alert(request, alert_id):
     """Accuser réception d'une alerte"""
-    alert = get_object_or_404(Alert, id=alert_id)
+    # Filtrer par entreprise si l'utilisateur n'est pas owner
+    alert_filter = {'id': alert_id}
+    if hasattr(request, 'current_company') and request.current_company:
+        alert_filter['company'] = request.current_company
+    
+    alert = get_object_or_404(Alert, **alert_filter)
     
     if alert.status in ['pending', 'sent']:
         alert.status = 'acknowledged'
@@ -157,7 +180,12 @@ def acknowledge_alert(request, alert_id):
 @require_http_methods(["POST"])
 def resolve_alert(request, alert_id):
     """Résoudre une alerte"""
-    alert = get_object_or_404(Alert, id=alert_id)
+    # Filtrer par entreprise si l'utilisateur n'est pas owner
+    alert_filter = {'id': alert_id}
+    if hasattr(request, 'current_company') and request.current_company:
+        alert_filter['company'] = request.current_company
+    
+    alert = get_object_or_404(Alert, **alert_filter)
     
     try:
         data = json.loads(request.body)
@@ -180,19 +208,61 @@ def resolve_alert(request, alert_id):
         return JsonResponse({'success': True, 'status': 'resolved'})
         
     except Exception as e:
-        logger.error(f"Erreur résolution alerte {alert_id}: {e}")
+        print(f"Erreur résolution alerte {alert_id}: {e}")
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
 @login_required
 def rules_list(request):
     """Liste des règles d'alerte"""
-    rules = AlertRule.objects.all().select_related('location', 'created_by').order_by('-id')
-    locations = Location.objects.filter(is_active=True)
+    print("🔥 DEBUG: Page rules_list appelée!")
+    print(f"🔥 DEBUG: User: {request.user.username}")
+    print(f"🔥 DEBUG: Path: {request.path}")
+    
+    # Filtrer par entreprise si l'utilisateur n'est pas owner
+    rule_filter = {}
+    zone_filter = {}
+    
+    if hasattr(request, 'current_company') and request.current_company:
+        rule_filter['company'] = request.current_company
+        zone_filter['location__company'] = request.current_company
+    
+    rules = AlertRule.objects.filter(**rule_filter).select_related('zone', 'zone__location', 'created_by').order_by('-id')
+    zones = Zone.objects.filter(is_active=True, **zone_filter).select_related('location')
+    
+    # Récupérer les types d'événements configurés pour cette entreprise
+    event_types = []
+    if hasattr(request, 'current_company') and request.current_company:
+        from monitoring.models import CompanyEventType
+        company_event_types = CompanyEventType.objects.filter(
+            company=request.current_company,
+            is_enabled=True
+        ).select_related('event_type').order_by('event_type__name')
+        
+        for company_event_type in company_event_types:
+            event_types.append({
+                'code': company_event_type.event_type.code,
+                'name': company_event_type.get_effective_name(),
+                'severity': company_event_type.get_effective_severity(),
+                'color': company_event_type.event_type.color,
+                'icon': company_event_type.event_type.icon,
+            })
+    else:
+        # Pour les owners, afficher tous les types d'événements actifs
+        from monitoring.models import EventType
+        for event_type in EventType.objects.filter(is_active=True).order_by('name'):
+            event_types.append({
+                'code': event_type.code,
+                'name': event_type.name,
+                'severity': event_type.severity,
+                'color': event_type.color,
+                'icon': event_type.icon,
+            })
     
     context = {
         'rules': rules,
-        'locations': locations,
+        'zones': zones,
+        'event_types': event_types,
     }
     
     return render(request, 'alerts/rules.html', context)
@@ -243,16 +313,22 @@ def create_rule(request):
     try:
         data = json.loads(request.body)
         
+        # Récupérer l'entreprise de l'utilisateur connecté
+        company = None
+        if hasattr(request, 'current_company') and request.current_company:
+            company = request.current_company
+        
         rule = AlertRule.objects.create(
             name=data['name'],
             description=data.get('description', ''),
-            location_id=data['location_id'],
+            zone_id=data['zone_id'],
             trigger_type=data['trigger_type'],
             trigger_conditions=data.get('trigger_conditions', {}),
             is_active=data.get('is_active', True),
             priority=data.get('priority', 1),
             cooldown_minutes=data.get('cooldown_minutes', 5),
             created_by=request.user,
+            company=company,
         )
         
         messages.success(request, f"Règle '{rule.name}' créée avec succès")
@@ -261,7 +337,7 @@ def create_rule(request):
         return JsonResponse({'success': True, 'rule_id': rule.id})
         
     except Exception as e:
-        logger.error(f"Erreur création règle: {e}")
+        print(f"Erreur création règle: {e}")
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
@@ -317,7 +393,7 @@ def create_channel(request):
         return JsonResponse({'success': True, 'channel_id': channel.id})
         
     except Exception as e:
-        logger.error(f"Erreur création canal: {e}")
+        print(f"Erreur création canal: {e}")
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
@@ -340,7 +416,7 @@ def test_channel(request, channel_id):
             return JsonResponse({'success': False, 'error': 'Test échoué'})
             
     except Exception as e:
-        logger.error(f"Erreur test canal {channel_id}: {e}")
+        print(f"Erreur test canal {channel_id}: {e}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
@@ -354,9 +430,19 @@ def notifications_center(request):
 @login_required
 def notification_history(request):
     """Historique des notifications"""
-    notifications = Notification.objects.all().select_related(
-        'alert', 'alert__detection_event'
-    ).order_by('-sent_at')[:100]
+    # Filtrer par entreprise si l'utilisateur n'est pas owner
+    if hasattr(request, 'current_company') and request.current_company:
+        # Inclure les notifications d'alertes de l'entreprise ET les notifications owner
+        notifications = Notification.objects.filter(
+            Q(alert__company=request.current_company) |  # Notifications d'alertes de l'entreprise
+            Q(alert__isnull=True, metadata__created_by_owner=True) |  # Notifications owner générales
+            Q(alert__isnull=True, metadata__target_company_id=request.current_company.id)  # Notifications owner ciblées
+        ).select_related('alert', 'alert__detection_event').order_by('-sent_at')[:100]
+    else:
+        # Pour les owners, afficher toutes les notifications
+        notifications = Notification.objects.all().select_related(
+            'alert', 'alert__detection_event'
+        ).order_by('-sent_at')[:100]
     
     # Statistiques
     now = timezone.now()
@@ -369,7 +455,17 @@ def notification_history(request):
         'success_rate_week': 0,  # Calculé ci-dessous
     }
     
-    week_notifications = Notification.objects.filter(sent_at__gte=last_week)
+    # Statistiques avec le même filtrage
+    if hasattr(request, 'current_company') and request.current_company:
+        week_notifications = Notification.objects.filter(
+            sent_at__gte=last_week
+        ).filter(
+            Q(alert__company=request.current_company) |
+            Q(alert__isnull=True, metadata__created_by_owner=True) |
+            Q(alert__isnull=True, metadata__target_company_id=request.current_company.id)
+        )
+    else:
+        week_notifications = Notification.objects.filter(sent_at__gte=last_week)
     week_total = week_notifications.count()
     week_success = week_notifications.filter(status__in=['sent', 'delivered']).count()
     
@@ -393,9 +489,12 @@ def api_active_alerts(request):
         location_id = request.GET.get('location_id')
         rule_id = request.GET.get('rule_id')
         
-        alerts = Alert.objects.filter(
-            status__in=['pending', 'sent', 'acknowledged']
-        ).select_related(
+        # Filtrer par entreprise si l'utilisateur n'est pas owner
+        alert_filter = {'status__in': ['pending', 'sent', 'acknowledged']}
+        if hasattr(request, 'current_company') and request.current_company:
+            alert_filter['company'] = request.current_company
+        
+        alerts = Alert.objects.filter(**alert_filter).select_related(
             'detection_event', 'detection_event__camera', 'detection_event__zone'
         )
         
@@ -428,7 +527,7 @@ def api_active_alerts(request):
         return Response({'alerts': alerts_data})
         
     except Exception as e:
-        logger.error(f"Erreur API active alerts: {e}")
+        print(f"Erreur API active alerts: {e}")
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -443,7 +542,12 @@ def api_alert_stats(request):
         
         start_date = timezone.now() - timedelta(days=days)
         
-        alerts = Alert.objects.filter(created_at__gte=start_date)
+        # Filtrer par entreprise si l'utilisateur n'est pas owner
+        alert_filter = {'created_at__gte': start_date}
+        if hasattr(request, 'current_company') and request.current_company:
+            alert_filter['company'] = request.current_company
+        
+        alerts = Alert.objects.filter(**alert_filter)
         if location_id:
             alerts = alerts.filter(detection_event__camera__location_id=location_id)
         
@@ -482,7 +586,7 @@ def api_alert_stats(request):
         })
         
     except Exception as e:
-        logger.error(f"Erreur API alert stats: {e}")
+        print(f"Erreur API alert stats: {e}")
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -490,24 +594,57 @@ def api_alert_stats(request):
 @permission_classes([IsAuthenticated])
 def api_create_rule(request):
     """API pour créer une nouvelle règle"""
+    print("🚀 DEBUG: Vue api_create_rule appelée!")
+    print(f"🚀 DEBUG: Method: {request.method}")
+    print(f"🚀 DEBUG: User: {request.user}")
+    print(f"🚀 DEBUG: URL: {request.path}")
     try:
+        print(f"🔍 DEBUG: Début création règle par {request.user.username}")
+        print(f"🔍 DEBUG: Données reçues: {request.data}")
+        
         data = request.data
         
-        # Vérifier que la localisation existe
-        from monitoring.models import Location
-        location = get_object_or_404(Location, id=data.get('location_id'))
+        # Vérifier les données requises
+        if not data.get('name'):
+            print("❌ DEBUG: Nom manquant")
+            return Response({'success': False, 'error': 'Le nom est requis'}, status=400)
         
+        if not data.get('zone_id'):
+            print("❌ DEBUG: Zone ID manquant")
+            return Response({'success': False, 'error': 'La zone est requise'}, status=400)
+        
+        # Vérifier que la zone existe et appartient à l'entreprise
+        zone_filter = {'id': data.get('zone_id')}
+        if hasattr(request, 'current_company') and request.current_company:
+            zone_filter['location__company'] = request.current_company
+            print(f"🔍 DEBUG: Filtrage par entreprise: {request.current_company.name}")
+        
+        print(f"🔍 DEBUG: Recherche zone avec filtre: {zone_filter}")
+        zone = get_object_or_404(Zone, **zone_filter)
+        print(f"✅ DEBUG: Zone trouvée: {zone.name} (ID: {zone.id})")
+        
+        # Récupérer l'entreprise de l'utilisateur connecté
+        company = None
+        if hasattr(request, 'current_company') and request.current_company:
+            company = request.current_company
+            print(f"🔍 DEBUG: Entreprise: {company.name}")
+        
+        print(f"🔍 DEBUG: Création de la règle...")
         rule = AlertRule.objects.create(
             name=data.get('name'),
             description=data.get('description', ''),
-            location=location,
+            zone=zone,
             trigger_type=data.get('trigger_type', 'detection'),
             trigger_conditions=data.get('trigger_conditions', {}),
             priority=data.get('priority', 2),
             cooldown_minutes=data.get('cooldown_minutes', 5),
             is_active=data.get('is_active', True),
-            created_by=request.user
+            created_by=request.user,
+            company=company
         )
+        
+        print(f"✅ DEBUG: Règle créée avec succès: {rule.name} (ID: {rule.id})")
+        print(f"✅ DEBUG: Zone: {rule.zone.name}, Entreprise: {rule.company.name if rule.company else 'Aucune'}")
         
         return Response({
             'success': True,
@@ -516,7 +653,10 @@ def api_create_rule(request):
         })
         
     except Exception as e:
-        logger.error(f"Erreur création règle: {e}")
+        print(f"❌ DEBUG: Erreur création règle: {e}")
+        print(f"❌ DEBUG: Type d'erreur: {type(e)}")
+        import traceback
+        print(f"❌ DEBUG: Traceback: {traceback.format_exc()}")
         return Response({'success': False, 'error': str(e)}, status=400)
 
 
@@ -536,7 +676,7 @@ def api_rule_detail(request, rule_id):
             'priority': rule.priority,
             'cooldown_minutes': rule.cooldown_minutes,
             'is_active': rule.is_active,
-            'location_id': rule.location.id,
+            'zone_id': rule.zone.id,
         })
     
     elif request.method == 'PUT':
@@ -577,7 +717,7 @@ def api_rule_detail(request, rule_id):
             })
             
         except Exception as e:
-            logger.error(f"Erreur config règle {rule_id}: {e}")
+            print(f"Erreur config règle {rule_id}: {e}")
             return Response({'success': False, 'error': str(e)}, status=400)
     
     elif request.method == 'DELETE':
@@ -593,7 +733,7 @@ def api_rule_detail(request, rule_id):
             })
             
         except Exception as e:
-            logger.error(f"Erreur suppression règle {rule_id}: {e}")
+            print(f"Erreur suppression règle {rule_id}: {e}")
             return Response({'success': False, 'error': str(e)}, status=400)
 
 
@@ -607,8 +747,8 @@ def api_test_rule(request, rule_id):
         # Créer une alerte de test
         from monitoring.models import Camera, DetectionEvent
         
-        # Prendre une caméra de la même localisation
-        camera = Camera.objects.filter(location=rule.location).first()
+        # Prendre une caméra de la même zone
+        camera = Camera.objects.filter(zone=rule.zone).first()
         if not camera:
             return Response({
                 'success': False,
@@ -645,7 +785,7 @@ def api_test_rule(request, rule_id):
         })
         
     except Exception as e:
-        logger.error(f"Erreur test règle {rule_id}: {e}")
+        print(f"Erreur test règle {rule_id}: {e}")
         return Response({
             'success': False,
             'error': str(e)
@@ -711,7 +851,7 @@ def api_rule_stats(request, rule_id):
         return Response(stats)
         
     except Exception as e:
-        logger.error(f"Erreur stats règle {rule_id}: {e}")
+        print(f"Erreur stats règle {rule_id}: {e}")
         return Response({'error': str(e)}, status=500)
 
 
@@ -724,10 +864,15 @@ def api_unread_notifications(request):
         from django.utils import timezone
         
         # Récupérer les alertes récentes non résolues comme "notifications"
-        recent_alerts = Alert.objects.filter(
-            status__in=['pending', 'sent'],
-            created_at__gte=timezone.now() - timedelta(hours=24)
-        ).order_by('-created_at')[:10]
+        # Filtrer par entreprise si l'utilisateur n'est pas owner
+        alert_filter = {
+            'status__in': ['pending', 'sent'],
+            'created_at__gte': timezone.now() - timedelta(hours=24)
+        }
+        if hasattr(request, 'current_company') and request.current_company:
+            alert_filter['company'] = request.current_company
+        
+        recent_alerts = Alert.objects.filter(**alert_filter).order_by('-created_at')[:10]
         
         notifications = []
         for alert in recent_alerts:
@@ -747,7 +892,7 @@ def api_unread_notifications(request):
         })
         
     except Exception as e:
-        logger.error(f"Erreur notifications: {e}")
+        print(f"Erreur notifications: {e}")
         return Response({'error': str(e)}, status=500)
 
 
@@ -796,7 +941,7 @@ def api_notifications_list(request):
         })
         
     except Exception as e:
-        logger.error(f"Erreur liste notifications: {e}")
+        print(f"Erreur liste notifications: {e}")
         return Response({'error': str(e)}, status=500)
 
 
@@ -815,7 +960,7 @@ def api_mark_notification_read(request, notification_id):
             return Response({'error': 'Notification non trouvée'}, status=404)
             
     except Exception as e:
-        logger.error(f"Erreur marquage lecture: {e}")
+        print(f"Erreur marquage lecture: {e}")
         return Response({'error': str(e)}, status=500)
 
 
@@ -900,7 +1045,7 @@ def api_notification_preferences(request):
             return Response({'message': 'Préférences mises à jour'})
             
     except Exception as e:
-        logger.error(f"Erreur préférences: {e}")
+        print(f"Erreur préférences: {e}")
         return Response({'error': str(e)}, status=500)
 
 
@@ -926,7 +1071,7 @@ def api_notification_channels(request):
         return Response({'channels': channels_data})
         
     except Exception as e:
-        logger.error(f"Erreur canaux: {e}")
+        print(f"Erreur canaux: {e}")
         return Response({'error': str(e)}, status=500)
 
 
@@ -977,6 +1122,6 @@ def api_send_notification(request):
         })
         
     except Exception as e:
-        logger.error(f"Erreur envoi notification: {e}")
+        print(f"Erreur envoi notification: {e}")
         return Response({'error': str(e)}, status=500)
 

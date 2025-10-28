@@ -1,0 +1,843 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Variables CSS pour la cohérence */
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --card-bg: rgba(255, 255, 255, 0.95);
+        --glass-bg: rgba(255, 255, 255, 0.1);
+        --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.15);
+        --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.1);
+        --border-radius: 16px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 2rem 0;
+    }
+
+    .form-wizard-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+
+    .form-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(20px);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+        animation: slideUp 0.6s ease-out;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .form-header {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 2.5rem 2rem;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .form-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="white" opacity="0.1"/><circle cx="90" cy="90" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="30" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    }
+
+    .form-header h2 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 300;
+        position: relative;
+        z-index: 1;
+    }
+
+    .form-header .subtitle {
+        margin-top: 0.5rem;
+        opacity: 0.9;
+        font-size: 1.1rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .form-progress {
+        background: rgba(255, 255, 255, 0.1);
+        height: 4px;
+        margin-top: 1.5rem;
+        border-radius: 2px;
+        overflow: hidden;
+        position: relative;
+        z-index: 1;
+    }
+
+    .form-progress-bar {
+        background: rgba(255, 255, 255, 0.8);
+        height: 100%;
+        width: 33%;
+        border-radius: 2px;
+        transition: width 0.3s ease;
+    }
+
+    .form-content {
+        padding: 2.5rem;
+        background: white;
+    }
+
+    .form-section {
+        margin-bottom: 2.5rem;
+        padding: 2rem;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.02) 0%, rgba(118, 75, 162, 0.02) 100%);
+        border-radius: 12px;
+        border: 1px solid rgba(102, 126, 234, 0.1);
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .form-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--primary-gradient);
+        border-radius: 0 2px 2px 0;
+    }
+
+    .form-section:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        border-color: rgba(102, 126, 234, 0.2);
+    }
+
+    .form-section:last-child {
+        margin-bottom: 0;
+    }
+
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+    }
+
+    .section-icon {
+        width: 48px;
+        height: 48px;
+        background: var(--primary-gradient);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .section-title {
+        margin: 0;
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-grid.single {
+        grid-template-columns: 1fr;
+    }
+
+    .form-group {
+        position: relative;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .required {
+        color: #e74c3c;
+        margin-left: 2px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 1rem 1.25rem;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: var(--transition);
+        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+        box-sizing: border-box;
+        font-family: inherit;
+        position: relative;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 
+            0 0 0 3px rgba(102, 126, 234, 0.1),
+            inset 0 2px 4px rgba(0, 0, 0, 0.02),
+            0 4px 12px rgba(102, 126, 234, 0.15);
+        transform: translateY(-2px);
+        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+    }
+
+    .form-control:hover {
+        border-color: #667eea;
+        box-shadow: 
+            inset 0 2px 4px rgba(0, 0, 0, 0.02),
+            0 2px 8px rgba(102, 126, 234, 0.1);
+        transform: translateY(-1px);
+    }
+
+    .form-control::placeholder {
+        color: #adb5bd;
+        font-style: italic;
+        opacity: 0.8;
+    }
+
+    textarea.form-control {
+        resize: vertical;
+        min-height: 100px;
+        font-family: inherit;
+        line-height: 1.5;
+        color: #2c3e50;
+        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+    }
+
+    textarea.form-control:focus {
+        color: #2c3e50;
+        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+    }
+
+    textarea.form-control::placeholder {
+        color: #adb5bd;
+        font-style: italic;
+        opacity: 0.8;
+        line-height: 1.4;
+    }
+
+    .help-text {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .help-text i {
+        color: #667eea;
+    }
+
+    .info-card {
+        background: linear-gradient(135deg, rgba(52, 152, 219, 0.1) 0%, rgba(155, 89, 182, 0.1) 100%);
+        border: 1px solid rgba(52, 152, 219, 0.2);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .info-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(135deg, #3498db 0%, #9b59b6 100%);
+    }
+
+    .info-card h4 {
+        margin: 0 0 0.75rem 0;
+        color: #2c3e50;
+        font-size: 1.1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .info-card p {
+        margin: 0;
+        color: #34495e;
+        line-height: 1.5;
+    }
+
+    .limits-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .limit-card {
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+        transition: var(--transition);
+    }
+
+    .limit-card:hover {
+        border-color: #667eea;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+    }
+
+    .limit-card .form-control {
+        text-align: center;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+        padding: 2rem;
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+        margin: 0 -2.5rem -2.5rem -2.5rem;
+    }
+
+    .btn {
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: var(--transition);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .btn:hover::before {
+        left: 100%;
+    }
+
+    .btn-primary {
+        background: var(--primary-gradient);
+        color: white;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+        box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4);
+    }
+
+    .btn-secondary:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(108, 117, 125, 0.6);
+        color: white;
+        text-decoration: none;
+    }
+
+    .alert {
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+        border-radius: 10px;
+        border: none;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-weight: 500;
+    }
+
+    .alert-success {
+        background: linear-gradient(135deg, rgba(40, 167, 69, 0.1) 0%, rgba(25, 135, 84, 0.1) 100%);
+        color: #155724;
+        border-left: 4px solid #28a745;
+    }
+
+    .alert-error {
+        background: linear-gradient(135deg, rgba(220, 53, 69, 0.1) 0%, rgba(114, 28, 36, 0.1) 100%);
+        color: #721c24;
+        border-left: 4px solid #dc3545;
+    }
+
+    /* Animations d'entrée */
+    .form-section {
+        animation: fadeInUp 0.6s ease-out;
+        animation-fill-mode: both;
+    }
+
+    .form-section:nth-child(1) { animation-delay: 0.1s; }
+    .form-section:nth-child(2) { animation-delay: 0.2s; }
+    .form-section:nth-child(3) { animation-delay: 0.3s; }
+    .form-section:nth-child(4) { animation-delay: 0.4s; }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        body {
+            padding: 1rem 0;
+        }
+
+        .form-content {
+            padding: 1.5rem;
+        }
+
+        .form-section {
+            padding: 1.5rem;
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .form-actions {
+            flex-direction: column;
+            padding: 1.5rem;
+            margin: 0 -1.5rem -1.5rem -1.5rem;
+        }
+
+        .limits-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .form-header h2 {
+            font-size: 2rem;
+        }
+    }
+
+    /* Focus states améliorés */
+    .form-control:focus {
+        animation: focusPulse 0.3s ease-out;
+    }
+
+    @keyframes focusPulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+        100% { transform: scale(1); }
+    }
+
+    /* Assurer la visibilité du texte dans tous les champs */
+    input, textarea, select {
+        color: #2c3e50 !important;
+        background-color: #ffffff !important;
+    }
+
+    input:focus, textarea:focus, select:focus {
+        color: #2c3e50 !important;
+        background-color: #ffffff !important;
+    }
+
+    /* Styles pour les placeholders */
+    input::placeholder, textarea::placeholder {
+        color: #adb5bd !important;
+        opacity: 0.7 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-wizard-container">
+    <div class="form-card">
+        <div class="form-header">
+            <h2>{{ title }}</h2>
+            <p class="subtitle">Configuration complète de votre entreprise</p>
+            <div class="form-progress">
+                <div class="form-progress-bar"></div>
+            </div>
+        </div>
+        
+        <div class="form-content">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{% if message.tags == 'error' %}error{% else %}{{ message.tags }}{% endif %}">
+                        <i class="fas fa-{% if message.tags == 'error' %}exclamation-triangle{% else %}check-circle{% endif %}"></i>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            <form method="post" id="company-form">
+                {% csrf_token %}
+                
+                <!-- Informations générales -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <div class="section-icon">
+                            <i class="fas fa-building"></i>
+                        </div>
+                        <h3 class="section-title">Informations générales</h3>
+                    </div>
+                    
+                    <div class="form-grid single">
+                        <div class="form-group">
+                            <label for="{{ form.name.id_for_label }}">
+                                <i class="fas fa-building me-2"></i>
+                                {{ form.name.label }} <span class="required">*</span>
+                            </label>
+                            <input type="text" name="{{ form.name.name }}" id="{{ form.name.id_for_label }}" 
+                                   class="form-control" placeholder="Ex: SARL TechnoSurveillance" 
+                                   value="{{ form.name.value|default:'' }}" required>
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Nom officiel de votre entreprise tel qu'il apparaît sur vos documents légaux
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid single">
+                        <div class="form-group">
+                            <label for="{{ form.description.id_for_label }}">
+                                <i class="fas fa-align-left me-2"></i>
+                                {{ form.description.label }}
+                            </label>
+                            <textarea name="{{ form.description.name }}" id="{{ form.description.id_for_label }}" 
+                                      class="form-control" rows="4" 
+                                      placeholder="Ex: Entreprise spécialisée dans la sécurité et la surveillance électronique. Nous proposons des solutions de vidéosurveillance intelligente pour les commerces et entreprises.">{{ form.description.value|default:'' }}</textarea>
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Décrivez brièvement l'activité principale de votre entreprise (optionnel)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Informations de contact -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <div class="section-icon">
+                            <i class="fas fa-address-card"></i>
+                        </div>
+                        <h3 class="section-title">Informations de contact</h3>
+                    </div>
+                    
+                    <div class="form-grid single">
+                        <div class="form-group">
+                            <label for="{{ form.address.id_for_label }}">
+                                <i class="fas fa-map-marker-alt me-2"></i>
+                                {{ form.address.label }}
+                            </label>
+                            <textarea name="{{ form.address.name }}" id="{{ form.address.id_for_label }}" 
+                                      class="form-control" rows="3" 
+                                      placeholder="Ex: 123 Avenue de la République&#10;75011 Paris&#10;France">{{ form.address.value|default:'' }}</textarea>
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Adresse complète du siège social (rue, ville, code postal, pays)
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="{{ form.phone.id_for_label }}">
+                                <i class="fas fa-phone me-2"></i>
+                                {{ form.phone.label }}
+                            </label>
+                            <input type="tel" name="{{ form.phone.name }}" id="{{ form.phone.id_for_label }}" 
+                                   class="form-control" placeholder="Ex: +33 1 23 45 67 89" 
+                                   value="{{ form.phone.value|default:'' }}">
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Numéro de téléphone principal avec indicatif pays
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.email.id_for_label }}">
+                                <i class="fas fa-envelope me-2"></i>
+                                {{ form.email.label }}
+                            </label>
+                            <input type="email" name="{{ form.email.name }}" id="{{ form.email.id_for_label }}" 
+                                   class="form-control" placeholder="Ex: contact@monentreprise.fr" 
+                                   value="{{ form.email.value|default:'' }}">
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Adresse email de contact général de l'entreprise
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid single">
+                        <div class="form-group">
+                            <label for="{{ form.website.id_for_label }}">
+                                <i class="fas fa-globe me-2"></i>
+                                {{ form.website.label }}
+                            </label>
+                            <input type="url" name="{{ form.website.name }}" id="{{ form.website.id_for_label }}" 
+                                   class="form-control" placeholder="Ex: https://www.monentreprise.fr" 
+                                   value="{{ form.website.value|default:'' }}">
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Site web officiel de l'entreprise (optionnel)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Manager (seulement lors de la création) -->
+                {% if form.manager_email %}
+                <div class="form-section">
+                    <div class="section-header">
+                        <div class="section-icon">
+                            <i class="fas fa-user-tie"></i>
+                        </div>
+                        <h3 class="section-title">Manager de l'entreprise</h3>
+                    </div>
+                    
+                    <div class="info-card">
+                        <h4>
+                            <i class="fas fa-info-circle"></i>
+                            Information importante
+                        </h4>
+                        <p>Un compte manager sera automatiquement créé avec un mot de passe généré aléatoirement. Les identifiants seront affichés après la création et pourront être partagés avec le responsable.</p>
+                    </div>
+                    
+                    <div class="form-grid single">
+                        <div class="form-group">
+                            <label for="{{ form.manager_email.id_for_label }}">
+                                <i class="fas fa-envelope me-2"></i>
+                                {{ form.manager_email.label }} <span class="required">*</span>
+                            </label>
+                            <input type="email" name="{{ form.manager_email.name }}" id="{{ form.manager_email.id_for_label }}" 
+                                   class="form-control" placeholder="Ex: manager@monentreprise.fr" 
+                                   value="{{ form.manager_email.value|default:'' }}" required>
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Cet email servira de nom d'utilisateur pour le manager
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="{{ form.manager_first_name.id_for_label }}">
+                                <i class="fas fa-user me-2"></i>
+                                {{ form.manager_first_name.label }}
+                            </label>
+                            <input type="text" name="{{ form.manager_first_name.name }}" id="{{ form.manager_first_name.id_for_label }}" 
+                                   class="form-control" placeholder="Ex: Jean" 
+                                   value="{{ form.manager_first_name.value|default:'' }}">
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Prénom du manager (optionnel mais recommandé)
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.manager_last_name.id_for_label }}">
+                                <i class="fas fa-user me-2"></i>
+                                {{ form.manager_last_name.label }}
+                            </label>
+                            <input type="text" name="{{ form.manager_last_name.name }}" id="{{ form.manager_last_name.id_for_label }}" 
+                                   class="form-control" placeholder="Ex: Dupont" 
+                                   value="{{ form.manager_last_name.value|default:'' }}">
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Nom de famille du manager (optionnel mais recommandé)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Limites et quotas -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <div class="section-icon">
+                            <i class="fas fa-sliders-h"></i>
+                        </div>
+                        <h3 class="section-title">Limites et quotas</h3>
+                    </div>
+                    
+                    <div class="limits-grid">
+                        <div class="limit-card">
+                            <div class="form-group">
+                                <label for="{{ form.max_users.id_for_label }}">
+                                    <i class="fas fa-users"></i>
+                                    {{ form.max_users.label }}
+                                </label>
+                                <input type="number" name="{{ form.max_users.name }}" id="{{ form.max_users.id_for_label }}" 
+                                       class="form-control" placeholder="50" min="1" max="1000"
+                                       value="{{ form.max_users.value|default:'50' }}">
+                                <div class="help-text">
+                                    <i class="fas fa-info-circle"></i>
+                                    Nombre maximum d'utilisateurs autorisés
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="limit-card">
+                            <div class="form-group">
+                                <label for="{{ form.max_cameras.id_for_label }}">
+                                    <i class="fas fa-video"></i>
+                                    {{ form.max_cameras.label }}
+                                </label>
+                                <input type="number" name="{{ form.max_cameras.name }}" id="{{ form.max_cameras.id_for_label }}" 
+                                       class="form-control" placeholder="20" min="1" max="500"
+                                       value="{{ form.max_cameras.value|default:'20' }}">
+                                <div class="help-text">
+                                    <i class="fas fa-info-circle"></i>
+                                    Nombre maximum de caméras autorisées
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="limit-card">
+                            <div class="form-group">
+                                <label for="{{ form.max_locations.id_for_label }}">
+                                    <i class="fas fa-map-marked-alt"></i>
+                                    {{ form.max_locations.label }}
+                                </label>
+                                <input type="number" name="{{ form.max_locations.name }}" id="{{ form.max_locations.id_for_label }}" 
+                                       class="form-control" placeholder="5" min="1" max="100"
+                                       value="{{ form.max_locations.value|default:'5' }}">
+                                <div class="help-text">
+                                    <i class="fas fa-info-circle"></i>
+                                    Nombre maximum de lieux de surveillance
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{% if company %}{% url 'companies:company_detail' company.pk %}{% else %}{% url 'companies:owner_dashboard' %}{% endif %}" class="btn btn-secondary">
+                <i class="fas fa-times"></i>
+                Annuler
+            </a>
+            <button type="submit" form="company-form" class="btn btn-primary">
+                <i class="fas fa-{% if company %}save{% else %}plus{% endif %}"></i>
+                {% if company %}Modifier{% else %}Créer{% endif %}
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animation de la barre de progression
+    const progressBar = document.querySelector('.form-progress-bar');
+    const sections = document.querySelectorAll('.form-section');
+    
+    // Calculer le pourcentage de progression basé sur les champs remplis
+    function updateProgress() {
+        const inputs = document.querySelectorAll('input[required], textarea[required]');
+        let filledInputs = 0;
+        
+        inputs.forEach(input => {
+            if (input.value.trim() !== '') {
+                filledInputs++;
+            }
+        });
+        
+        const percentage = Math.min((filledInputs / inputs.length) * 100, 100);
+        progressBar.style.width = percentage + '%';
+    }
+    
+    // Écouter les changements dans les champs
+    document.querySelectorAll('input, textarea').forEach(input => {
+        input.addEventListener('input', updateProgress);
+    });
+    
+    // Mise à jour initiale
+    updateProgress();
+    
+    // Animation des sections au scroll
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver(function(entries) {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, observerOptions);
+    
+    sections.forEach(section => {
+        observer.observe(section);
+    });
+});
+</script>
+{% endblock %}

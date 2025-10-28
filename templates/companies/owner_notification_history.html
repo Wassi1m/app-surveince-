@@ -1,0 +1,439 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Historique Notifications Owner - Surveillance System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .history-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 3rem 0;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .history-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="white" opacity="0.1"/><circle cx="90" cy="90" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="30" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    }
+    
+    .history-header h1 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 600;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .history-header p {
+        margin: 0.5rem 0 0 0;
+        opacity: 0.95;
+        font-size: 1.1rem;
+        font-weight: 500;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .stats-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        color: #495057;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.85rem;
+    }
+    
+    .filters-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .notification-item {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1rem;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .notification-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    .notification-item-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #f1f2f6;
+        position: relative;
+    }
+    
+    .notification-item-title {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #212529;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .notification-item-meta {
+        color: #495057;
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin: 0;
+        line-height: 1.4;
+    }
+    
+    .notification-type-badge {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .type-info { background: #e3f2fd; color: #1976d2; }
+    .type-success { background: #e8f5e8; color: #2e7d32; }
+    .type-warning { background: #fff3e0; color: #f57c00; }
+    .type-error { background: #ffebee; color: #d32f2f; }
+    .type-alert { background: #fce4ec; color: #c2185b; }
+    .type-system { background: #f3e5f5; color: #7b1fa2; }
+    
+    .notification-item-content {
+        padding: 1.5rem;
+        background: #f8f9fa;
+    }
+    
+    .notification-item-message {
+        margin: 0;
+        color: #495057;
+        font-weight: 500;
+        line-height: 1.6;
+    }
+    
+    .priority-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .priority-1 { background: #dc3545; }
+    .priority-2 { background: #fd7e14; }
+    .priority-3 { background: #28a745; }
+    .priority-4 { background: #6c757d; }
+    
+    .target-badge {
+        background: #e3f2fd;
+        color: #1976d2;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    
+    .broadcast-badge {
+        background: #667eea;
+        color: white;
+    }
+    
+    .form-control {
+        padding: 0.75rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        color: #212529 !important;
+        font-weight: 500 !important;
+        background-color: #ffffff !important;
+    }
+    
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        color: #212529 !important;
+        background-color: #ffffff !important;
+    }
+    
+    .form-label {
+        color: #212529 !important;
+        font-weight: 700 !important;
+        margin-bottom: 0.5rem;
+    }
+    
+    .pagination {
+        justify-content: center;
+        margin-top: 2rem;
+    }
+    
+    .page-link {
+        color: #667eea;
+        border-color: #667eea;
+    }
+    
+    .page-link:hover {
+        color: white;
+        background-color: #667eea;
+        border-color: #667eea;
+    }
+    
+    .page-item.active .page-link {
+        background-color: #667eea;
+        border-color: #667eea;
+    }
+    
+    @media (max-width: 768px) {
+        .history-header h1 {
+            font-size: 2rem;
+        }
+        
+        .stats-cards {
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        }
+        
+        .filters-card {
+            padding: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="history-header">
+    <div class="container">
+        <h1><i class="fas fa-history me-3"></i>Historique des Notifications</h1>
+        <p>Consultez l'historique complet de vos notifications envoyées</p>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Statistiques -->
+    <div class="stats-cards">
+        <div class="stat-card">
+            <div class="stat-number">{{ stats.total }}</div>
+            <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ stats.broadcast }}</div>
+            <div class="stat-label">Diffusions</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ stats.targeted }}</div>
+            <div class="stat-label">Ciblées</div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="filters-card">
+        <h4 style="color: #212529; font-weight: 700; margin-bottom: 1.5rem;">
+            <i class="fas fa-filter me-2"></i>Filtres
+        </h4>
+        
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Entreprise</label>
+                <select class="form-control" name="company">
+                    <option value="">Toutes les entreprises</option>
+                    {% for company in companies %}
+                    <option value="{{ company.id }}" {% if current_filters.company == company.id|stringformat:"s" %}selected{% endif %}>
+                        {{ company.name }} ({{ company.reference }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Type</label>
+                <select class="form-control" name="type">
+                    <option value="">Tous les types</option>
+                    {% for type_key, type_label in notification_types %}
+                    <option value="{{ type_key }}" {% if current_filters.type == type_key %}selected{% endif %}>
+                        {{ type_label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Période</label>
+                <select class="form-control" name="days">
+                    <option value="7" {% if current_filters.days == 7 %}selected{% endif %}>7 derniers jours</option>
+                    <option value="30" {% if current_filters.days == 30 %}selected{% endif %}>30 derniers jours</option>
+                    <option value="90" {% if current_filters.days == 90 %}selected{% endif %}>90 derniers jours</option>
+                    <option value="0" {% if current_filters.days == 0 %}selected{% endif %}>Toutes</option>
+                </select>
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i>
+                    Filtrer
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Actions rapides -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-0" style="color: #212529; font-weight: 700;">
+                {% if notifications %}
+                    {{ notifications.paginator.count }} notification{{ notifications.paginator.count|pluralize }}
+                {% endif %}
+            </h4>
+        </div>
+        <div>
+            <a href="{% url 'companies:owner_notifications' %}" class="btn btn-success">
+                <i class="fas fa-plus"></i>
+                Nouvelle Notification
+            </a>
+        </div>
+    </div>
+
+    <!-- Liste des notifications -->
+    {% if notifications %}
+        <div class="notifications-history">
+            {% for notification in notifications %}
+            <div class="notification-item">
+                <div class="notification-item-header">
+                    <div class="notification-type-badge type-{{ notification.notification_type }}">
+                        {{ notification.get_notification_type_display }}
+                    </div>
+                    
+                    <h3 class="notification-item-title">
+                        <span class="priority-indicator priority-{{ notification.priority }}"></span>
+                        {{ notification.title }}
+                    </h3>
+                    
+                    <div class="notification-item-meta">
+                        <i class="fas fa-clock me-1"></i>
+                        {{ notification.created_at|date:"d/m/Y à H:i" }}
+                        
+                        <span class="ms-3">
+                            <i class="fas fa-user me-1"></i>
+                            {{ notification.user.get_full_name|default:notification.user.username }}
+                        </span>
+                        
+                        {% if notification.metadata.broadcast %}
+                            <span class="target-badge broadcast-badge ms-2">
+                                <i class="fas fa-broadcast-tower"></i>
+                                Diffusion générale
+                            </span>
+                        {% else %}
+                            <span class="target-badge ms-2">
+                                <i class="fas fa-building"></i>
+                                Entreprise ciblée
+                            </span>
+                        {% endif %}
+                        
+                        {% if notification.expires_at %}
+                            <span class="ms-3">
+                                <i class="fas fa-hourglass-end me-1"></i>
+                                Expire le {{ notification.expires_at|date:"d/m/Y à H:i" }}
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="notification-item-content">
+                    <p class="notification-item-message">{{ notification.message }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if notifications.has_other_pages %}
+        <nav aria-label="Navigation des pages">
+            <ul class="pagination">
+                {% if notifications.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ notifications.previous_page_number }}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                
+                {% for num in notifications.paginator.page_range %}
+                    {% if num == notifications.number %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > notifications.number|add:'-3' and num < notifications.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if notifications.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ notifications.next_page_number }}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+            <h3 class="text-muted">Aucune notification trouvée</h3>
+            <p class="text-muted">Aucune notification ne correspond aux critères sélectionnés.</p>
+            <a href="{% url 'companies:owner_notifications' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Créer une notification
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

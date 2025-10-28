@@ -8,6 +8,7 @@ from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from django.shortcuts import redirect
 from monitoring.views import dashboard
+from companies.auth_views import company_login_view
 
 # Redirection de la racine vers le tableau de bord
 def root_redirect(request):
@@ -22,6 +23,7 @@ urlpatterns = [
     path('dashboard/', dashboard, name='dashboard'),
     
     # Applications
+    path('companies/', include('companies.urls')),
     path('monitoring/', include('monitoring.urls')),
     path('alerts/', include('alerts.urls')),
     path('analytics/', include('analytics.urls')),
@@ -32,11 +34,7 @@ urlpatterns = [
     path('api/analytics/', include('analytics.api_urls')),
     
     # Authentification
-    path('login/', auth_views.LoginView.as_view(
-        template_name='auth/login.html',
-        redirect_authenticated_user=True,
-        next_page='dashboard'
-    ), name='login'),
+    path('login/', company_login_view, name='login'),
     
     path('logout/', auth_views.LogoutView.as_view(
         next_page='login'

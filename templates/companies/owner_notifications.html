@@ -1,0 +1,510 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Notifications Owner - Surveillance System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notifications-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 3rem 0;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .notifications-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="white" opacity="0.1"/><circle cx="90" cy="90" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="30" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    }
+    
+    .notifications-header h1 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 600;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .notifications-header p {
+        margin: 0.5rem 0 0 0;
+        opacity: 0.95;
+        font-size: 1.1rem;
+        font-weight: 500;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .notification-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .notification-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    .notification-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #f1f2f6;
+        position: relative;
+    }
+    
+    .notification-title {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #212529;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .notification-meta {
+        color: #495057;
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin: 0;
+        line-height: 1.4;
+    }
+    
+    .notification-type-badge {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .type-info { background: #e3f2fd; color: #1976d2; }
+    .type-success { background: #e8f5e8; color: #2e7d32; }
+    .type-warning { background: #fff3e0; color: #f57c00; }
+    .type-error { background: #ffebee; color: #d32f2f; }
+    .type-alert { background: #fce4ec; color: #c2185b; }
+    .type-system { background: #f3e5f5; color: #7b1fa2; }
+    
+    .notification-content {
+        padding: 1.5rem;
+        background: #f8f9fa;
+    }
+    
+    .notification-message {
+        margin: 0;
+        color: #495057;
+        font-weight: 500;
+        line-height: 1.6;
+    }
+    
+    .notification-stats {
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #ffffff;
+        border-top: 1px solid #f1f2f6;
+    }
+    
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .stat-number {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #667eea;
+    }
+    
+    .stat-label {
+        font-size: 0.75rem;
+        color: #495057;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .create-notification-form {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .form-control {
+        padding: 0.75rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        color: #212529 !important;
+        font-weight: 500 !important;
+        background-color: #ffffff !important;
+    }
+    
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        color: #212529 !important;
+        background-color: #ffffff !important;
+    }
+    
+    .form-control::placeholder {
+        color: #6c757d !important;
+        opacity: 0.7 !important;
+    }
+    
+    .form-label {
+        color: #212529 !important;
+        font-weight: 700 !important;
+        margin-bottom: 0.5rem;
+    }
+    
+    .btn-create {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-create:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .empty-state h3 {
+        margin-bottom: 1rem;
+        color: #212529;
+        font-weight: 700;
+    }
+    
+    .empty-state p {
+        margin-bottom: 2rem;
+        font-size: 1.1rem;
+        color: #495057;
+        font-weight: 500;
+    }
+    
+    .priority-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .priority-1 { background: #dc3545; }
+    .priority-2 { background: #fd7e14; }
+    .priority-3 { background: #28a745; }
+    .priority-4 { background: #6c757d; }
+    
+    .target-info {
+        background: #e3f2fd;
+        color: #1976d2;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    
+    .broadcast-badge {
+        background: #667eea;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    @media (max-width: 768px) {
+        .notifications-header h1 {
+            font-size: 2rem;
+        }
+        
+        .notification-stats {
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .create-notification-form {
+            padding: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="notifications-header">
+    <div class="container">
+        <h1><i class="fas fa-bullhorn me-3"></i>Notifications Owner</h1>
+        <p>Créez et gérez les notifications pour toutes les entreprises ou des entreprises spécifiques</p>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Actions rapides -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-0" style="color: #212529; font-weight: 700;">
+                {% if notifications %}
+                    {{ notifications.count }} notification{{ notifications.count|pluralize }} récente{{ notifications.count|pluralize }}
+                {% endif %}
+            </h4>
+        </div>
+        <div>
+            <a href="{% url 'companies:owner_notification_history' %}" class="btn btn-outline-primary me-2">
+                <i class="fas fa-history"></i>
+                Historique
+            </a>
+            <button class="btn btn-success" onclick="toggleCreateForm()">
+                <i class="fas fa-plus"></i>
+                Nouvelle Notification
+            </button>
+        </div>
+    </div>
+
+    <!-- Formulaire de création (masqué par défaut) -->
+    <div id="createNotificationForm" class="create-notification-form" style="display: none;">
+        <h3 style="color: #212529; font-weight: 700; margin-bottom: 1.5rem;">
+            <i class="fas fa-plus-circle me-2"></i>Créer une Notification
+        </h3>
+        
+        <form id="notificationForm">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        <label class="form-label">Titre</label>
+                        <input type="text" class="form-control" name="title" placeholder="Titre de la notification" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Type</label>
+                        <select class="form-control" name="type" required>
+                            <option value="info">Information</option>
+                            <option value="success">Succès</option>
+                            <option value="warning">Avertissement</option>
+                            <option value="error">Erreur</option>
+                            <option value="alert">Alerte</option>
+                            <option value="system">Système</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Entreprise Cible</label>
+                        <select class="form-control" name="company_id">
+                            <option value="">Toutes les entreprises</option>
+                            {% for company in companies %}
+                            <option value="{{ company.id }}">{{ company.name }} ({{ company.reference }})</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Laissez vide pour envoyer à toutes les entreprises</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">Priorité</label>
+                        <select class="form-control" name="priority" required>
+                            <option value="1">Critique</option>
+                            <option value="2">Élevée</option>
+                            <option value="3" selected>Normale</option>
+                            <option value="4">Faible</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">Expiration (heures)</label>
+                        <input type="number" class="form-control" name="expires_in_hours" placeholder="24" min="1" max="8760">
+                        <div class="form-text">Optionnel</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Message</label>
+                <textarea class="form-control" name="message" rows="4" placeholder="Contenu de la notification..." required></textarea>
+            </div>
+            
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-create">
+                    <i class="fas fa-paper-plane me-2"></i>Envoyer Notification
+                </button>
+                <button type="button" class="btn btn-outline-secondary" onclick="toggleCreateForm()">
+                    Annuler
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Liste des notifications récentes -->
+    {% if notifications %}
+        <div class="notifications-list">
+            {% for notification in notifications %}
+            <div class="notification-card">
+                <div class="notification-header">
+                    <div class="notification-type-badge type-{{ notification.notification_type }}">
+                        {{ notification.get_notification_type_display }}
+                    </div>
+                    
+                    <h3 class="notification-title">
+                        <span class="priority-indicator priority-{{ notification.priority }}"></span>
+                        {{ notification.title }}
+                    </h3>
+                    
+                    <div class="notification-meta">
+                        <i class="fas fa-clock me-1"></i>
+                        {{ notification.created_at|date:"d/m/Y à H:i" }}
+                        
+                        {% if notification.metadata.broadcast %}
+                            <span class="broadcast-badge ms-2">
+                                <i class="fas fa-broadcast-tower me-1"></i>Diffusion générale
+                            </span>
+                        {% else %}
+                            <div class="target-info">
+                                <i class="fas fa-building me-1"></i>
+                                Entreprise spécifique
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="notification-content">
+                    <p class="notification-message">{{ notification.message }}</p>
+                </div>
+                
+                <div class="notification-stats">
+                    <div class="stat-item">
+                        <div class="stat-number">{{ notification.priority }}</div>
+                        <div class="stat-label">Priorité</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">{{ notification.get_status_display }}</div>
+                        <div class="stat-label">Statut</div>
+                    </div>
+                    {% if notification.expires_at %}
+                    <div class="stat-item">
+                        <div class="stat-number">{{ notification.expires_at|date:"d/m" }}</div>
+                        <div class="stat-label">Expire</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <i class="fas fa-bullhorn"></i>
+            <h3>Aucune notification</h3>
+            <p>Vous n'avez pas encore créé de notifications. Commencez par créer votre première notification.</p>
+            <button class="btn btn-create" onclick="toggleCreateForm()">
+                <i class="fas fa-plus me-2"></i>Créer ma première notification
+            </button>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+function toggleCreateForm() {
+    const form = document.getElementById('createNotificationForm');
+    if (form.style.display === 'none') {
+        form.style.display = 'block';
+        form.scrollIntoView({ behavior: 'smooth' });
+    } else {
+        form.style.display = 'none';
+    }
+}
+
+document.getElementById('notificationForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = {
+        title: formData.get('title'),
+        message: formData.get('message'),
+        type: formData.get('type'),
+        priority: formData.get('priority'),
+        company_id: formData.get('company_id') || null,
+        expires_in_hours: formData.get('expires_in_hours') || null
+    };
+    
+    // Validation
+    if (!data.title.trim() || !data.message.trim()) {
+        alert('Le titre et le message sont obligatoires.');
+        return;
+    }
+    
+    // Confirmation
+    const target = data.company_id ? 'une entreprise spécifique' : 'toutes les entreprises';
+    if (!confirm(`Envoyer cette notification à ${target} ?`)) {
+        return;
+    }
+    
+    // Envoyer la requête
+    fetch('{% url "companies:create_owner_notification" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            location.reload();
+        } else {
+            alert(`❌ Erreur: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('❌ Erreur lors de l\'envoi de la notification.');
+    });
+});
+</script>
+{% endblock %}

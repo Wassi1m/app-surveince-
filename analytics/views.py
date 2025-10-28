@@ -27,7 +27,14 @@ def reports_list(request):
     location_id = request.GET.get('location')
     status_filter = request.GET.get('status')
     
-    reports = Report.objects.all().select_related('location', 'generated_by')
+    # Filtrer par entreprise si l'utilisateur n'est pas owner
+    report_filter = {}
+    location_filter = {}
+    if hasattr(request, 'current_company') and request.current_company:
+        report_filter['company'] = request.current_company
+        location_filter['company'] = request.current_company
+    
+    reports = Report.objects.filter(**report_filter).select_related('location', 'generated_by')
     
     # Appliquer les filtres
     if report_type:
@@ -40,7 +47,7 @@ def reports_list(request):
     reports = reports.order_by('-created_at')[:50]
     
     # Options pour les filtres
-    locations = Location.objects.filter(is_active=True)
+    locations = Location.objects.filter(is_active=True, **location_filter)
     report_types = Report.REPORT_TYPES
     status_choices = Report.STATUS_CHOICES
     
@@ -62,7 +69,12 @@ def reports_list(request):
 @login_required
 def report_detail(request, report_id):
     """Détails d'un rapport"""
-    report = get_object_or_404(Report, id=report_id)
+    # Filtrer par entreprise si l'utilisateur n'est pas owner
+    report_filter = {'id': report_id}
+    if hasattr(request, 'current_company') and request.current_company:
+        report_filter['company'] = request.current_company
+    
+    report = get_object_or_404(Report, **report_filter)
     
     context = {
         'report': report,
@@ -78,6 +90,11 @@ def generate_report(request):
     try:
         data = json.loads(request.body)
         
+        # Obtenir l'entreprise de l'utilisateur
+        company = None
+        if hasattr(request, 'current_company') and request.current_company:
+            company = request.current_company
+        
         report = Report.objects.create(
             title=data['title'],
             report_type=data['report_type'],
@@ -85,6 +102,7 @@ def generate_report(request):
             period_start=datetime.fromisoformat(data['period_start']),
             period_end=datetime.fromisoformat(data['period_end']),
             generated_by=request.user,
+            company=company,
             status='generating',
         )
         
@@ -112,15 +130,23 @@ def statistics_dashboard(request):
     end_date = timezone.now()
     start_date = end_date - timedelta(days=days)
     
+    # Filtrer par entreprise si l'utilisateur n'est pas owner
+    detection_filter = {
+        'detected_at__gte': start_date,
+        'detected_at__lte': end_date
+    }
+    alert_filter = {
+        'created_at__gte': start_date,
+        'created_at__lte': end_date
+    }
+    
+    if hasattr(request, 'current_company') and request.current_company:
+        detection_filter['camera__location__company'] = request.current_company
+        alert_filter['company'] = request.current_company
+    
     # Filtrer par localisation si spécifiée
-    base_detections = DetectionEvent.objects.filter(
-        detected_at__gte=start_date,
-        detected_at__lte=end_date
-    )
-    base_alerts = Alert.objects.filter(
-        created_at__gte=start_date,
-        created_at__lte=end_date
-    )
+    base_detections = DetectionEvent.objects.filter(**detection_filter)
+    base_alerts = Alert.objects.filter(**alert_filter)
     
     if location_id:
         base_detections = base_detections.filter(camera__location_id=location_id)

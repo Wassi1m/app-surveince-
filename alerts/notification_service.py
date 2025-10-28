@@ -340,6 +340,15 @@ Système de Surveillance IA
             Q(user=user) | Q(user_group__in=['all', 'admins'] if user.is_staff else ['all'])
         )
         
+        # Filtrer par entreprise si l'utilisateur n'est pas owner
+        if hasattr(user, 'company_profile') and user.company_profile and not user.company_profile.is_owner:
+            # Inclure les notifications liées aux alertes de l'entreprise OU les notifications owner ciblées
+            queryset = queryset.filter(
+                Q(alert__company=user.company_profile.company) |  # Notifications d'alertes de l'entreprise
+                Q(alert__isnull=True, metadata__created_by_owner=True) |  # Notifications owner générales
+                Q(alert__isnull=True, metadata__target_company_id=user.company_profile.company.id)  # Notifications owner ciblées
+            )
+        
         if unread_only:
             queryset = queryset.filter(read_at__isnull=True)
         

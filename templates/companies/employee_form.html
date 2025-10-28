@@ -1,0 +1,853 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Variables CSS pour la cohérence */
+    :root {
+        --manager-gradient: linear-gradient(135deg, #17a2b8 0%, #0dcaf0 100%);
+        --success-gradient: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        --card-bg: rgba(255, 255, 255, 0.95);
+        --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.15);
+        --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.1);
+        --border-radius: 16px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background: var(--manager-gradient);
+        min-height: 100vh;
+        padding: 2rem 0;
+    }
+
+    .form-wizard-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+
+    .form-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(20px);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+        animation: slideUp 0.6s ease-out;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .form-header {
+        background: var(--manager-gradient);
+        color: white;
+        padding: 2.5rem 2rem;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .form-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="white" opacity="0.1"/><circle cx="90" cy="90" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="30" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    }
+
+    .form-header h2 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 300;
+        position: relative;
+        z-index: 1;
+    }
+
+    .form-header .subtitle {
+        margin-top: 0.5rem;
+        opacity: 0.9;
+        font-size: 1.1rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .form-progress {
+        background: rgba(255, 255, 255, 0.1);
+        height: 4px;
+        margin-top: 1.5rem;
+        border-radius: 2px;
+        overflow: hidden;
+        position: relative;
+        z-index: 1;
+    }
+
+    .form-progress-bar {
+        background: rgba(255, 255, 255, 0.8);
+        height: 100%;
+        width: 25%;
+        border-radius: 2px;
+        transition: width 0.3s ease;
+    }
+
+    .form-content {
+        padding: 2.5rem;
+        background: white;
+    }
+
+    .form-section {
+        margin-bottom: 2.5rem;
+        padding: 2rem;
+        background: linear-gradient(135deg, rgba(23, 162, 184, 0.02) 0%, rgba(13, 202, 240, 0.02) 100%);
+        border-radius: 12px;
+        border: 1px solid rgba(23, 162, 184, 0.1);
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .form-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--manager-gradient);
+        border-radius: 0 2px 2px 0;
+    }
+
+    .form-section:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        border-color: rgba(23, 162, 184, 0.2);
+    }
+
+    .form-section:last-child {
+        margin-bottom: 0;
+    }
+
+    .section-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid rgba(23, 162, 184, 0.1);
+    }
+
+    .section-icon {
+        width: 48px;
+        height: 48px;
+        background: var(--manager-gradient);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+        box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3);
+    }
+
+    .section-title {
+        margin: 0;
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-grid.single {
+        grid-template-columns: 1fr;
+    }
+
+    .form-group {
+        position: relative;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .required {
+        color: #e74c3c;
+        margin-left: 2px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        font-size: 1rem;
+        transition: var(--transition);
+        background: white;
+        box-sizing: border-box;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #17a2b8;
+        box-shadow: 0 0 0 3px rgba(23, 162, 184, 0.1);
+        transform: translateY(-1px);
+    }
+
+    .form-control:hover {
+        border-color: #17a2b8;
+    }
+
+    .help-text {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-top: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .help-text i {
+        color: #17a2b8;
+    }
+
+    .permissions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .permission-card {
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1rem;
+        transition: var(--transition);
+        cursor: pointer;
+    }
+
+    .permission-card:hover {
+        border-color: #17a2b8;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(23, 162, 184, 0.1);
+    }
+
+    .permission-card.selected {
+        border-color: #17a2b8;
+        background: linear-gradient(135deg, rgba(23, 162, 184, 0.1) 0%, rgba(13, 202, 240, 0.1) 100%);
+    }
+
+    .permission-checkbox {
+        display: none;
+    }
+
+    .permission-label {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        cursor: pointer;
+        font-weight: 500;
+        color: #2c3e50;
+    }
+
+    .permission-icon {
+        width: 40px;
+        height: 40px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #17a2b8;
+        font-size: 1.1rem;
+        transition: var(--transition);
+    }
+
+    .permission-card.selected .permission-icon {
+        background: #17a2b8;
+        color: white;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+        padding: 2rem;
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+        margin: 0 -2.5rem -2.5rem -2.5rem;
+    }
+
+    .btn {
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: var(--transition);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .btn:hover::before {
+        left: 100%;
+    }
+
+    .btn-info {
+        background: var(--manager-gradient);
+        color: white;
+        box-shadow: 0 4px 15px rgba(23, 162, 184, 0.4);
+    }
+
+    .btn-info:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(23, 162, 184, 0.6);
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+        box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4);
+    }
+
+    .btn-secondary:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(108, 117, 125, 0.6);
+        color: white;
+        text-decoration: none;
+    }
+
+    .alert {
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+        border-radius: 10px;
+        border: none;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-weight: 500;
+    }
+
+    .alert-success {
+        background: linear-gradient(135deg, rgba(40, 167, 69, 0.1) 0%, rgba(25, 135, 84, 0.1) 100%);
+        color: #155724;
+        border-left: 4px solid #28a745;
+    }
+
+    .alert-error {
+        background: linear-gradient(135deg, rgba(220, 53, 69, 0.1) 0%, rgba(114, 28, 36, 0.1) 100%);
+        color: #721c24;
+        border-left: 4px solid #dc3545;
+    }
+
+    /* Animations d'entrée */
+    .form-section {
+        animation: fadeInUp 0.6s ease-out;
+        animation-fill-mode: both;
+    }
+
+    .form-section:nth-child(1) { animation-delay: 0.1s; }
+    .form-section:nth-child(2) { animation-delay: 0.2s; }
+    .form-section:nth-child(3) { animation-delay: 0.3s; }
+    .form-section:nth-child(4) { animation-delay: 0.4s; }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Styles pour les champs select */
+    select.form-control {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 0.75rem center;
+        background-repeat: no-repeat;
+        background-size: 1.5em 1.5em;
+        padding-right: 2.5rem;
+        appearance: none;
+        cursor: pointer;
+    }
+
+    select.form-control:focus {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2317a2b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    }
+
+    /* Animation pour les labels avec icônes */
+    .form-group label i {
+        transition: var(--transition);
+        opacity: 0.7;
+    }
+
+    .form-group:hover label i,
+    .form-control:focus ~ label i {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+
+    /* Amélioration des champs de mot de passe */
+    input[type="password"].form-control {
+        font-family: 'Courier New', monospace;
+        letter-spacing: 2px;
+    }
+
+    input[type="password"].form-control::placeholder {
+        font-family: inherit;
+        letter-spacing: normal;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        body {
+            padding: 1rem 0;
+        }
+
+        .form-content {
+            padding: 1.5rem;
+        }
+
+        .form-section {
+            padding: 1.5rem;
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .form-actions {
+            flex-direction: column;
+            padding: 1.5rem;
+            margin: 0 -1.5rem -1.5rem -1.5rem;
+        }
+
+        .permissions-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .form-header h2 {
+            font-size: 2rem;
+        }
+    }
+
+    /* Assurer la visibilité du texte dans tous les champs */
+    input, textarea, select {
+        color: #2c3e50 !important;
+        background-color: #ffffff !important;
+    }
+
+    input:focus, textarea:focus, select:focus {
+        color: #2c3e50 !important;
+        background-color: #ffffff !important;
+    }
+
+    /* Styles pour les placeholders */
+    input::placeholder, textarea::placeholder {
+        color: #adb5bd !important;
+        opacity: 0.7 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-wizard-container">
+    <div class="form-card">
+        <div class="form-header">
+            <h2>{{ title }}</h2>
+            <p class="subtitle">Ajout d'un nouvel employé à {{ company.name }}</p>
+            <div class="form-progress">
+                <div class="form-progress-bar"></div>
+            </div>
+        </div>
+        
+        <div class="form-content">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{% if message.tags == 'error' %}error{% else %}{{ message.tags }}{% endif %}">
+                        <i class="fas fa-{% if message.tags == 'error' %}exclamation-triangle{% else %}check-circle{% endif %}"></i>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+            
+            <form method="post" id="employee-form">
+                {% csrf_token %}
+                
+                <!-- Informations de connexion -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <div class="section-icon">
+                            <i class="fas fa-key"></i>
+                        </div>
+                        <h3 class="section-title">Informations de connexion</h3>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="{{ form.username.id_for_label }}">
+                                <i class="fas fa-user me-2"></i>
+                                {{ form.username.label }}
+                            </label>
+                            <input type="text" name="{{ form.username.name }}" id="{{ form.username.id_for_label }}" 
+                                   class="form-control" placeholder="Ex: jean.dupont (optionnel)" 
+                                   value="{{ form.username.value|default:'' }}">
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Laissez vide pour utiliser l'email comme nom d'utilisateur
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.email.id_for_label }}">
+                                <i class="fas fa-envelope me-2"></i>
+                                {{ form.email.label }} <span class="required">*</span>
+                            </label>
+                            <input type="email" name="{{ form.email.name }}" id="{{ form.email.id_for_label }}" 
+                                   class="form-control" placeholder="Ex: jean.dupont@monentreprise.fr" 
+                                   value="{{ form.email.value|default:'' }}" required>
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Adresse email professionnelle de l'employé
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="{{ form.password1.id_for_label }}">
+                                <i class="fas fa-lock me-2"></i>
+                                {{ form.password1.label }} <span class="required">*</span>
+                            </label>
+                            <input type="password" name="{{ form.password1.name }}" id="{{ form.password1.id_for_label }}" 
+                                   class="form-control" placeholder="Mot de passe sécurisé" 
+                                   value="{{ form.password1.value|default:'' }}" required>
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Minimum 8 caractères avec lettres, chiffres et symboles
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.password2.id_for_label }}">
+                                <i class="fas fa-lock me-2"></i>
+                                {{ form.password2.label }} <span class="required">*</span>
+                            </label>
+                            <input type="password" name="{{ form.password2.name }}" id="{{ form.password2.id_for_label }}" 
+                                   class="form-control" placeholder="Confirmez le mot de passe" 
+                                   value="{{ form.password2.value|default:'' }}" required>
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Saisissez à nouveau le même mot de passe
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Informations personnelles -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <div class="section-icon">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <h3 class="section-title">Informations personnelles</h3>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="{{ form.first_name.id_for_label }}">
+                                <i class="fas fa-user me-2"></i>
+                                {{ form.first_name.label }} <span class="required">*</span>
+                            </label>
+                            <input type="text" name="{{ form.first_name.name }}" id="{{ form.first_name.id_for_label }}" 
+                                   class="form-control" placeholder="Ex: Jean" 
+                                   value="{{ form.first_name.value|default:'' }}" required>
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Prénom de l'employé
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.last_name.id_for_label }}">
+                                <i class="fas fa-user me-2"></i>
+                                {{ form.last_name.label }} <span class="required">*</span>
+                            </label>
+                            <input type="text" name="{{ form.last_name.name }}" id="{{ form.last_name.id_for_label }}" 
+                                   class="form-control" placeholder="Ex: Dupont" 
+                                   value="{{ form.last_name.value|default:'' }}" required>
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Nom de famille de l'employé
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="{{ form.phone.id_for_label }}">
+                                <i class="fas fa-phone me-2"></i>
+                                {{ form.phone.label }}
+                            </label>
+                            <input type="tel" name="{{ form.phone.name }}" id="{{ form.phone.id_for_label }}" 
+                                   class="form-control" placeholder="Ex: +33 6 12 34 56 78" 
+                                   value="{{ form.phone.value|default:'' }}">
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Numéro de téléphone mobile (optionnel)
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.employee_id.id_for_label }}">
+                                <i class="fas fa-id-badge me-2"></i>
+                                {{ form.employee_id.label }}
+                            </label>
+                            <input type="text" name="{{ form.employee_id.name }}" id="{{ form.employee_id.id_for_label }}" 
+                                   class="form-control" placeholder="Ex: EMP001" 
+                                   value="{{ form.employee_id.value|default:'' }}">
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Identifiant interne de l'employé (optionnel)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Informations professionnelles -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <div class="section-icon">
+                            <i class="fas fa-briefcase"></i>
+                        </div>
+                        <h3 class="section-title">Informations professionnelles</h3>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="{{ form.role.id_for_label }}">
+                                <i class="fas fa-user-tag me-2"></i>
+                                {{ form.role.label }}
+                            </label>
+                            <select name="{{ form.role.name }}" id="{{ form.role.id_for_label }}" class="form-control">
+                                <option value="">Sélectionnez un rôle</option>
+                                <option value="manager" {% if form.role.value == 'manager' %}selected{% endif %}>Manager d'entreprise</option>
+                                <option value="employee" {% if form.role.value == 'employee' %}selected{% endif %}>Employé</option>
+                                <option value="viewer" {% if form.role.value == 'viewer' %}selected{% endif %}>Observateur</option>
+                            </select>
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Niveau d'accès et responsabilités dans l'entreprise
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="{{ form.department.id_for_label }}">
+                                <i class="fas fa-building me-2"></i>
+                                {{ form.department.label }}
+                            </label>
+                            <input type="text" name="{{ form.department.name }}" id="{{ form.department.id_for_label }}" 
+                                   class="form-control" placeholder="Ex: Sécurité, IT, Commercial" 
+                                   value="{{ form.department.value|default:'' }}">
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Département ou service de l'employé
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid single">
+                        <div class="form-group">
+                            <label for="{{ form.position.id_for_label }}">
+                                <i class="fas fa-user-tie me-2"></i>
+                                {{ form.position.label }}
+                            </label>
+                            <input type="text" name="{{ form.position.name }}" id="{{ form.position.id_for_label }}" 
+                                   class="form-control" placeholder="Ex: Technicien de surveillance, Responsable sécurité" 
+                                   value="{{ form.position.value|default:'' }}">
+                            <div class="help-text">
+                                <i class="fas fa-info-circle"></i>
+                                Intitulé du poste occupé dans l'entreprise
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Permissions -->
+                <div class="form-section">
+                    <div class="section-header">
+                        <div class="section-icon">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <h3 class="section-title">Permissions et accès</h3>
+                    </div>
+                    
+                    <div class="permissions-grid">
+                        <div class="permission-card" onclick="togglePermission('can_manage_users')">
+                            <input type="checkbox" id="{{ form.can_manage_users.id_for_label }}" name="can_manage_users" class="permission-checkbox">
+                            <label for="{{ form.can_manage_users.id_for_label }}" class="permission-label">
+                                <div class="permission-icon">
+                                    <i class="fas fa-users-cog"></i>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 600;">Gérer les utilisateurs</div>
+                                    <div style="font-size: 0.8rem; color: #6c757d;">Créer et modifier les comptes</div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div class="permission-card" onclick="togglePermission('can_manage_cameras')">
+                            <input type="checkbox" id="{{ form.can_manage_cameras.id_for_label }}" name="can_manage_cameras" class="permission-checkbox">
+                            <label for="{{ form.can_manage_cameras.id_for_label }}" class="permission-label">
+                                <div class="permission-icon">
+                                    <i class="fas fa-video"></i>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 600;">Gérer les caméras</div>
+                                    <div style="font-size: 0.8rem; color: #6c757d;">Configuration et surveillance</div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div class="permission-card" onclick="togglePermission('can_manage_alerts')">
+                            <input type="checkbox" id="{{ form.can_manage_alerts.id_for_label }}" name="can_manage_alerts" class="permission-checkbox">
+                            <label for="{{ form.can_manage_alerts.id_for_label }}" class="permission-label">
+                                <div class="permission-icon">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 600;">Gérer les alertes</div>
+                                    <div style="font-size: 0.8rem; color: #6c757d;">Règles et notifications</div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div class="permission-card selected" onclick="togglePermission('can_view_reports')">
+                            <input type="checkbox" id="{{ form.can_view_reports.id_for_label }}" name="can_view_reports" class="permission-checkbox" checked>
+                            <label for="{{ form.can_view_reports.id_for_label }}" class="permission-label">
+                                <div class="permission-icon">
+                                    <i class="fas fa-chart-bar"></i>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 600;">Voir les rapports</div>
+                                    <div style="font-size: 0.8rem; color: #6c757d;">Accès aux statistiques</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <div class="form-actions">
+            <a href="{% url 'companies:manage_employees' %}" class="btn btn-secondary">
+                <i class="fas fa-times"></i>
+                Annuler
+            </a>
+            <button type="submit" form="employee-form" class="btn btn-info">
+                <i class="fas fa-user-plus"></i>
+                Créer l'employé
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePermission(permissionName) {
+    const checkbox = document.getElementById(`id_${permissionName}`);
+    const card = checkbox.closest('.permission-card');
+    
+    checkbox.checked = !checkbox.checked;
+    
+    if (checkbox.checked) {
+        card.classList.add('selected');
+    } else {
+        card.classList.remove('selected');
+    }
+    
+    updateProgress();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Animation de la barre de progression
+    const progressBar = document.querySelector('.form-progress-bar');
+    
+    function updateProgress() {
+        const inputs = document.querySelectorAll('input[required]');
+        let filledInputs = 0;
+        
+        inputs.forEach(input => {
+            if (input.value.trim() !== '') {
+                filledInputs++;
+            }
+        });
+        
+        const percentage = Math.min((filledInputs / inputs.length) * 100, 100);
+        progressBar.style.width = percentage + '%';
+    }
+    
+    // Écouter les changements dans les champs
+    document.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', updateProgress);
+    });
+    
+    // Mise à jour initiale
+    updateProgress();
+    
+    // Initialiser les permissions
+    document.querySelectorAll('.permission-checkbox').forEach(checkbox => {
+        const card = checkbox.closest('.permission-card');
+        if (checkbox.checked) {
+            card.classList.add('selected');
+        }
+    });
+});
+
+// Rendre la fonction globale
+window.updateProgress = updateProgress;
+</script>
+{% endblock %}

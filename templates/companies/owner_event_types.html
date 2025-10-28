@@ -1,0 +1,657 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Types d'Événements - Owner - Surveillance System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .event-types-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 3rem 0;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .event-types-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="white" opacity="0.1"/><circle cx="90" cy="90" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="30" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    }
+    
+    .event-types-header h1 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 600;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .event-types-header p {
+        margin: 0.5rem 0 0 0;
+        opacity: 0.95;
+        font-size: 1.1rem;
+        font-weight: 500;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .stats-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        color: #495057;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.85rem;
+    }
+    
+    .event-type-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .event-type-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    
+    .event-type-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #f1f2f6;
+        position: relative;
+    }
+    
+    .event-type-title {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #212529;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .event-type-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.1rem;
+    }
+    
+    .event-type-meta {
+        color: #495057;
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin: 0;
+        line-height: 1.4;
+    }
+    
+    .severity-badge {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .severity-low { background: #d1ecf1; color: #0c5460; }
+    .severity-medium { background: #fff3cd; color: #856404; }
+    .severity-high { background: #f8d7da; color: #721c24; }
+    .severity-critical { background: #d1ecf1; color: #721c24; background: #f5c6cb; }
+    
+    .event-type-content {
+        padding: 1.5rem;
+        background: #f8f9fa;
+    }
+    
+    .event-type-description {
+        margin: 0 0 1rem 0;
+        color: #495057;
+        font-weight: 500;
+        line-height: 1.6;
+    }
+    
+    .event-type-features {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .feature-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .feature-enabled {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .feature-disabled {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .event-type-stats {
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #ffffff;
+        border-top: 1px solid #f1f2f6;
+    }
+    
+    .usage-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .usage-bar {
+        width: 100px;
+        height: 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .usage-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #28a745, #20c997);
+        transition: width 0.3s ease;
+    }
+    
+    .usage-text {
+        font-size: 0.85rem;
+        color: #495057;
+        font-weight: 600;
+    }
+    
+    .event-type-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .create-form {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .form-control {
+        padding: 0.75rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        color: #212529 !important;
+        font-weight: 500 !important;
+        background-color: #ffffff !important;
+    }
+    
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        color: #212529 !important;
+        background-color: #ffffff !important;
+    }
+    
+    .form-control::placeholder {
+        color: #6c757d !important;
+        opacity: 0.7 !important;
+    }
+    
+    .form-label {
+        color: #212529 !important;
+        font-weight: 700 !important;
+        margin-bottom: 0.5rem;
+    }
+    
+    .btn-create {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-create:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+    
+    .color-picker {
+        width: 50px;
+        height: 38px;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+    
+    .icon-preview {
+        width: 40px;
+        height: 40px;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8f9fa;
+        color: #495057;
+    }
+    
+    @media (max-width: 768px) {
+        .event-types-header h1 {
+            font-size: 2rem;
+        }
+        
+        .stats-cards {
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        }
+        
+        .create-form {
+            padding: 1.5rem;
+        }
+        
+        .event-type-features {
+            flex-direction: column;
+        }
+        
+        .usage-info {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="event-types-header">
+    <div class="container">
+        <h1><i class="fas fa-cogs me-3"></i>Types d'Événements</h1>
+        <p>Configurez les types d'événements que l'IA peut détecter pour toutes les entreprises</p>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Statistiques -->
+    <div class="stats-cards">
+        <div class="stat-card">
+            <div class="stat-number">{{ event_stats|length }}</div>
+            <div class="stat-label">Types Créés</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">{{ total_companies }}</div>
+            <div class="stat-label">Entreprises</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">
+                {% with active_count=0 %}
+                    {% for stat in event_stats %}
+                        {% if stat.event_type.is_active %}
+                            {% with active_count=active_count|add:1 %}{% endwith %}
+                        {% endif %}
+                    {% endfor %}
+                    {{ active_count }}
+                {% endwith %}
+            </div>
+            <div class="stat-label">Actifs</div>
+        </div>
+    </div>
+
+    <!-- Actions rapides -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-0" style="color: #212529; font-weight: 700;">
+                Gestion des Types d'Événements
+            </h4>
+        </div>
+        <div>
+            <button class="btn btn-success" onclick="toggleCreateForm()">
+                <i class="fas fa-plus"></i>
+                Nouveau Type
+            </button>
+        </div>
+    </div>
+
+    <!-- Formulaire de création (masqué par défaut) -->
+    <div id="createEventTypeForm" class="create-form" style="display: none;">
+        <h3 style="color: #212529; font-weight: 700; margin-bottom: 1.5rem;">
+            <i class="fas fa-plus-circle me-2"></i>Créer un Type d'Événement
+        </h3>
+        
+        <form id="eventTypeForm">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Nom du Type</label>
+                        <input type="text" class="form-control" name="name" placeholder="Ex: Intrusion" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Code Technique</label>
+                        <input type="text" class="form-control" name="code" placeholder="Ex: intrusion" required>
+                        <div class="form-text">Code utilisé par l'IA (lettres minuscules, chiffres, tirets)</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Description</label>
+                <textarea class="form-control" name="description" rows="3" placeholder="Description du type d'événement..."></textarea>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">Gravité</label>
+                        <select class="form-control" name="severity" required>
+                            <option value="low">Faible</option>
+                            <option value="medium" selected>Moyenne</option>
+                            <option value="high">Élevée</option>
+                            <option value="critical">Critique</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-3">
+                        <label class="form-label">Couleur</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="color" class="color-picker" name="color" value="#007bff">
+                            <span class="form-text">Couleur d'affichage</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Icône FontAwesome</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="text" class="form-control" name="icon" value="fas fa-exclamation-triangle" placeholder="fas fa-icon-name">
+                            <div class="icon-preview" id="iconPreview">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="auto_alert" id="autoAlert" checked>
+                            <label class="form-check-label" for="autoAlert">
+                                Alerte automatique
+                            </label>
+                            <div class="form-text">Créer automatiquement une alerte lors de la détection</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="requires_verification" id="requiresVerification">
+                            <label class="form-check-label" for="requiresVerification">
+                                Nécessite vérification
+                            </label>
+                            <div class="form-text">L'événement doit être vérifié manuellement</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="assign_to_all" id="assignToAll" checked>
+                    <label class="form-check-label" for="assignToAll">
+                        Assigner à toutes les entreprises
+                    </label>
+                    <div class="form-text">Activer ce type d'événement pour toutes les entreprises existantes</div>
+                </div>
+            </div>
+            
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-create">
+                    <i class="fas fa-save me-2"></i>Créer le Type
+                </button>
+                <button type="button" class="btn btn-outline-secondary" onclick="toggleCreateForm()">
+                    Annuler
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Liste des types d'événements -->
+    {% if event_stats %}
+        <div class="event-types-list">
+            {% for stat in event_stats %}
+            <div class="event-type-card">
+                <div class="event-type-header">
+                    <div class="severity-badge severity-{{ stat.event_type.severity }}">
+                        {{ stat.event_type.get_severity_display }}
+                    </div>
+                    
+                    <h3 class="event-type-title">
+                        <div class="event-type-icon" style="background-color: {{ stat.event_type.color }};">
+                            <i class="{{ stat.event_type.icon }}"></i>
+                        </div>
+                        {{ stat.event_type.name }}
+                        <span class="badge bg-secondary ms-2">{{ stat.event_type.code }}</span>
+                    </h3>
+                    
+                    <div class="event-type-meta">
+                        <i class="fas fa-calendar me-1"></i>
+                        Créé le {{ stat.event_type.created_at|date:"d/m/Y" }}
+                        {% if stat.event_type.created_by %}
+                        par {{ stat.event_type.created_by.get_full_name|default:stat.event_type.created_by.username }}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if stat.event_type.description %}
+                <div class="event-type-content">
+                    <p class="event-type-description">{{ stat.event_type.description }}</p>
+                    
+                    <div class="event-type-features">
+                        <span class="feature-badge {% if stat.event_type.auto_alert %}feature-enabled{% else %}feature-disabled{% endif %}">
+                            <i class="fas fa-{% if stat.event_type.auto_alert %}check{% else %}times{% endif %}"></i>
+                            Alerte Auto
+                        </span>
+                        <span class="feature-badge {% if stat.event_type.requires_verification %}feature-enabled{% else %}feature-disabled{% endif %}">
+                            <i class="fas fa-{% if stat.event_type.requires_verification %}check{% else %}times{% endif %}"></i>
+                            Vérification
+                        </span>
+                        <span class="feature-badge {% if stat.event_type.is_active %}feature-enabled{% else %}feature-disabled{% endif %}">
+                            <i class="fas fa-{% if stat.event_type.is_active %}check{% else %}times{% endif %}"></i>
+                            {% if stat.event_type.is_active %}Actif{% else %}Inactif{% endif %}
+                        </span>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="event-type-stats">
+                    <div class="usage-info">
+                        <div class="usage-bar">
+                            <div class="usage-fill" style="width: {{ stat.usage_percentage }}%;"></div>
+                        </div>
+                        <div class="usage-text">
+                            {{ stat.companies_count }}/{{ total_companies }} entreprises ({{ stat.usage_percentage }}%)
+                        </div>
+                    </div>
+                    
+                    <div class="event-type-actions">
+                        <button class="btn btn-outline-info btn-sm" onclick="editEventType({{ stat.event_type.id }})">
+                            <i class="fas fa-edit"></i>
+                            Modifier
+                        </button>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                {% for company in companies %}
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'companies:manage_company_event_types' company.id %}">
+                                        <i class="fas fa-building me-2"></i>{{ company.name }}
+                                    </a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-cogs fa-4x text-muted mb-3"></i>
+            <h3 class="text-muted">Aucun type d'événement</h3>
+            <p class="text-muted">Commencez par créer votre premier type d'événement.</p>
+            <button class="btn btn-create" onclick="toggleCreateForm()">
+                <i class="fas fa-plus me-2"></i>Créer le premier type
+            </button>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+function toggleCreateForm() {
+    const form = document.getElementById('createEventTypeForm');
+    if (form.style.display === 'none') {
+        form.style.display = 'block';
+        form.scrollIntoView({ behavior: 'smooth' });
+    } else {
+        form.style.display = 'none';
+        document.getElementById('eventTypeForm').reset();
+    }
+}
+
+// Prévisualisation de l'icône
+document.querySelector('input[name="icon"]').addEventListener('input', function() {
+    const iconPreview = document.getElementById('iconPreview');
+    const iconClass = this.value || 'fas fa-exclamation-triangle';
+    iconPreview.innerHTML = `<i class="${iconClass}"></i>`;
+});
+
+// Soumission du formulaire
+document.getElementById('eventTypeForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = {
+        name: formData.get('name'),
+        code: formData.get('code'),
+        description: formData.get('description'),
+        severity: formData.get('severity'),
+        color: formData.get('color'),
+        icon: formData.get('icon'),
+        auto_alert: formData.has('auto_alert'),
+        requires_verification: formData.has('requires_verification'),
+        assign_to_all: formData.has('assign_to_all')
+    };
+    
+    // Validation
+    if (!data.name.trim() || !data.code.trim()) {
+        alert('Le nom et le code sont obligatoires.');
+        return;
+    }
+    
+    // Validation du code (lettres minuscules, chiffres, tirets uniquement)
+    if (!/^[a-z0-9_-]+$/.test(data.code)) {
+        alert('Le code ne peut contenir que des lettres minuscules, chiffres, tirets et underscores.');
+        return;
+    }
+    
+    // Confirmation
+    const assignText = data.assign_to_all ? 'et l\'assigner à toutes les entreprises' : '';
+    if (!confirm(`Créer le type d'événement "${data.name}" ${assignText} ?`)) {
+        return;
+    }
+    
+    // Envoyer la requête
+    fetch('{% url "companies:create_event_type" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ ${data.message}`);
+            location.reload();
+        } else {
+            alert(`❌ Erreur: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('❌ Erreur lors de la création du type d\'événement.');
+    });
+});
+
+function editEventType(eventTypeId) {
+    // TODO: Implémenter l'édition
+    alert('Fonctionnalité d\'édition à implémenter');
+}
+</script>
+{% endblock %}

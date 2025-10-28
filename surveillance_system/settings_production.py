@@ -7,6 +7,7 @@ from .settings import *
 # Production settings
 DEBUG = False
 
+
 # Security
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-default-key-for-render-deployment-change-me')
 
@@ -42,13 +43,10 @@ DATABASES = {
 }
 
 # Redis/Channels
-# Utiliser Redis si disponible, sinon InMemoryChannelLayer
-# WebSocket support supprimé - utilisation d'API REST uniquement
-# redis_url = config('REDIS_URL', default=None)
 
-# Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 

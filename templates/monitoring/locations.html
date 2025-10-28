@@ -1,0 +1,760 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Gestion des Localisations{% endblock %}
+
+{% block extra_css %}
+<style>
+    .locations-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .locations-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="white" opacity="0.1"/><circle cx="90" cy="90" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="30" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    }
+    
+    .locations-header h1 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 600;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .locations-header p {
+        margin: 0.5rem 0 0 0;
+        opacity: 0.95;
+        font-size: 1.1rem;
+        font-weight: 500;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .locations-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .location-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        overflow: hidden;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(40, 167, 69, 0.1);
+        position: relative;
+    }
+    
+    .location-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        border-color: rgba(40, 167, 69, 0.3);
+    }
+    
+    .location-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    }
+    
+    .location-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #f1f2f6;
+        position: relative;
+    }
+    
+    .location-name {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #212529;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .location-icon {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.1rem;
+    }
+    
+    .location-address {
+        color: #495057;
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin: 0;
+        line-height: 1.4;
+    }
+    
+    .location-status {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+    }
+    
+    .status-badge {
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    
+    .status-active {
+        background: linear-gradient(135deg, rgba(40, 167, 69, 0.1) 0%, rgba(32, 201, 151, 0.1) 100%);
+        color: #155724;
+        border: 1px solid rgba(40, 167, 69, 0.3);
+    }
+    
+    .status-inactive {
+        background: linear-gradient(135deg, rgba(220, 53, 69, 0.1) 0%, rgba(114, 28, 36, 0.1) 100%);
+        color: #721c24;
+        border: 1px solid rgba(220, 53, 69, 0.3);
+    }
+    
+    .location-stats {
+        padding: 1rem 1.5rem;
+        background: #f8f9fa;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .stat-number {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #28a745;
+    }
+    
+    .stat-label {
+        font-size: 0.8rem;
+        color: #495057;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .location-actions {
+        padding: 1rem 1.5rem;
+        display: flex;
+        gap: 0.75rem;
+        justify-content: flex-end;
+    }
+    
+    .btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .btn-success {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+    
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(40, 167, 69, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .btn-outline-primary {
+        background: transparent;
+        color: #667eea;
+        border: 2px solid #667eea;
+    }
+    
+    .btn-outline-primary:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-1px);
+    }
+    
+    .btn-outline-secondary {
+        background: transparent;
+        color: #6c757d;
+        border: 2px solid #6c757d;
+    }
+    
+    .btn-outline-secondary:hover {
+        background: #6c757d;
+        color: white;
+        transform: translateY(-1px);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .empty-state h3 {
+        margin-bottom: 1rem;
+        color: #212529;
+        font-weight: 700;
+    }
+    
+    .empty-state p {
+        margin-bottom: 2rem;
+        font-size: 1.1rem;
+        color: #495057;
+        font-weight: 500;
+    }
+    
+    /* Modal styles */
+    .modal-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    }
+    
+    .modal-header {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        border-radius: 12px 12px 0 0;
+        border-bottom: none;
+    }
+    
+    .modal-title {
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .btn-close {
+        filter: invert(1);
+    }
+    
+    .form-control {
+        padding: 0.75rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        color: #212529 !important;
+        font-weight: 500 !important;
+        background-color: #ffffff !important;
+    }
+    
+    .form-control:focus {
+        border-color: #28a745;
+        box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+        color: #212529 !important;
+        background-color: #ffffff !important;
+    }
+    
+    .form-control::placeholder {
+        color: #6c757d !important;
+        opacity: 0.7 !important;
+    }
+    
+    /* Améliorer la visibilité des labels */
+    .form-label {
+        color: #212529 !important;
+        font-weight: 700 !important;
+    }
+    
+    @media (max-width: 768px) {
+        .locations-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .location-stats {
+            grid-template-columns: 1fr;
+        }
+        
+        .location-actions {
+            flex-direction: column;
+        }
+        
+        .locations-header h1 {
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="locations-header">
+    <div class="container">
+        <h1>
+            <i class="fas fa-map-marked-alt me-3"></i>
+            Gestion des Localisations
+        </h1>
+        <p>Configurez et gérez tous vos sites de surveillance</p>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Actions rapides -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="mb-0" style="color: #212529; font-weight: 700;">
+                {% if locations %}
+                    {{ locations.count }} localisation{{ locations.count|pluralize }}
+                {% endif %}
+            </h4>
+        </div>
+        <div>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createLocationModal">
+                <i class="fas fa-plus"></i>
+                Nouvelle Localisation
+            </button>
+        </div>
+    </div>
+    
+    <!-- Liste des localisations -->
+    {% if locations %}
+        <div class="locations-grid">
+            {% for location in locations %}
+                <div class="location-card">
+                    <div class="location-header">
+                        <div class="location-status">
+                            <span class="status-badge {% if location.is_active %}status-active{% else %}status-inactive{% endif %}">
+                                <i class="fas fa-circle"></i>
+                                {% if location.is_active %}Actif{% else %}Inactif{% endif %}
+                            </span>
+                        </div>
+                        
+                        <h3 class="location-name">
+                            <div class="location-icon">
+                                <i class="fas fa-map-marker-alt"></i>
+                            </div>
+                            {{ location.name }}
+                        </h3>
+                        
+                        <p class="location-address">{{ location.address|truncatechars:80 }}</p>
+                        
+                        {% if location.description %}
+                            <p class="location-address mt-2">
+                                <i class="fas fa-info-circle me-1"></i>
+                                {{ location.description|truncatechars:100 }}
+                            </p>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="location-stats">
+                        <div class="stat-item">
+                            <div class="stat-number">{{ location.zones.count }}</div>
+                            <div class="stat-label">Zones</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{{ location.cameras.count }}</div>
+                            <div class="stat-label">Caméras</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">{{ location.incidents.count }}</div>
+                            <div class="stat-label">Incidents</div>
+                        </div>
+                    </div>
+                    
+                    <div class="location-actions">
+                        <a href="{% url 'monitoring:location_detail' location.id %}" 
+                           class="btn btn-outline-info">
+                            <i class="fas fa-eye"></i>
+                            Voir
+                        </a>
+                        <button onclick="editLocation({{ location.id }})" 
+                                class="btn btn-outline-warning">
+                            <i class="fas fa-edit"></i>
+                            Modifier
+                        </button>
+                        <a href="{% url 'monitoring:zones' %}?location={{ location.id }}" 
+                           class="btn btn-outline-primary">
+                            <i class="fas fa-th-large"></i>
+                            Zones
+                        </a>
+                        <a href="{% url 'monitoring:cameras' %}?location={{ location.id }}" 
+                           class="btn btn-outline-secondary">
+                            <i class="fas fa-video"></i>
+                            Caméras
+                        </a>
+                        <button onclick="deleteLocation({{ location.id }}, '{{ location.name|escapejs }}')" 
+                                class="btn btn-outline-danger">
+                            <i class="fas fa-trash"></i>
+                            Supprimer
+                        </button>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        
+    {% else %}
+        <div class="empty-state">
+            <i class="fas fa-map-marked-alt"></i>
+            <h3>Aucune localisation configurée</h3>
+            <p>Commencez par créer votre première localisation pour organiser vos zones de surveillance.</p>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createLocationModal">
+                <i class="fas fa-plus"></i>
+                Créer votre première localisation
+            </button>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal d'édition de localisation -->
+<div class="modal fade" id="editLocationModal" tabindex="-1" aria-labelledby="editLocationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editLocationModalLabel">
+                    <i class="fas fa-edit"></i>
+                    Modifier la Localisation
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editLocationForm">
+                    {% csrf_token %}
+                    <input type="hidden" id="editLocationId" name="location_id">
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="editLocationName" class="form-label">
+                                <i class="fas fa-building me-1"></i>
+                                Nom de la localisation <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="editLocationName" name="name" required>
+                        </div>
+                        
+                        <div class="col-md-12 mb-3">
+                            <label for="editLocationAddress" class="form-label">
+                                <i class="fas fa-map-marker-alt me-1"></i>
+                                Adresse complète <span class="text-danger">*</span>
+                            </label>
+                            <textarea class="form-control" id="editLocationAddress" name="address" rows="3" required></textarea>
+                        </div>
+                        
+                        <div class="col-md-12 mb-3">
+                            <label for="editLocationDescription" class="form-label">
+                                <i class="fas fa-align-left me-1"></i>
+                                Description (optionnel)
+                            </label>
+                            <textarea class="form-control" id="editLocationDescription" name="description" rows="2"></textarea>
+                        </div>
+                        
+                        <div class="col-md-12 mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="editLocationActive" name="is_active">
+                                <label class="form-check-label" for="editLocationActive">
+                                    Localisation active
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i>
+                    Annuler
+                </button>
+                <button type="button" class="btn btn-warning" onclick="updateLocation()">
+                    <i class="fas fa-save"></i>
+                    Sauvegarder
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de création de localisation -->
+<div class="modal fade" id="createLocationModal" tabindex="-1" aria-labelledby="createLocationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createLocationModalLabel">
+                    <i class="fas fa-plus"></i>
+                    Nouvelle Localisation
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createLocationForm">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="locationName" class="form-label">
+                                <i class="fas fa-building me-1"></i>
+                                Nom de la localisation <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="locationName" name="name" 
+                                   placeholder="Ex: Magasin Centre-Ville" required>
+                        </div>
+                        
+                        <div class="col-md-12 mb-3">
+                            <label for="locationAddress" class="form-label">
+                                <i class="fas fa-map-marker-alt me-1"></i>
+                                Adresse complète <span class="text-danger">*</span>
+                            </label>
+                            <textarea class="form-control" id="locationAddress" name="address" rows="3" 
+                                      placeholder="123 Rue de la République&#10;75001 Paris&#10;France" required></textarea>
+                        </div>
+                        
+                        <div class="col-md-12 mb-3">
+                            <label for="locationDescription" class="form-label">
+                                <i class="fas fa-align-left me-1"></i>
+                                Description (optionnel)
+                            </label>
+                            <textarea class="form-control" id="locationDescription" name="description" rows="2" 
+                                      placeholder="Description du site, particularités, horaires..."></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i>
+                    Annuler
+                </button>
+                <button type="button" class="btn btn-success" onclick="createLocation()">
+                    <i class="fas fa-plus"></i>
+                    Créer la localisation
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function createLocation() {
+    const form = document.getElementById('createLocationForm');
+    const formData = new FormData(form);
+    
+    const data = {
+        name: formData.get('name'),
+        address: formData.get('address'),
+        description: formData.get('description') || '',
+    };
+    
+    // Validation côté client
+    if (!data.name || !data.address) {
+        alert('Veuillez remplir tous les champs obligatoires.');
+        return;
+    }
+    
+    fetch('{% url "monitoring:create_location" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Fermer le modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('createLocationModal'));
+            modal.hide();
+            
+            // Recharger la page pour afficher la nouvelle localisation
+            location.reload();
+        } else {
+            alert('Erreur lors de la création: ' + (data.error || 'Erreur inconnue'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la création de la localisation');
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Animation d'entrée des cartes
+    const cards = document.querySelectorAll('.location-card');
+    
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver(function(entries) {
+        entries.forEach((entry, index) => {
+            if (entry.isIntersecting) {
+                setTimeout(() => {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }, index * 100);
+            }
+        });
+    }, observerOptions);
+    
+    cards.forEach(card => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        card.style.transition = 'all 0.6s ease-out';
+        observer.observe(card);
+    });
+    
+    // Réinitialiser le formulaire quand le modal se ferme
+    document.getElementById('createLocationModal').addEventListener('hidden.bs.modal', function () {
+        document.getElementById('createLocationForm').reset();
+    });
+    
+    document.getElementById('editLocationModal').addEventListener('hidden.bs.modal', function () {
+        document.getElementById('editLocationForm').reset();
+    });
+});
+
+function editLocation(locationId) {
+    // Récupérer les données de la localisation
+    fetch(`/monitoring/locations/${locationId}/`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.text();
+        }
+        throw new Error('Erreur lors du chargement des données');
+    })
+    .then(html => {
+        // Pour simplifier, on va utiliser les données depuis le DOM
+        // Dans un vrai projet, on ferait un appel API pour récupérer les données JSON
+        const locationCard = document.querySelector(`[onclick="editLocation(${locationId})"]`).closest('.location-card');
+        const locationName = locationCard.querySelector('.location-name').textContent.trim();
+        const locationAddress = locationCard.querySelector('.location-address').textContent.trim();
+        
+        // Remplir le formulaire d'édition
+        document.getElementById('editLocationId').value = locationId;
+        document.getElementById('editLocationName').value = locationName;
+        document.getElementById('editLocationAddress').value = locationAddress;
+        document.getElementById('editLocationActive').checked = true; // Par défaut actif
+        
+        // Afficher le modal
+        const modal = new bootstrap.Modal(document.getElementById('editLocationModal'));
+        modal.show();
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur lors du chargement des données de la localisation');
+    });
+}
+
+function updateLocation() {
+    const form = document.getElementById('editLocationForm');
+    const formData = new FormData(form);
+    const locationId = formData.get('location_id');
+    
+    const data = {
+        name: formData.get('name'),
+        address: formData.get('address'),
+        description: formData.get('description') || '',
+        is_active: formData.has('is_active')
+    };
+    
+    // Validation côté client
+    if (!data.name || !data.address) {
+        alert('Veuillez remplir tous les champs obligatoires.');
+        return;
+    }
+    
+    fetch(`/monitoring/locations/${locationId}/edit/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Fermer le modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editLocationModal'));
+            modal.hide();
+            
+            // Recharger la page pour afficher les modifications
+            location.reload();
+        } else {
+            alert('Erreur lors de la modification: ' + (data.error || 'Erreur inconnue'));
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la modification de la localisation');
+    });
+}
+
+function deleteLocation(locationId, locationName) {
+    if (confirm(`Êtes-vous sûr de vouloir supprimer la localisation "${locationName}" ?\n\nCette action est irréversible.`)) {
+        fetch(`/monitoring/locations/${locationId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Recharger la page pour refléter la suppression
+                location.reload();
+            } else {
+                alert('Erreur lors de la suppression: ' + (data.error || 'Erreur inconnue'));
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur lors de la suppression de la localisation');
+        });
+    }
+}
+</script>
+{% endblock %}

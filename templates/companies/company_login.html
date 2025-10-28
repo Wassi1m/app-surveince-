@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Connexion Entreprise{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-container {
+        max-width: 400px;
+        margin: 50px auto;
+        padding: 30px;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .login-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .login-header h2 {
+        color: #2c3e50;
+        margin-bottom: 10px;
+    }
+    
+    .login-header p {
+        color: #7f8c8d;
+        font-size: 14px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+        color: #2c3e50;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+        transition: border-color 0.3s;
+    }
+    
+    .form-control:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    }
+    
+    .btn-login {
+        width: 100%;
+        padding: 12px;
+        background: #3498db;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    
+    .btn-login:hover {
+        background: #2980b9;
+    }
+    
+    .help-text {
+        font-size: 12px;
+        color: #7f8c8d;
+        margin-top: 5px;
+    }
+    
+    .alert {
+        padding: 12px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+    }
+    
+    .alert-error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+    
+    .company-info {
+        background: #e8f4fd;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        border-left: 4px solid #3498db;
+    }
+    
+    .company-info h4 {
+        margin: 0 0 10px 0;
+        color: #2c3e50;
+        font-size: 16px;
+    }
+    
+    .company-info p {
+        margin: 0;
+        color: #34495e;
+        font-size: 14px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-header">
+        <h2>🏢 Connexion Entreprise</h2>
+        <p>Connectez-vous avec votre référence d'entreprise</p>
+    </div>
+    
+    <div class="company-info">
+        <h4>📋 Informations requises</h4>
+        <p>• Référence de votre entreprise (8 caractères)</p>
+        <p>• Votre email et mot de passe</p>
+    </div>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-error">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="{{ form.company_reference.id_for_label }}">
+                {{ form.company_reference.label }}
+            </label>
+            {{ form.company_reference }}
+            <div class="help-text">
+                Référence fournie par votre administrateur (ex: ABC12345)
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.username.id_for_label }}">
+                {{ form.username.label }}
+            </label>
+            {{ form.username }}
+        </div>
+        
+        <div class="form-group">
+            <label for="{{ form.password.id_for_label }}">
+                {{ form.password.label }}
+            </label>
+            {{ form.password }}
+        </div>
+        
+        <button type="submit" class="btn-login">
+            🔐 Se connecter
+        </button>
+    </form>
+    
+    <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+        <p style="color: #7f8c8d; font-size: 12px;">
+            Vous n'avez pas de compte ? Contactez votre administrateur d'entreprise.
+        </p>
+    </div>
+</div>
+{% endblock %}

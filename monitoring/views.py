@@ -26,36 +26,53 @@ logger = logging.getLogger('monitoring')
 def dashboard(request):
     """Vue principale du tableau de bord"""
     try:
+        # Filtrer par entreprise si l'utilisateur n'est pas owner
+        camera_filter = {}
+        alert_filter = {}
+        detection_filter = {}
+        incident_filter = {}
+        zone_filter = {}
+        
+        if hasattr(request, 'current_company') and request.current_company:
+            camera_filter['location__company'] = request.current_company
+            alert_filter['company'] = request.current_company
+            detection_filter['camera__location__company'] = request.current_company
+            incident_filter['location__company'] = request.current_company
+            zone_filter['location__company'] = request.current_company
+        
         # Statistiques globales
-        total_cameras = Camera.objects.count()
-        online_cameras = Camera.objects.filter(status='online').count()
+        total_cameras = Camera.objects.filter(**camera_filter).count()
+        online_cameras = Camera.objects.filter(status='online', **camera_filter).count()
         
         # Alertes actives (dernières 24h)
         now = timezone.now()
         active_alerts = Alert.objects.filter(
             created_at__gte=now - timedelta(hours=24),
-            status__in=['pending', 'sent', 'acknowledged']
+            status__in=['pending', 'sent', 'acknowledged'],
+            **alert_filter
         ).count()
         
         # Détections aujourd'hui
         today = now.date()
         detections_today = DetectionEvent.objects.filter(
-            detected_at__date=today
+            detected_at__date=today,
+            **detection_filter
         ).count()
         
         # Incidents cette semaine
         week_start = now - timedelta(days=7)
         incidents_week = Incident.objects.filter(
-            created_at__gte=week_start
+            created_at__gte=week_start,
+            **incident_filter
         ).count()
         
         # Caméras pour le streaming
-        cameras_queryset = Camera.objects.filter(status='online').select_related('location', 'zone')
+        cameras_queryset = Camera.objects.filter(status='online', **camera_filter).select_related('location', 'zone')
         cameras = list(cameras_queryset[:10])  # Convertir en liste pour éviter les problèmes de slice
         
         # Zones avec niveau d'activité
         zones = []
-        for zone in Zone.objects.filter(is_active=True).select_related('location'):
+        for zone in Zone.objects.filter(is_active=True, **zone_filter).select_related('location'):
             detection_count = DetectionEvent.objects.filter(
                 zone=zone,
                 detected_at__gte=now - timedelta(hours=24)
@@ -76,6 +93,7 @@ def dashboard(request):
                 'detection_count': detection_count,
                 'activity_level': activity_level,
             })
+        
         
         # Localisation par défaut (première disponible)
         location = request.user.profile.location if hasattr(request.user, 'profile') else Location.objects.first()
@@ -106,8 +124,16 @@ def dashboard(request):
 @login_required
 def live_view(request):
     """Vue de surveillance en direct"""
-    cameras = Camera.objects.filter().select_related('location', 'zone').order_by('status')
-    locations = Location.objects.filter(is_active=True)
+    # Filtrer par entreprise si l'utilisateur n'est pas owner
+    camera_filter = {}
+    location_filter = {}
+    
+    if hasattr(request, 'current_company') and request.current_company:
+        camera_filter['location__company'] = request.current_company
+        location_filter['company'] = request.current_company
+    
+    cameras = Camera.objects.filter(**camera_filter).select_related('location', 'zone').order_by('status')
+    locations = Location.objects.filter(is_active=True, **location_filter)
     
     context = {
         'cameras': cameras,
@@ -120,9 +146,19 @@ def live_view(request):
 @login_required
 def camera_list(request):
     """Liste des caméras"""
-    cameras = Camera.objects.all().select_related('location', 'zone').order_by('status')
-    locations = Location.objects.filter(is_active=True)
-    zones = Zone.objects.filter(is_active=True)
+    # Filtrer par entreprise si l'utilisateur n'est pas owner
+    camera_filter = {}
+    location_filter = {}
+    zone_filter = {}
+    
+    if hasattr(request, 'current_company') and request.current_company:
+        camera_filter['location__company'] = request.current_company
+        location_filter['company'] = request.current_company
+        zone_filter['location__company'] = request.current_company
+    
+    cameras = Camera.objects.filter(**camera_filter).select_related('location', 'zone').order_by('status')
+    locations = Location.objects.filter(is_active=True, **location_filter)
+    zones = Zone.objects.filter(is_active=True, **zone_filter)
     
     context = {
         'cameras': cameras,
@@ -157,13 +193,250 @@ def camera_detail(request, camera_id):
         )['avg_conf'] or 0,
     }
     
+    # Récupérer toutes les règles d'alerte disponibles pour cette entreprise
+    from alerts.models import AlertRule, CameraAlertRule
+    rule_filter = {}
+    
+    # Filtrer par entreprise si l'utilisateur n'est pas owner
+    if hasattr(request, 'current_company') and request.current_company:
+        rule_filter['company'] = request.current_company
+        print(f"🔍 DEBUG: Filtrage règles par entreprise: {request.current_company.name}")
+    
+    # Toutes les règles disponibles pour cette entreprise
+    available_rules = AlertRule.objects.filter(
+        **rule_filter
+    ).select_related('created_by', 'company').order_by('-created_at')
+    
+    # Règles assignées à cette caméra
+    assigned_rules = CameraAlertRule.objects.filter(
+        camera=camera
+    ).select_related('alert_rule', 'assigned_by').order_by('-assigned_at')
+    
+    # IDs des règles déjà assignées
+    assigned_rule_ids = set(assigned_rules.values_list('alert_rule_id', flat=True))
+    
+    print(f"🔍 DEBUG: Nombre de règles disponibles: {available_rules.count()}")
+    print(f"🔍 DEBUG: Nombre de règles assignées: {assigned_rules.count()}")
+    for assigned in assigned_rules:
+        print(f"🔍 DEBUG: Règle assignée: {assigned.alert_rule.name} - Actif: {assigned.is_active}")
+    
+    # Récupérer les types d'événements disponibles pour cette entreprise
+    event_types = []
+    if hasattr(request, 'current_company') and request.current_company:
+        from monitoring.models import CompanyEventType
+        company_event_types = CompanyEventType.objects.filter(
+            company=request.current_company,
+            is_enabled=True
+        ).select_related('event_type').order_by('event_type__name')
+        
+        for company_event_type in company_event_types:
+            event_types.append({
+                'code': company_event_type.event_type.code,
+                'name': company_event_type.get_effective_name(),
+                'severity': company_event_type.get_effective_severity(),
+                'color': company_event_type.event_type.color,
+                'icon': company_event_type.event_type.icon,
+            })
+    else:
+        # Pour les owners, afficher tous les types d'événements actifs
+        from monitoring.models import EventType
+        for event_type in EventType.objects.filter(is_active=True).order_by('name'):
+            event_types.append({
+                'code': event_type.code,
+                'name': event_type.name,
+                'severity': event_type.severity,
+                'color': event_type.color,
+                'icon': event_type.icon,
+            })
+    
     context = {
         'camera': camera,
         'recent_detections': recent_detections,
         'stats': stats,
+        'available_rules': available_rules,
+        'assigned_rules': assigned_rules,
+        'assigned_rule_ids': assigned_rule_ids,
+        'event_types': event_types,
     }
     
     return render(request, 'monitoring/camera_detail.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_camera_rule(request, camera_id):
+    """Créer une règle d'alerte pour une caméra spécifique"""
+    try:
+        # Vérifier que la caméra existe et appartient à l'entreprise
+        camera_filter = {'id': camera_id}
+        if hasattr(request, 'current_company') and request.current_company:
+            camera_filter['location__company'] = request.current_company
+        
+        camera = get_object_or_404(Camera, **camera_filter)
+        
+        data = json.loads(request.body)
+        
+        # Validation des données
+        if not data.get('name'):
+            return JsonResponse({'success': False, 'error': 'Le nom est requis'}, status=400)
+        
+        # Récupérer l'entreprise de l'utilisateur connecté
+        company = None
+        if hasattr(request, 'current_company') and request.current_company:
+            company = request.current_company
+        
+        # Créer la règle d'alerte
+        from alerts.models import AlertRule
+        rule = AlertRule.objects.create(
+            name=data.get('name'),
+            description=data.get('description', f'Règle créée pour la caméra {camera.name}'),
+            zone=camera.zone,
+            trigger_type=data.get('trigger_type', 'detection'),
+            trigger_conditions=data.get('trigger_conditions', {}),
+            priority=data.get('priority', 2),
+            cooldown_minutes=data.get('cooldown_minutes', 5),
+            is_active=data.get('is_active', True),
+            created_by=request.user,
+            company=company
+        )
+        
+        logger.info(f"Règle d'alerte créée pour caméra {camera.name}: {rule.name} par {request.user.username}")
+        
+        # Assigner automatiquement la règle à cette caméra
+        from alerts.models import CameraAlertRule
+        CameraAlertRule.objects.create(
+            camera=camera,
+            alert_rule=rule,
+            is_active=True,
+            assigned_by=request.user
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Règle "{rule.name}" créée et assignée avec succès à la caméra {camera.name}',
+            'rule_id': rule.id
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur création règle caméra {camera_id}: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def assign_rule_to_camera(request, camera_id):
+    """Assigner une règle d'alerte existante à une caméra"""
+    try:
+        # Vérifier que la caméra existe et appartient à l'entreprise
+        camera_filter = {'id': camera_id}
+        if hasattr(request, 'current_company') and request.current_company:
+            camera_filter['location__company'] = request.current_company
+        
+        camera = get_object_or_404(Camera, **camera_filter)
+        
+        data = json.loads(request.body)
+        rule_id = data.get('rule_id')
+        
+        if not rule_id:
+            return JsonResponse({'success': False, 'error': 'ID de règle requis'}, status=400)
+        
+        # Vérifier que la règle existe et appartient à l'entreprise
+        rule_filter = {'id': rule_id}
+        if hasattr(request, 'current_company') and request.current_company:
+            rule_filter['company'] = request.current_company
+        
+        from alerts.models import AlertRule, CameraAlertRule
+        rule = get_object_or_404(AlertRule, **rule_filter)
+        
+        # Vérifier si l'association existe déjà
+        existing = CameraAlertRule.objects.filter(camera=camera, alert_rule=rule).first()
+        if existing:
+            return JsonResponse({'success': False, 'error': 'Cette règle est déjà assignée à cette caméra'}, status=400)
+        
+        # Créer l'association
+        camera_rule = CameraAlertRule.objects.create(
+            camera=camera,
+            alert_rule=rule,
+            is_active=data.get('is_active', True),
+            priority_override=data.get('priority_override'),
+            assigned_by=request.user
+        )
+        
+        logger.info(f"Règle {rule.name} assignée à la caméra {camera.name} par {request.user.username}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Règle "{rule.name}" assignée avec succès à la caméra {camera.name}'
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur assignation règle à caméra {camera_id}: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def unassign_rule_from_camera(request, camera_id, rule_id):
+    """Désassigner une règle d'alerte d'une caméra"""
+    try:
+        # Vérifier que la caméra existe et appartient à l'entreprise
+        camera_filter = {'id': camera_id}
+        if hasattr(request, 'current_company') and request.current_company:
+            camera_filter['location__company'] = request.current_company
+        
+        camera = get_object_or_404(Camera, **camera_filter)
+        
+        # Trouver l'association
+        from alerts.models import CameraAlertRule
+        camera_rule = get_object_or_404(CameraAlertRule, camera=camera, alert_rule_id=rule_id)
+        
+        rule_name = camera_rule.alert_rule.name
+        camera_rule.delete()
+        
+        logger.info(f"Règle {rule_name} désassignée de la caméra {camera.name} par {request.user.username}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Règle "{rule_name}" désassignée avec succès de la caméra {camera.name}'
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur désassignation règle de caméra {camera_id}: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def toggle_camera_rule(request, camera_id, rule_id):
+    """Activer/désactiver une règle assignée à une caméra"""
+    try:
+        # Vérifier que la caméra existe et appartient à l'entreprise
+        camera_filter = {'id': camera_id}
+        if hasattr(request, 'current_company') and request.current_company:
+            camera_filter['location__company'] = request.current_company
+        
+        camera = get_object_or_404(Camera, **camera_filter)
+        
+        # Trouver l'association
+        from alerts.models import CameraAlertRule
+        camera_rule = get_object_or_404(CameraAlertRule, camera=camera, alert_rule_id=rule_id)
+        
+        # Basculer le statut
+        camera_rule.is_active = not camera_rule.is_active
+        camera_rule.save()
+        
+        status = "activée" if camera_rule.is_active else "désactivée"
+        logger.info(f"Règle {camera_rule.alert_rule.name} {status} pour la caméra {camera.name} par {request.user.username}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Règle "{camera_rule.alert_rule.name}" {status} avec succès',
+            'is_active': camera_rule.is_active
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur toggle règle caméra {camera_id}: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @login_required
@@ -196,10 +469,166 @@ def create_camera(request):
 
 
 @login_required
+def location_list(request):
+    """Liste des localisations"""
+    # Filtrer par entreprise si l'utilisateur est associé à une entreprise
+    locations = Location.objects.all()
+    if hasattr(request, 'company_user') and request.company_user and request.company_user.company:
+        locations = locations.filter(company=request.company_user.company)
+    
+    locations = locations.order_by('-id')
+    
+    context = {
+        'locations': locations,
+    }
+    
+    return render(request, 'monitoring/locations.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_location(request):
+    """Créer une nouvelle localisation"""
+    try:
+        data = json.loads(request.body)
+        
+        # Récupérer l'entreprise de l'utilisateur connecté
+        company = None
+        if hasattr(request, 'company_user') and request.company_user:
+            company = request.company_user.company
+        
+        location = Location.objects.create(
+            name=data['name'],
+            address=data['address'],
+            description=data.get('description', ''),
+            company=company,
+        )
+        
+        messages.success(request, f"Localisation '{location.name}' créée avec succès")
+        return JsonResponse({'success': True, 'location_id': location.id})
+        
+    except Exception as e:
+        logger.error(f"Erreur création localisation: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
+def location_detail(request, location_id):
+    """Détails d'une localisation"""
+    # Filtrer par entreprise
+    location_filter = {}
+    if hasattr(request, 'current_company') and request.current_company:
+        location_filter['company'] = request.current_company
+    
+    location = get_object_or_404(Location, id=location_id, **location_filter)
+    
+    # Statistiques de la localisation
+    zones = location.zones.filter(is_active=True)
+    cameras = Camera.objects.filter(location=location)
+    incidents = location.incidents.all()
+    
+    # Activité récente
+    now = timezone.now()
+    recent_detections = DetectionEvent.objects.filter(
+        camera__location=location,
+        detected_at__gte=now - timedelta(hours=24)
+    ).order_by('-detected_at')[:10]
+    
+    context = {
+        'location': location,
+        'zones': zones,
+        'cameras': cameras,
+        'incidents': incidents,
+        'recent_detections': recent_detections,
+        'stats': {
+            'total_zones': zones.count(),
+            'total_cameras': cameras.count(),
+            'online_cameras': cameras.filter(status='online').count(),
+            'total_incidents': incidents.count(),
+            'recent_detections': recent_detections.count(),
+        }
+    }
+    
+    return render(request, 'monitoring/location_detail.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def edit_location(request, location_id):
+    """Modifier une localisation"""
+    # Filtrer par entreprise
+    location_filter = {}
+    if hasattr(request, 'current_company') and request.current_company:
+        location_filter['company'] = request.current_company
+    
+    location = get_object_or_404(Location, id=location_id, **location_filter)
+    
+    try:
+        data = json.loads(request.body)
+        
+        location.name = data.get('name', location.name)
+        location.address = data.get('address', location.address)
+        location.description = data.get('description', location.description)
+        location.is_active = data.get('is_active', location.is_active)
+        location.save()
+        
+        messages.success(request, f"Localisation '{location.name}' modifiée avec succès")
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        logger.error(f"Erreur modification localisation: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_location(request, location_id):
+    """Supprimer une localisation"""
+    # Filtrer par entreprise
+    location_filter = {}
+    if hasattr(request, 'current_company') and request.current_company:
+        location_filter['company'] = request.current_company
+    
+    location = get_object_or_404(Location, id=location_id, **location_filter)
+    
+    try:
+        # Vérifier s'il y a des zones ou caméras associées
+        if location.zones.exists():
+            return JsonResponse({
+                'success': False, 
+                'error': 'Impossible de supprimer une localisation qui contient des zones'
+            }, status=400)
+        
+        if location.cameras.exists():
+            return JsonResponse({
+                'success': False, 
+                'error': 'Impossible de supprimer une localisation qui contient des caméras'
+            }, status=400)
+        
+        location_name = location.name
+        location.delete()
+        
+        messages.success(request, f"Localisation '{location_name}' supprimée avec succès")
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        logger.error(f"Erreur suppression localisation: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@login_required
 def zone_list(request):
     """Liste des zones de surveillance"""
-    zones = Zone.objects.all().select_related('location').order_by('-id')
-    locations = Location.objects.filter(is_active=True)
+    # Filtrer par entreprise si l'utilisateur n'est pas owner
+    zone_filter = {}
+    location_filter = {}
+    
+    if hasattr(request, 'current_company') and request.current_company:
+        zone_filter['location__company'] = request.current_company
+        location_filter['company'] = request.current_company
+    
+    zones = Zone.objects.filter(**zone_filter).select_related('location').order_by('-id')
+    locations = Location.objects.filter(is_active=True, **location_filter)
     
     context = {
         'zones': zones,

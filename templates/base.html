@@ -84,6 +84,63 @@
                             <span class="d-inline d-lg-none">Stats</span>
                         </a>
                     </li>
+                    <!-- Bouton Owner - Gestion des Entreprises -->
+                    {% if request.user.is_authenticated and request.company_user.is_owner %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle owner-menu" href="#" id="ownerDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-crown me-1 text-warning"></i>
+                            <span class="d-none d-lg-inline">Gestion Entreprises</span>
+                            <span class="d-inline d-lg-none">Owner</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            <li><a class="dropdown-item" href="{% url 'companies:owner_dashboard' %}">
+                                <i class="fas fa-tachometer-alt me-2 text-warning"></i>Dashboard Owner
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'companies:company_list' %}">
+                                <i class="fas fa-building me-2"></i>Toutes les Entreprises
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'companies:company_create' %}">
+                                <i class="fas fa-plus me-2 text-success"></i>Créer une Entreprise
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'companies:owner_notifications' %}">
+                                <i class="fas fa-bullhorn me-2 text-info"></i>Notifications
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'companies:owner_notification_history' %}">
+                                <i class="fas fa-history me-2"></i>Historique Notifications
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'companies:owner_event_types' %}">
+                                <i class="fas fa-cogs me-2 text-warning"></i>Types d'Événements
+                            </a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Bouton Manager - Gestion des Employés -->
+                    {% if request.user.is_authenticated and request.company_user.is_manager %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle manager-menu" href="#" id="managerDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-users-cog me-1 text-info"></i>
+                            <span class="d-none d-lg-inline">Gestion Équipe</span>
+                            <span class="d-inline d-lg-none">Manager</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            <li><a class="dropdown-item" href="{% url 'companies:manager_dashboard' %}">
+                                <i class="fas fa-tachometer-alt me-2 text-info"></i>Dashboard Manager
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'companies:manage_employees' %}">
+                                <i class="fas fa-users me-2"></i>Gérer les Employés
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'companies:create_employee' %}">
+                                <i class="fas fa-user-plus me-2 text-success"></i>Ajouter un Employé
+                            </a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                    
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="settingsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="fas fa-cog me-1"></i>
@@ -91,14 +148,18 @@
                             <span class="d-inline d-lg-none">Config</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-dark">
-                            <li><a class="dropdown-item" href="{% url 'monitoring:cameras' %}">
-                                <i class="fas fa-camera me-2"></i>Caméras
-                            </a></li>
-                            <li><a class="dropdown-item" href="{% url 'alerts:rules' %}">
-                                <i class="fas fa-bell me-2"></i>Règles d'Alerte
+                            <li><a class="dropdown-item" href="{% url 'monitoring:locations' %}">
+                                <i class="fas fa-map-marker-alt me-2"></i>Localisations
                             </a></li>
                             <li><a class="dropdown-item" href="{% url 'monitoring:zones' %}">
                                 <i class="fas fa-map-marked-alt me-2"></i>Zones
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'monitoring:cameras' %}">
+                                <i class="fas fa-camera me-2"></i>Caméras
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'alerts:rules' %}">
+                                <i class="fas fa-bell me-2"></i>Règles d'Alerte
                             </a></li>
                         </ul>
                     </li>

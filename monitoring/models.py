@@ -6,6 +6,7 @@ import json
 
 class Location(models.Model):
     """Représente un lieu de surveillance (magasin, entrepôt, etc.)"""
+    company = models.ForeignKey('companies.Company', on_delete=models.CASCADE, related_name='locations', verbose_name="Entreprise", null=True, blank=True)
     name = models.CharField(max_length=200, verbose_name="Nom du lieu")
     address = models.TextField(verbose_name="Adresse")
     description = models.TextField(blank=True, verbose_name="Description")
@@ -13,6 +14,7 @@ class Location(models.Model):
     is_active = models.BooleanField(default=True)
     
     def __str__(self):
+        
         return self.name
     
     class Meta:
@@ -190,3 +192,88 @@ class VideoRecording(models.Model):
         verbose_name = "Enregistrement"
         verbose_name_plural = "Enregistrements"
         ordering = ['-start_time']
+
+
+class EventType(models.Model):
+    """Types d'événements configurables que l'IA peut détecter"""
+    
+    SEVERITY_CHOICES = [
+        ('low', 'Faible'),
+        ('medium', 'Moyenne'),
+        ('high', 'Élevée'),
+        ('critical', 'Critique'),
+    ]
+    
+    # Informations de base
+    name = models.CharField(max_length=100, verbose_name="Nom du type")
+    code = models.CharField(max_length=50, unique=True, verbose_name="Code unique", 
+                           help_text="Code technique utilisé par l'IA (ex: intrusion, theft)")
+    description = models.TextField(verbose_name="Description", blank=True)
+    
+    # Configuration
+    is_active = models.BooleanField(default=True, verbose_name="Actif")
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, default='medium', 
+                               verbose_name="Gravité par défaut")
+    color = models.CharField(max_length=7, default='#007bff', verbose_name="Couleur",
+                            help_text="Couleur d'affichage (format hex: #RRGGBB)")
+    icon = models.CharField(max_length=50, default='fas fa-exclamation-triangle', 
+                           verbose_name="Icône", help_text="Classe CSS de l'icône FontAwesome")
+    
+    # Métadonnées
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                  verbose_name="Créé par")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Configuration avancée
+    auto_alert = models.BooleanField(default=True, verbose_name="Alerte automatique",
+                                    help_text="Créer automatiquement une alerte lors de la détection")
+    requires_verification = models.BooleanField(default=False, verbose_name="Nécessite vérification",
+                                              help_text="L'événement doit être vérifié manuellement")
+    
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+    
+    class Meta:
+        verbose_name = "Type d'événement"
+        verbose_name_plural = "Types d'événements"
+        ordering = ['name']
+
+
+class CompanyEventType(models.Model):
+    """Association entre une entreprise et les types d'événements qu'elle utilise"""
+    
+    company = models.ForeignKey('companies.Company', on_delete=models.CASCADE, 
+                               related_name='event_types', verbose_name="Entreprise")
+    event_type = models.ForeignKey(EventType, on_delete=models.CASCADE, 
+                                  related_name='companies', verbose_name="Type d'événement")
+    
+    # Configuration spécifique à l'entreprise
+    is_enabled = models.BooleanField(default=True, verbose_name="Activé")
+    custom_severity = models.CharField(max_length=20, choices=EventType.SEVERITY_CHOICES, 
+                                      blank=True, verbose_name="Gravité personnalisée",
+                                      help_text="Laissez vide pour utiliser la gravité par défaut")
+    custom_name = models.CharField(max_length=100, blank=True, verbose_name="Nom personnalisé",
+                                  help_text="Nom affiché pour cette entreprise")
+    
+    # Métadonnées
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                   verbose_name="Assigné par")
+    
+    def get_effective_severity(self):
+        """Retourne la gravité effective (personnalisée ou par défaut)"""
+        return self.custom_severity or self.event_type.severity
+    
+    def get_effective_name(self):
+        """Retourne le nom effectif (personnalisé ou par défaut)"""
+        return self.custom_name or self.event_type.name
+    
+    def __str__(self):
+        return f"{self.company.name} - {self.event_type.name}"
+    
+    class Meta:
+        verbose_name = "Type d'événement d'entreprise"
+        verbose_name_plural = "Types d'événements d'entreprises"
+        unique_together = ['company', 'event_type']
+        ordering = ['company__name', 'event_type__name']

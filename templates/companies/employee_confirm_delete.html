@@ -1,0 +1,326 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Supprimer {{ employee.user.get_full_name }} - {{ company.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .delete-header {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .delete-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="white" opacity="0.1"/><circle cx="90" cy="90" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="30" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    }
+    
+    .delete-header h1 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 300;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .delete-header p {
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
+        font-size: 1.1rem;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .confirmation-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        overflow: hidden;
+        margin-bottom: 2rem;
+        border: 2px solid #dc3545;
+    }
+    
+    .card-content {
+        padding: 2.5rem;
+    }
+    
+    .warning-icon {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 2rem auto;
+        color: white;
+        font-size: 2.5rem;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    .warning-title {
+        text-align: center;
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: #dc3545;
+        margin-bottom: 1rem;
+    }
+    
+    .warning-message {
+        text-align: center;
+        font-size: 1.1rem;
+        color: #6c757d;
+        margin-bottom: 2rem;
+        line-height: 1.6;
+    }
+    
+    .employee-summary {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        border-left: 4px solid #dc3545;
+    }
+    
+    .employee-info {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 1rem;
+        align-items: center;
+    }
+    
+    .employee-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    
+    .employee-details h4 {
+        margin: 0 0 0.5rem 0;
+        color: #2c3e50;
+        font-size: 1.3rem;
+    }
+    
+    .employee-details p {
+        margin: 0;
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .consequences-list {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .consequences-title {
+        font-weight: 600;
+        color: #856404;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .consequences-list ul {
+        margin: 0;
+        padding-left: 1.5rem;
+        color: #856404;
+    }
+    
+    .consequences-list li {
+        margin-bottom: 0.5rem;
+    }
+    
+    .btn-group-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .btn {
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        min-width: 150px;
+        justify-content: center;
+    }
+    
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+        box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4);
+    }
+    
+    .btn-secondary:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(108, 117, 125, 0.6);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .btn-danger {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+    }
+    
+    .btn-danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(220, 53, 69, 0.6);
+        color: white;
+        text-decoration: none;
+    }
+    
+    @media (max-width: 768px) {
+        .employee-info {
+            grid-template-columns: 1fr;
+            text-align: center;
+        }
+        
+        .btn-group-actions {
+            flex-direction: column;
+        }
+        
+        .delete-header h1 {
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="delete-header">
+    <div class="container">
+        <h1>
+            <i class="fas fa-user-times me-3"></i>
+            Supprimer un employé
+        </h1>
+        <p>{{ company.name }} - Confirmation de suppression</p>
+    </div>
+</div>
+
+<div class="container">
+    <div class="confirmation-card">
+        <div class="card-content">
+            <div class="warning-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            
+            <h2 class="warning-title">Attention : Action irréversible</h2>
+            
+            <p class="warning-message">
+                Vous êtes sur le point de supprimer définitivement cet employé de votre système.<br>
+                Cette action ne peut pas être annulée.
+            </p>
+            
+            <!-- Résumé de l'employé -->
+            <div class="employee-summary">
+                <div class="employee-info">
+                    <div class="employee-avatar">
+                        {{ employee.user.first_name.0|default:employee.user.username.0|upper }}{{ employee.user.last_name.0|upper }}
+                    </div>
+                    <div class="employee-details">
+                        <h4>{{ employee.user.get_full_name|default:employee.user.username }}</h4>
+                        <p>{{ employee.user.email }}</p>
+                        <p>
+                            <strong>Rôle :</strong> {{ employee.get_role_display }}
+                            {% if employee.department %} | <strong>Département :</strong> {{ employee.department }}{% endif %}
+                        </p>
+                        <p><strong>Créé le :</strong> {{ employee.created_at|date:"d/m/Y" }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Conséquences -->
+            <div class="consequences-list">
+                <div class="consequences-title">
+                    <i class="fas fa-info-circle"></i>
+                    Conséquences de cette suppression :
+                </div>
+                <ul>
+                    <li>Le compte utilisateur sera définitivement supprimé</li>
+                    <li>L'employé ne pourra plus se connecter au système</li>
+                    <li>Toutes les données associées à cet employé seront perdues</li>
+                    <li>Cette action ne peut pas être annulée</li>
+                </ul>
+            </div>
+            
+            <!-- Actions -->
+            <form method="POST" style="display: inline;">
+                {% csrf_token %}
+                <div class="btn-group-actions">
+                    <a href="{% url 'companies:employee_detail' employee.pk %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i>
+                        Annuler
+                    </a>
+                    <button type="submit" class="btn btn-danger" onclick="return confirmDeletion()">
+                        <i class="fas fa-trash"></i>
+                        Supprimer définitivement
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDeletion() {
+    const employeeName = "{{ employee.user.get_full_name|default:employee.user.username|escapejs }}";
+    return confirm(
+        `Êtes-vous absolument certain de vouloir supprimer l'employé "${employeeName}" ?\n\n` +
+        `Cette action est DÉFINITIVE et ne peut pas être annulée.\n\n` +
+        `Tapez "SUPPRIMER" pour confirmer.`
+    );
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Animation d'entrée
+    const card = document.querySelector('.confirmation-card');
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(30px)';
+    card.style.transition = 'all 0.6s ease-out';
+    
+    setTimeout(() => {
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0)';
+    }, 100);
+});
+</script>
+{% endblock %}

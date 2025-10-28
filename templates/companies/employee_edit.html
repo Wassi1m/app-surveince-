@@ -1,0 +1,460 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - {{ company.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .edit-header {
+        background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+        color: #212529;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .edit-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="rgba(0,0,0,0.1)" opacity="0.1"/><circle cx="90" cy="90" r="1" fill="rgba(0,0,0,0.1)" opacity="0.1"/><circle cx="50" cy="30" r="1" fill="rgba(0,0,0,0.1)" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    }
+    
+    .edit-header h1 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 300;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .edit-header p {
+        margin: 0.5rem 0 0 0;
+        opacity: 0.8;
+        font-size: 1.1rem;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .form-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+    
+    .form-section {
+        padding: 2rem;
+        border-bottom: 1px solid #f1f2f6;
+    }
+    
+    .form-section:last-child {
+        border-bottom: none;
+    }
+    
+    .section-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        color: #2c3e50;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #ffc107;
+    }
+    
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 1rem 1.25rem;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+        box-sizing: border-box;
+        font-family: inherit;
+    }
+    
+    .form-control:focus {
+        outline: none;
+        border-color: #ffc107;
+        box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.1);
+        background: #ffffff;
+    }
+    
+    .form-control::placeholder {
+        color: #adb5bd;
+        opacity: 0.7;
+    }
+    
+    /* Assurer la visibilité du texte dans tous les champs */
+    input, textarea, select {
+        color: #2c3e50 !important;
+        background-color: #ffffff !important;
+    }
+    
+    input:focus, textarea:focus, select:focus {
+        color: #2c3e50 !important;
+        background-color: #ffffff !important;
+    }
+    
+    .form-check {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 0.75rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-check:hover {
+        background: #e9ecef;
+    }
+    
+    .form-check-input {
+        width: 1.2rem;
+        height: 1.2rem;
+        margin: 0;
+    }
+    
+    .form-check-label {
+        margin: 0;
+        font-weight: 500;
+        color: #2c3e50;
+        cursor: pointer;
+    }
+    
+    .permissions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+    
+    .btn-group-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+        padding: 2rem;
+        background: #f8f9fa;
+        margin: 0 -2rem -2rem -2rem;
+        flex-wrap: wrap;
+    }
+    
+    .btn {
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+        box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4);
+    }
+    
+    .btn-secondary:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(108, 117, 125, 0.6);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .btn-warning {
+        background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+        color: #212529;
+        box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
+    }
+    
+    .btn-warning:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 193, 7, 0.6);
+        color: #212529;
+        text-decoration: none;
+    }
+    
+    .required {
+        color: #dc3545;
+    }
+    
+    @media (max-width: 768px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .permissions-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .btn-group-actions {
+            flex-direction: column;
+            padding: 1.5rem;
+        }
+        
+        .edit-header h1 {
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="edit-header">
+    <div class="container">
+        <h1>
+            <i class="fas fa-user-edit me-3"></i>
+            {{ title }}
+        </h1>
+        <p>{{ company.name }} - Modifier les informations de l'employé</p>
+    </div>
+</div>
+
+<div class="container">
+    <form method="POST" class="form-container">
+        {% csrf_token %}
+        
+        <!-- Informations personnelles -->
+        <div class="form-section">
+            <h3 class="section-title">
+                <i class="fas fa-user"></i>
+                Informations personnelles
+            </h3>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="first_name" class="form-label">
+                        <i class="fas fa-user me-1"></i>
+                        Prénom <span class="required">*</span>
+                    </label>
+                    <input type="text" class="form-control" id="first_name" name="first_name" 
+                           placeholder="Ex: Jean" value="{{ initial_data.first_name }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="last_name" class="form-label">
+                        <i class="fas fa-user me-1"></i>
+                        Nom <span class="required">*</span>
+                    </label>
+                    <input type="text" class="form-control" id="last_name" name="last_name" 
+                           placeholder="Ex: Dupont" value="{{ initial_data.last_name }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email" class="form-label">
+                        <i class="fas fa-envelope me-1"></i>
+                        Email <span class="required">*</span>
+                    </label>
+                    <input type="email" class="form-control" id="email" name="email" 
+                           placeholder="Ex: jean.dupont@entreprise.com" value="{{ initial_data.email }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="phone" class="form-label">
+                        <i class="fas fa-phone me-1"></i>
+                        Téléphone
+                    </label>
+                    <input type="tel" class="form-control" id="phone" name="phone" 
+                           placeholder="Ex: +33 1 23 45 67 89" value="{{ initial_data.phone }}">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Informations professionnelles -->
+        <div class="form-section">
+            <h3 class="section-title">
+                <i class="fas fa-briefcase"></i>
+                Informations professionnelles
+            </h3>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="role" class="form-label">
+                        <i class="fas fa-user-tag me-1"></i>
+                        Rôle <span class="required">*</span>
+                    </label>
+                    <select class="form-control" id="role" name="role" required>
+                        {% for role_key, role_label in role_choices %}
+                            <option value="{{ role_key }}" {% if initial_data.role == role_key %}selected{% endif %}>
+                                {{ role_label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="employee_id" class="form-label">
+                        <i class="fas fa-id-badge me-1"></i>
+                        ID Employé
+                    </label>
+                    <input type="text" class="form-control" id="employee_id" name="employee_id" 
+                           placeholder="Ex: EMP001" value="{{ initial_data.employee_id }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="department" class="form-label">
+                        <i class="fas fa-building me-1"></i>
+                        Département
+                    </label>
+                    <input type="text" class="form-control" id="department" name="department" 
+                           placeholder="Ex: Informatique" value="{{ initial_data.department }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="position" class="form-label">
+                        <i class="fas fa-user-tie me-1"></i>
+                        Poste
+                    </label>
+                    <input type="text" class="form-control" id="position" name="position" 
+                           placeholder="Ex: Développeur Senior" value="{{ initial_data.position }}">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Statut et permissions -->
+        <div class="form-section">
+            <h3 class="section-title">
+                <i class="fas fa-key"></i>
+                Statut et permissions
+            </h3>
+            
+            <div class="form-group mb-4">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="is_active" name="is_active" 
+                           {% if initial_data.is_active %}checked{% endif %}>
+                    <label class="form-check-label" for="is_active">
+                        <i class="fas fa-toggle-on me-1"></i>
+                        Compte actif
+                    </label>
+                </div>
+            </div>
+            
+            <div class="permissions-grid">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="can_manage_users" name="can_manage_users" 
+                           {% if initial_data.can_manage_users %}checked{% endif %}>
+                    <label class="form-check-label" for="can_manage_users">
+                        <i class="fas fa-users me-1"></i>
+                        Peut gérer les utilisateurs
+                    </label>
+                </div>
+                
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="can_manage_cameras" name="can_manage_cameras" 
+                           {% if initial_data.can_manage_cameras %}checked{% endif %}>
+                    <label class="form-check-label" for="can_manage_cameras">
+                        <i class="fas fa-video me-1"></i>
+                        Peut gérer les caméras
+                    </label>
+                </div>
+                
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="can_manage_alerts" name="can_manage_alerts" 
+                           {% if initial_data.can_manage_alerts %}checked{% endif %}>
+                    <label class="form-check-label" for="can_manage_alerts">
+                        <i class="fas fa-bell me-1"></i>
+                        Peut gérer les alertes
+                    </label>
+                </div>
+                
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="can_view_reports" name="can_view_reports" 
+                           {% if initial_data.can_view_reports %}checked{% endif %}>
+                    <label class="form-check-label" for="can_view_reports">
+                        <i class="fas fa-chart-bar me-1"></i>
+                        Peut voir les rapports
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="btn-group-actions">
+            <a href="{% url 'companies:employee_detail' employee.pk %}" class="btn btn-secondary">
+                <i class="fas fa-times"></i>
+                Annuler
+            </a>
+            <button type="submit" class="btn btn-warning">
+                <i class="fas fa-save"></i>
+                Sauvegarder les modifications
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validation côté client
+    const form = document.querySelector('form');
+    
+    form.addEventListener('submit', function(e) {
+        const firstName = document.getElementById('first_name').value.trim();
+        const lastName = document.getElementById('last_name').value.trim();
+        const email = document.getElementById('email').value.trim();
+        
+        if (!firstName || !lastName || !email) {
+            e.preventDefault();
+            alert('Veuillez remplir tous les champs obligatoires.');
+            return false;
+        }
+        
+        // Validation email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            e.preventDefault();
+            alert('Veuillez entrer une adresse email valide.');
+            return false;
+        }
+    });
+    
+    // Animation des champs au focus
+    const inputs = document.querySelectorAll('.form-control');
+    inputs.forEach(input => {
+        input.addEventListener('focus', function() {
+            this.parentElement.style.transform = 'scale(1.02)';
+        });
+        
+        input.addEventListener('blur', function() {
+            this.parentElement.style.transform = 'scale(1)';
+        });
+    });
+});
+</script>
+{% endblock %}

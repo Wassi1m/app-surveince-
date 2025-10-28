@@ -1,0 +1,741 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ company.name }} - Détails{% endblock %}
+
+{% block extra_css %}
+<style>
+    .company-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .company-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="white" opacity="0.1"/><circle cx="90" cy="90" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="30" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    }
+    
+    .company-info {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .company-name {
+        margin: 0 0 0.5rem 0;
+        font-size: 2.5rem;
+        font-weight: 300;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .company-reference {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-family: monospace;
+        font-size: 1rem;
+        font-weight: bold;
+        letter-spacing: 2px;
+    }
+    
+    .company-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        margin-top: 1rem;
+    }
+    
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+    
+    .status-active .status-dot {
+        background: #28a745;
+    }
+    
+    .status-inactive .status-dot {
+        background: #dc3545;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .info-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        overflow: hidden;
+        border: 1px solid rgba(102, 126, 234, 0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .info-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .card-header {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+        padding: 1.5rem;
+        border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+        position: relative;
+    }
+    
+    .card-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .card-title {
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #2c3e50;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .card-icon {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.1rem;
+    }
+    
+    .card-body {
+        padding: 1.5rem;
+    }
+    
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f1f2f6;
+    }
+    
+    .info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 500;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .info-value {
+        font-weight: 600;
+        color: #2c3e50;
+        text-align: right;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border: 1px solid rgba(102, 126, 234, 0.1);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-icon {
+        font-size: 1.5rem;
+        color: #667eea;
+        opacity: 0.7;
+    }
+    
+    .users-section {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        overflow: hidden;
+        border: 1px solid rgba(102, 126, 234, 0.1);
+    }
+    
+    .section-header {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+        padding: 1.5rem;
+        border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+        position: relative;
+    }
+    
+    .section-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .section-title {
+        margin: 0;
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #2c3e50;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .users-list {
+        padding: 0;
+        margin: 0;
+        list-style: none;
+    }
+    
+    .user-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #f1f2f6;
+        transition: background-color 0.2s ease;
+    }
+    
+    .user-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .user-item:last-child {
+        border-bottom: none;
+    }
+    
+    .user-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .user-name {
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0;
+    }
+    
+    .user-email {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin: 0;
+    }
+    
+    .user-role {
+        padding: 0.25rem 0.75rem;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .role-owner {
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.2) 0%, rgba(255, 152, 0, 0.2) 100%);
+        color: #856404;
+        border: 1px solid rgba(255, 193, 7, 0.3);
+    }
+    
+    .role-manager {
+        background: linear-gradient(135deg, rgba(23, 162, 184, 0.2) 0%, rgba(13, 202, 240, 0.2) 100%);
+        color: #0c5460;
+        border: 1px solid rgba(23, 162, 184, 0.3);
+    }
+    
+    .role-employee {
+        background: linear-gradient(135deg, rgba(40, 167, 69, 0.2) 0%, rgba(32, 201, 151, 0.2) 100%);
+        color: #155724;
+        border: 1px solid rgba(40, 167, 69, 0.3);
+    }
+    
+    .role-viewer {
+        background: linear-gradient(135deg, rgba(108, 117, 125, 0.2) 0%, rgba(73, 80, 87, 0.2) 100%);
+        color: #495057;
+        border: 1px solid rgba(108, 117, 125, 0.3);
+    }
+    
+    .actions-section {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+    
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.9rem;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+    }
+    
+    .btn-secondary:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(108, 117, 125, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .btn-warning {
+        background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+        color: #212529;
+        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+    }
+    
+    .btn-warning:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(255, 193, 7, 0.4);
+        color: #212529;
+        text-decoration: none;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    @media (max-width: 768px) {
+        .info-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .actions-section {
+            flex-direction: column;
+        }
+        
+        .company-name {
+            font-size: 2rem;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        
+        .user-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="company-header">
+    <div class="container">
+        <div class="company-info">
+            <h1 class="company-name">
+                <i class="fas fa-building"></i>
+                {{ company.name }}
+                <span class="company-reference">{{ company.reference }}</span>
+            </h1>
+            
+            {% if company.description %}
+                <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 1.1rem;">
+                    {{ company.description }}
+                </p>
+            {% endif %}
+            
+            <div class="company-status {% if company.is_active %}status-active{% else %}status-inactive{% endif %}">
+                <span class="status-dot"></span>
+                {% if company.is_active %}Entreprise Active{% else %}Entreprise Inactive{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Actions rapides -->
+    <div class="actions-section">
+        <a href="{% url 'companies:company_edit' company.pk %}" class="btn btn-primary">
+            <i class="fas fa-edit"></i>
+            Modifier l'entreprise
+        </a>
+        <a href="{% url 'companies:company_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i>
+            Retour à la liste
+        </a>
+        <button class="btn btn-warning" onclick="toggleCompanyStatus({{ company.pk }})">
+            <i class="fas fa-{% if company.is_active %}pause{% else %}play{% endif %}"></i>
+            {% if company.is_active %}Désactiver{% else %}Activer{% endif %}
+        </button>
+    </div>
+    
+    <!-- Statistiques -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">{{ company.user_count }}</div>
+            <div class="stat-label">Utilisateurs</div>
+            <div class="stat-icon">
+                <i class="fas fa-users"></i>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-number">{{ company.camera_count }}</div>
+            <div class="stat-label">Caméras</div>
+            <div class="stat-icon">
+                <i class="fas fa-video"></i>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-number">{{ company.location_count }}</div>
+            <div class="stat-label">Lieux</div>
+            <div class="stat-icon">
+                <i class="fas fa-map-marked-alt"></i>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-number">{{ company.max_users }}</div>
+            <div class="stat-label">Limite Utilisateurs</div>
+            <div class="stat-icon">
+                <i class="fas fa-user-check"></i>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Informations détaillées -->
+    <div class="info-grid">
+        <!-- Informations générales -->
+        <div class="info-card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <div class="card-icon">
+                        <i class="fas fa-info-circle"></i>
+                    </div>
+                    Informations générales
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="info-item">
+                    <span class="info-label">
+                        <i class="fas fa-calendar-plus"></i>
+                        Créée le
+                    </span>
+                    <span class="info-value">{{ company.created_at|date:"d/m/Y à H:i" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">
+                        <i class="fas fa-calendar-edit"></i>
+                        Modifiée le
+                    </span>
+                    <span class="info-value">{{ company.updated_at|date:"d/m/Y à H:i" }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">
+                        <i class="fas fa-hashtag"></i>
+                        Référence
+                    </span>
+                    <span class="info-value">{{ company.reference }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Informations de contact -->
+        <div class="info-card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <div class="card-icon">
+                        <i class="fas fa-address-card"></i>
+                    </div>
+                    Contact
+                </h3>
+            </div>
+            <div class="card-body">
+                {% if company.address %}
+                <div class="info-item">
+                    <span class="info-label">
+                        <i class="fas fa-map-marker-alt"></i>
+                        Adresse
+                    </span>
+                    <span class="info-value">{{ company.address|truncatechars:30 }}</span>
+                </div>
+                {% endif %}
+                
+                {% if company.phone %}
+                <div class="info-item">
+                    <span class="info-label">
+                        <i class="fas fa-phone"></i>
+                        Téléphone
+                    </span>
+                    <span class="info-value">{{ company.phone }}</span>
+                </div>
+                {% endif %}
+                
+                {% if company.email %}
+                <div class="info-item">
+                    <span class="info-label">
+                        <i class="fas fa-envelope"></i>
+                        Email
+                    </span>
+                    <span class="info-value">{{ company.email }}</span>
+                </div>
+                {% endif %}
+                
+                {% if company.website %}
+                <div class="info-item">
+                    <span class="info-label">
+                        <i class="fas fa-globe"></i>
+                        Site web
+                    </span>
+                    <span class="info-value">
+                        <a href="{{ company.website }}" target="_blank" style="color: #667eea;">
+                            Visiter
+                        </a>
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Limites et quotas -->
+        <div class="info-card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <div class="card-icon">
+                        <i class="fas fa-sliders-h"></i>
+                    </div>
+                    Limites & Quotas
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="info-item">
+                    <span class="info-label">
+                        <i class="fas fa-users"></i>
+                        Utilisateurs max
+                    </span>
+                    <span class="info-value">{{ company.max_users }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">
+                        <i class="fas fa-video"></i>
+                        Caméras max
+                    </span>
+                    <span class="info-value">{{ company.max_cameras }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">
+                        <i class="fas fa-map-marked-alt"></i>
+                        Lieux max
+                    </span>
+                    <span class="info-value">{{ company.max_locations }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Liste des utilisateurs -->
+    <div class="users-section">
+        <div class="section-header">
+            <h3 class="section-title">
+                <i class="fas fa-users"></i>
+                Utilisateurs de l'entreprise
+            </h3>
+        </div>
+        
+        {% if users %}
+            <ul class="users-list">
+                {% for company_user in users %}
+                    <li class="user-item">
+                        <div class="user-info">
+                            <h4 class="user-name">{{ company_user.full_name }}</h4>
+                            <p class="user-email">{{ company_user.user.email }}</p>
+                            {% if company_user.department %}
+                                <p class="user-email">{{ company_user.department }} - {{ company_user.position }}</p>
+                            {% endif %}
+                        </div>
+                        
+                        <div>
+                            <span class="user-role role-{{ company_user.role }}">
+                                {{ company_user.get_role_display }}
+                            </span>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-user-plus"></i>
+                <h4>Aucun utilisateur</h4>
+                <p>Cette entreprise n'a pas encore d'utilisateurs.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function toggleCompanyStatus(companyId) {
+    if (confirm('Êtes-vous sûr de vouloir changer le statut de cette entreprise ?')) {
+        fetch(`/companies/owner/companies/${companyId}/toggle-status/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erreur lors du changement de statut');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Erreur lors du changement de statut');
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Animation d'entrée des cartes
+    const cards = document.querySelectorAll('.info-card, .stat-card');
+    
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver(function(entries) {
+        entries.forEach((entry, index) => {
+            if (entry.isIntersecting) {
+                setTimeout(() => {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }, index * 100);
+            }
+        });
+    }, observerOptions);
+    
+    cards.forEach(card => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        card.style.transition = 'all 0.6s ease-out';
+        observer.observe(card);
+    });
+});
+</script>
+
+<!-- CSRF Token pour les requêtes AJAX -->
+{% csrf_token %}
+{% endblock %}

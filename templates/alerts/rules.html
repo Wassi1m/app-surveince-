@@ -42,7 +42,7 @@
                 </div>
                 <div class="card-body">
                     <div class="mb-2">
-                        <strong>Localisation:</strong> {{ rule.location.name }}
+                        <strong>Zone:</strong> {{ rule.zone.name }} ({{ rule.zone.location.name }})
                     </div>
                     <div class="mb-2">
                         <strong>Type de déclencheur:</strong> {{ rule.get_trigger_type_display }}
@@ -196,11 +196,11 @@ function addNewRule() {
                         <input type="text" class="form-control" name="name" placeholder="Ex: Intrusion nocturne" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Localisation</label>
-                        <select class="form-select" name="location_id" required>
-                            <option value="">Sélectionner une localisation</option>
-                            {% for location in locations %}
-                            <option value="{{ location.id }}">{{ location.name }}</option>
+                        <label class="form-label">Zone</label>
+                        <select class="form-select" name="zone_id" required>
+                            <option value="">Sélectionner une zone</option>
+                            {% for zone in zones %}
+                            <option value="{{ zone.id }}">{{ zone.name }} ({{ zone.location.name }})</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -270,12 +270,26 @@ function updateTriggerOptions(triggerType) {
                                     <label class="form-label">Type d'événement</label>
                                     <select class="form-select" name="event_type">
                                         <option value="">Tous les types</option>
-                                        <option value="intrusion">Intrusion</option>
-                                        <option value="theft">Vol</option>
-                                        <option value="suspicious">Activité suspecte</option>
-                                        <option value="fire">Incendie</option>
-                                        <option value="accident">Accident</option>
+                                        {% for event_type in event_types %}
+                                        <option value="{{ event_type.code }}" 
+                                                data-severity="{{ event_type.severity }}"
+                                                data-color="{{ event_type.color }}"
+                                                data-icon="{{ event_type.icon }}">
+                                            {{ event_type.name }}
+                                        </option>
+                                        {% endfor %}
                                     </select>
+                                    {% if not event_types %}
+                                    <div class="form-text text-warning">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                        Aucun type d'événement configuré pour cette entreprise.
+                                        {% if request.company_user.is_owner %}
+                                        <a href="{% url 'companies:owner_event_types' %}" class="text-decoration-none">
+                                            Configurer les types d'événements
+                                        </a>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label">Niveau de gravité minimum</label>
@@ -380,7 +394,7 @@ function saveRuleConfig() {
     // Validation côté client
     const name = formData.get('name');
     const triggerType = formData.get('trigger_type');
-    const locationId = formData.get('location_id');
+    const zoneId = formData.get('zone_id');
     const priority = formData.get('priority');
     
     if (!name || !name.trim()) {
@@ -393,8 +407,8 @@ function saveRuleConfig() {
         return;
     }
     
-    if (!locationId) {
-        alert('La localisation est requise');
+    if (!zoneId) {
+        alert('La zone est requise');
         return;
     }
     
@@ -432,7 +446,7 @@ function saveRuleConfig() {
     const data = {
         name: name.trim(),
         description: formData.get('description') || '',
-        location_id: parseInt(locationId),
+        zone_id: parseInt(zoneId),
         trigger_type: triggerType,
         trigger_conditions: triggerConditions,
         priority: parseInt(priority),
@@ -440,10 +454,13 @@ function saveRuleConfig() {
         is_active: formData.has('is_active')
     };
     
-    console.log('Données à envoyer:', data); // Debug
+    console.log('🔍 DEBUG JS: Données à envoyer:', data);
     
     const url = ruleId === 'new' ? '/api/alerts/rules/create/' : `/api/alerts/rules/${ruleId}/`;
     const method = ruleId === 'new' ? 'POST' : 'PUT';
+    
+    console.log(`🔍 DEBUG JS: URL: ${url}, Method: ${method}`);
+    console.log('🔍 DEBUG JS: CSRF Token:', getCsrfToken());
     
     fetch(url, {
         method: method,
@@ -454,23 +471,30 @@ function saveRuleConfig() {
         body: JSON.stringify(data)
     })
     .then(response => {
+        console.log('🔍 DEBUG JS: Response status:', response.status);
+        console.log('🔍 DEBUG JS: Response headers:', response.headers);
+        
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         return response.json();
     })
     .then(result => {
+        console.log('🔍 DEBUG JS: Résultat reçu:', result);
+        
         if (result.success) {
+            console.log('✅ DEBUG JS: Succès, fermeture modal et rechargement');
             bootstrap.Modal.getInstance(document.getElementById('ruleConfigModal')).hide();
             showToast(result.message || 'Sauvegarde réussie', 'success');
             location.reload();
         } else {
-            console.error('Erreur API:', result);
+            console.error('❌ DEBUG JS: Erreur API:', result);
             alert('Erreur lors de la sauvegarde: ' + (result.error || 'Erreur inconnue'));
         }
     })
     .catch(error => {
-        console.error('Erreur sauvegarde:', error);
+        console.error('❌ DEBUG JS: Erreur sauvegarde:', error);
+        console.error('❌ DEBUG JS: Stack trace:', error.stack);
         alert('Erreur lors de la sauvegarde: ' + error.message);
     });
 }

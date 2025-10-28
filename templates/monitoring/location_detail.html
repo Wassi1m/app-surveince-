@@ -1,0 +1,413 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ location.name }} - Détails{% endblock %}
+
+{% block extra_css %}
+<style>
+    .location-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .location-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="white" opacity="0.1"/><circle cx="90" cy="90" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="30" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    }
+    
+    .location-header h1 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 300;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .location-header p {
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
+        font-size: 1.1rem;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-left: 4px solid;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .stat-card.zones { border-left-color: #28a745; }
+    .stat-card.cameras { border-left-color: #007bff; }
+    .stat-card.incidents { border-left-color: #dc3545; }
+    .stat-card.detections { border-left-color: #ffc107; }
+    
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .stat-icon {
+        float: right;
+        font-size: 2rem;
+        opacity: 0.3;
+    }
+    
+    .content-section {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .section-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #2c3e50;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .zone-grid, .camera-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1rem;
+    }
+    
+    .zone-item, .camera-item {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        border: 1px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+    
+    .zone-item:hover, .camera-item:hover {
+        background: #e9ecef;
+        transform: translateY(-1px);
+    }
+    
+    .zone-name, .camera-name {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #2c3e50;
+    }
+    
+    .zone-risk, .camera-status {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .risk-high { background: #dc3545; color: white; }
+    .risk-medium { background: #ffc107; color: #212529; }
+    .risk-low { background: #28a745; color: white; }
+    
+    .status-online { background: #28a745; color: white; }
+    .status-offline { background: #6c757d; color: white; }
+    .status-error { background: #dc3545; color: white; }
+    
+    .detection-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .detection-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem;
+        border-bottom: 1px solid #e9ecef;
+        gap: 1rem;
+    }
+    
+    .detection-item:last-child {
+        border-bottom: none;
+    }
+    
+    .detection-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.1rem;
+    }
+    
+    .detection-info {
+        flex: 1;
+    }
+    
+    .detection-type {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    
+    .detection-time {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 2rem;
+        color: #6c757d;
+    }
+    
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .btn-group-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+    
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .zone-grid, .camera-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .btn-group-actions {
+            flex-direction: column;
+        }
+        
+        .location-header h1 {
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="location-header">
+    <div class="container">
+        <h1>
+            <i class="fas fa-map-marker-alt me-3"></i>
+            {{ location.name }}
+        </h1>
+        <p>{{ location.address }}</p>
+        {% if location.description %}
+            <p><i class="fas fa-info-circle me-1"></i> {{ location.description }}</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="container">
+    <!-- Actions rapides -->
+    <div class="btn-group-actions">
+        <a href="{% url 'monitoring:locations' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Retour aux localisations
+        </a>
+        <button onclick="editLocation({{ location.id }})" class="btn btn-warning">
+            <i class="fas fa-edit"></i> Modifier
+        </button>
+        <a href="{% url 'monitoring:zones' %}?location={{ location.id }}" class="btn btn-primary">
+            <i class="fas fa-th-large"></i> Gérer les zones
+        </a>
+        <a href="{% url 'monitoring:cameras' %}?location={{ location.id }}" class="btn btn-info">
+            <i class="fas fa-video"></i> Gérer les caméras
+        </a>
+    </div>
+    
+    <!-- Statistiques -->
+    <div class="stats-grid">
+        <div class="stat-card zones">
+            <div class="stat-number">{{ stats.total_zones }}</div>
+            <div class="stat-label">Zones configurées</div>
+            <i class="fas fa-th-large stat-icon"></i>
+        </div>
+        
+        <div class="stat-card cameras">
+            <div class="stat-number">{{ stats.total_cameras }}</div>
+            <div class="stat-label">Caméras installées</div>
+            <i class="fas fa-video stat-icon"></i>
+        </div>
+        
+        <div class="stat-card cameras">
+            <div class="stat-number">{{ stats.online_cameras }}</div>
+            <div class="stat-label">Caméras en ligne</div>
+            <i class="fas fa-wifi stat-icon"></i>
+        </div>
+        
+        <div class="stat-card incidents">
+            <div class="stat-number">{{ stats.total_incidents }}</div>
+            <div class="stat-label">Incidents totaux</div>
+            <i class="fas fa-exclamation-triangle stat-icon"></i>
+        </div>
+    </div>
+    
+    <!-- Zones -->
+    <div class="content-section">
+        <h3 class="section-title">
+            <i class="fas fa-th-large"></i>
+            Zones de surveillance
+        </h3>
+        
+        {% if zones %}
+            <div class="zone-grid">
+                {% for zone in zones %}
+                    <div class="zone-item">
+                        <div class="zone-name">{{ zone.name }}</div>
+                        <div class="mb-2">
+                            <span class="zone-risk risk-{{ zone.risk_level }}">
+                                {{ zone.get_risk_level_display }}
+                            </span>
+                        </div>
+                        {% if zone.description %}
+                            <p class="small text-muted mb-2">{{ zone.description|truncatechars:80 }}</p>
+                        {% endif %}
+                        <div class="small text-muted">
+                            <i class="fas fa-camera me-1"></i>
+                            {{ zone.cameras.count }} caméra{{ zone.cameras.count|pluralize }}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-th-large"></i>
+                <h5>Aucune zone configurée</h5>
+                <p>Commencez par créer des zones pour organiser vos caméras.</p>
+                <a href="{% url 'monitoring:zones' %}?location={{ location.id }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Créer une zone
+                </a>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Caméras -->
+    <div class="content-section">
+        <h3 class="section-title">
+            <i class="fas fa-video"></i>
+            Caméras installées
+        </h3>
+        
+        {% if cameras %}
+            <div class="camera-grid">
+                {% for camera in cameras %}
+                    <div class="camera-item">
+                        <div class="camera-name">{{ camera.name }}</div>
+                        <div class="mb-2">
+                            <span class="camera-status status-{{ camera.status }}">
+                                {{ camera.get_status_display }}
+                            </span>
+                        </div>
+                        <div class="small text-muted mb-1">
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            Zone: {{ camera.zone.name }}
+                        </div>
+                        <div class="small text-muted">
+                            <i class="fas fa-network-wired me-1"></i>
+                            {{ camera.ip_address }}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-video"></i>
+                <h5>Aucune caméra installée</h5>
+                <p>Ajoutez des caméras pour commencer la surveillance.</p>
+                <a href="{% url 'monitoring:cameras' %}?location={{ location.id }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Ajouter une caméra
+                </a>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Détections récentes -->
+    <div class="content-section">
+        <h3 class="section-title">
+            <i class="fas fa-eye"></i>
+            Détections récentes (24h)
+        </h3>
+        
+        {% if recent_detections %}
+            <div class="detection-list">
+                {% for detection in recent_detections %}
+                    <div class="detection-item">
+                        <div class="detection-icon" style="background: 
+                            {% if detection.severity == 'critical' %}#dc3545
+                            {% elif detection.severity == 'high' %}#fd7e14
+                            {% elif detection.severity == 'medium' %}#ffc107
+                            {% else %}#28a745{% endif %};">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="detection-info">
+                            <div class="detection-type">{{ detection.get_event_type_display }}</div>
+                            <div class="detection-time">
+                                {{ detection.detected_at|timesince }} - 
+                                {{ detection.camera.name }} ({{ detection.zone.name }})
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-muted">{{ detection.confidence|floatformat:0 }}%</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-eye"></i>
+                <h5>Aucune détection récente</h5>
+                <p>Aucune activité détectée dans les dernières 24 heures.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function editLocation(locationId) {
+    // Rediriger vers la page de modification ou ouvrir un modal
+    window.location.href = `/monitoring/locations/${locationId}/edit/`;
+}
+</script>
+{% endblock %}

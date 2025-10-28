@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
-from monitoring.models import DetectionEvent, Location, Camera
+from monitoring.models import DetectionEvent, Location, Camera, Zone
 import json
 
 # Import des nouveaux modèles de notifications
@@ -22,9 +22,10 @@ class AlertRule(models.Model):
         ('confidence_threshold', 'Seuil de confiance'),
     ]
     
+    company = models.ForeignKey('companies.Company', on_delete=models.CASCADE, related_name='alert_rules', verbose_name="Entreprise", null=True, blank=True)
     name = models.CharField(max_length=200, verbose_name="Nom de la règle")
     description = models.TextField(blank=True)
-    location = models.ForeignKey(Location, on_delete=models.CASCADE, related_name='alert_rules')
+    zone = models.ForeignKey(Zone, on_delete=models.CASCADE, related_name='alert_rules', verbose_name="Zone", null=True, blank=True)
     trigger_type = models.CharField(max_length=20, choices=TRIGGER_TYPES)
     trigger_conditions = models.JSONField(help_text="Conditions de déclenchement")
     is_active = models.BooleanField(default=True)
@@ -35,7 +36,7 @@ class AlertRule(models.Model):
     last_triggered = models.DateTimeField(null=True, blank=True)
     
     def __str__(self):
-        return f"{self.name} ({self.location.name})"
+        return f"{self.name} ({self.zone.name if self.zone else 'Aucune zone'})"
     
     class Meta:
         verbose_name = "Règle d'alerte"
@@ -60,6 +61,7 @@ class Alert(models.Model):
         ('critical', 'Critique'),
     ]
     
+    company = models.ForeignKey('companies.Company', on_delete=models.CASCADE, related_name='alerts', verbose_name="Entreprise", null=True, blank=True)
     detection_event = models.ForeignKey(DetectionEvent, on_delete=models.CASCADE, related_name='alerts')
     alert_rule = models.ForeignKey(AlertRule, on_delete=models.CASCADE, related_name='alerts')
     title = models.CharField(max_length=200, verbose_name="Titre de l'alerte")
@@ -97,6 +99,38 @@ class Alert(models.Model):
 
 # Anciens modèles NotificationLog et AlertRecipient supprimés
 # Remplacés par le nouveau système de notifications avancé
+
+
+class CameraAlertRule(models.Model):
+    """Association entre une caméra et les règles d'alerte qu'elle utilise"""
+    
+    camera = models.ForeignKey('monitoring.Camera', on_delete=models.CASCADE, 
+                              related_name='alert_rules', verbose_name="Caméra")
+    alert_rule = models.ForeignKey(AlertRule, on_delete=models.CASCADE, 
+                                  related_name='cameras', verbose_name="Règle d'alerte")
+    
+    # Configuration spécifique à cette association
+    is_active = models.BooleanField(default=True, verbose_name="Actif")
+    priority_override = models.IntegerField(null=True, blank=True, verbose_name="Priorité personnalisée",
+                                          help_text="Laissez vide pour utiliser la priorité de la règle")
+    
+    # Métadonnées
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                   verbose_name="Assigné par")
+    
+    def get_effective_priority(self):
+        """Retourne la priorité effective (personnalisée ou de la règle)"""
+        return self.priority_override or self.alert_rule.priority
+    
+    def __str__(self):
+        return f"{self.camera.name} - {self.alert_rule.name}"
+    
+    class Meta:
+        verbose_name = "Règle d'alerte de caméra"
+        verbose_name_plural = "Règles d'alerte de caméras"
+        unique_together = ['camera', 'alert_rule']
+        ordering = ['camera__name', 'alert_rule__name']
 
 
 class AlertSchedule(models.Model):

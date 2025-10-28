@@ -1,0 +1,544 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Entreprise créée avec succès{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --success-gradient: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --warning-gradient: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+        --card-bg: rgba(255, 255, 255, 0.95);
+        --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.15);
+        --border-radius: 16px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background: var(--success-gradient);
+        min-height: 100vh;
+        padding: 2rem 0;
+    }
+
+    .success-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+
+    .success-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(20px);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+        animation: slideUp 0.6s ease-out;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .success-header {
+        background: var(--success-gradient);
+        color: white;
+        padding: 2.5rem 2rem;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .success-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="white" opacity="0.1"/><circle cx="90" cy="90" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="30" r="1" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    }
+
+    .success-icon {
+        width: 80px;
+        height: 80px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        font-size: 2.5rem;
+        position: relative;
+        z-index: 1;
+        animation: checkmark 0.8s ease-out 0.3s both;
+    }
+
+    @keyframes checkmark {
+        0% {
+            transform: scale(0) rotate(45deg);
+            opacity: 0;
+        }
+        50% {
+            transform: scale(1.2) rotate(45deg);
+            opacity: 1;
+        }
+        100% {
+            transform: scale(1) rotate(0deg);
+            opacity: 1;
+        }
+    }
+
+    .success-header h1 {
+        margin: 0;
+        font-size: 2.5rem;
+        font-weight: 300;
+        position: relative;
+        z-index: 1;
+    }
+
+    .success-header .subtitle {
+        margin-top: 0.5rem;
+        opacity: 0.9;
+        font-size: 1.1rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .success-content {
+        padding: 2.5rem;
+        background: white;
+    }
+
+    .credentials-section {
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 152, 0, 0.1) 100%);
+        border: 2px solid rgba(255, 193, 7, 0.3);
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .credentials-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--warning-gradient);
+        border-radius: 0 2px 2px 0;
+    }
+
+    .credentials-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .credentials-icon {
+        width: 48px;
+        height: 48px;
+        background: var(--warning-gradient);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+    }
+
+    .credentials-title {
+        margin: 0;
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .credentials-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .credential-item {
+        background: white;
+        border: 2px solid rgba(255, 193, 7, 0.2);
+        border-radius: 10px;
+        padding: 1.5rem;
+        text-align: center;
+        transition: var(--transition);
+        position: relative;
+    }
+
+    .credential-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(255, 193, 7, 0.2);
+        border-color: rgba(255, 193, 7, 0.4);
+    }
+
+    .credential-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+
+    .credential-value {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #2c3e50;
+        word-break: break-all;
+        font-family: 'Courier New', monospace;
+        background: rgba(255, 193, 7, 0.1);
+        padding: 0.5rem;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 193, 7, 0.2);
+    }
+
+    .copy-button {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        background: var(--warning-gradient);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: var(--transition);
+        opacity: 0;
+    }
+
+    .credential-item:hover .copy-button {
+        opacity: 1;
+    }
+
+    .copy-button:hover {
+        transform: scale(1.1);
+    }
+
+    .warning-box {
+        background: linear-gradient(135deg, rgba(220, 53, 69, 0.1) 0%, rgba(114, 28, 36, 0.1) 100%);
+        border: 2px solid rgba(220, 53, 69, 0.3);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        border-left: 4px solid #dc3545;
+    }
+
+    .warning-box h4 {
+        margin: 0 0 0.75rem 0;
+        color: #721c24;
+        font-size: 1.1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .warning-box p {
+        margin: 0;
+        color: #721c24;
+        line-height: 1.5;
+    }
+
+    .actions-section {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: var(--transition);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .btn:hover::before {
+        left: 100%;
+    }
+
+    .btn-primary {
+        background: var(--primary-gradient);
+        color: white;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-success {
+        background: var(--success-gradient);
+        color: white;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+    }
+
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.6);
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+        box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4);
+    }
+
+    .btn-secondary:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(108, 117, 125, 0.6);
+        color: white;
+        text-decoration: none;
+    }
+
+    @media (max-width: 768px) {
+        body {
+            padding: 1rem 0;
+        }
+
+        .success-content {
+            padding: 1.5rem;
+        }
+
+        .credentials-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .actions-section {
+            flex-direction: column;
+        }
+
+        .success-header h1 {
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="success-container">
+    <div class="success-card">
+        <div class="success-header">
+            <div class="success-icon">
+                <i class="fas fa-check"></i>
+            </div>
+            <h1>Entreprise créée avec succès !</h1>
+            <p class="subtitle">{{ manager_credentials.company_name }} est maintenant active dans le système</p>
+        </div>
+        
+        <div class="success-content">
+            <div class="credentials-section">
+                <div class="credentials-header">
+                    <div class="credentials-icon">
+                        <i class="fas fa-key"></i>
+                    </div>
+                    <h3 class="credentials-title">Informations du Manager</h3>
+                </div>
+                
+                <div class="credentials-grid">
+                    <div class="credential-item">
+                        <button class="copy-button" onclick="copyToClipboard('{{ manager_credentials.company_reference }}')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <div class="credential-label">
+                            <i class="fas fa-hashtag me-1"></i>
+                            Référence Entreprise
+                        </div>
+                        <div class="credential-value">{{ manager_credentials.company_reference }}</div>
+                    </div>
+                    
+                    <div class="credential-item">
+                        <button class="copy-button" onclick="copyToClipboard('{{ manager_credentials.manager_email }}')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <div class="credential-label">
+                            <i class="fas fa-envelope me-1"></i>
+                            Email Manager
+                        </div>
+                        <div class="credential-value">{{ manager_credentials.manager_email }}</div>
+                    </div>
+                    
+                    <div class="credential-item">
+                        <button class="copy-button" onclick="copyToClipboard('{{ manager_credentials.manager_password }}')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <div class="credential-label">
+                            <i class="fas fa-lock me-1"></i>
+                            Mot de passe Manager
+                        </div>
+                        <div class="credential-value">{{ manager_credentials.manager_password }}</div>
+                    </div>
+                </div>
+                
+                <div class="warning-box">
+                    <h4>
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Important - Sécurité
+                    </h4>
+                    <p>
+                        <strong>Partagez ces informations de manière sécurisée avec le manager.</strong><br>
+                        Ces identifiants ne seront plus affichés après avoir quitté cette page. 
+                        Le manager pourra changer son mot de passe lors de sa première connexion.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="actions-section">
+                <a href="{% url 'companies:company_detail' company.pk %}" class="btn btn-primary">
+                    <i class="fas fa-eye"></i>
+                    Voir l'entreprise
+                </a>
+                <a href="{% url 'companies:company_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-list"></i>
+                    Liste des entreprises
+                </a>
+                <a href="{% url 'companies:company_create' %}" class="btn btn-success">
+                    <i class="fas fa-plus"></i>
+                    Créer une autre entreprise
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        // Afficher une notification de succès
+        showNotification('Copié dans le presse-papier !', 'success');
+    }, function(err) {
+        console.error('Erreur lors de la copie: ', err);
+        showNotification('Erreur lors de la copie', 'error');
+    });
+}
+
+function showNotification(message, type) {
+    // Créer l'élément de notification
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check' : 'exclamation-triangle'}"></i>
+        ${message}
+    `;
+    
+    // Ajouter les styles
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#28a745' : '#dc3545'};
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 500;
+        animation: slideInRight 0.3s ease-out;
+    `;
+    
+    // Ajouter au DOM
+    document.body.appendChild(notification);
+    
+    // Supprimer après 3 secondes
+    setTimeout(() => {
+        notification.style.animation = 'slideOutRight 0.3s ease-out';
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 3000);
+}
+
+// Ajouter les animations CSS
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOutRight {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Animation d'entrée des éléments
+    const items = document.querySelectorAll('.credential-item');
+    
+    items.forEach((item, index) => {
+        item.style.opacity = '0';
+        item.style.transform = 'translateY(20px)';
+        item.style.transition = 'all 0.6s ease-out';
+        
+        setTimeout(() => {
+            item.style.opacity = '1';
+            item.style.transform = 'translateY(0)';
+        }, 200 + (index * 100));
+    });
+});
+</script>
+{% endblock %}
