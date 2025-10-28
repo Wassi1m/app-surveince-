@@ -288,9 +288,7 @@
                                                         title="{% if camera_rule.is_active %}Désactiver{% else %}Activer{% endif %}">
                                                     <i class="fas fa-{% if camera_rule.is_active %}pause{% else %}play{% endif %}"></i>
                                                 </button>
-                                                <a href="{% url 'alerts:rules' %}#rule-{{ camera_rule.alert_rule.id }}" class="btn btn-outline-primary btn-sm" title="Voir détails">
-                                                    <i class="fas fa-eye"></i>
-                                                </a>
+                                                 
                                                 <button class="btn btn-outline-danger btn-sm" onclick="unassignRule({{ camera_rule.alert_rule.id }})" title="Désassigner">
                                                     <i class="fas fa-unlink"></i>
                                                 </button>
