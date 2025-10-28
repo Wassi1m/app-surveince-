@@ -26,6 +26,9 @@ urlpatterns = [
     # Gestion des zones
     path('zones/', views.zone_list, name='zones'),
     path('zones/create/', views.create_zone, name='create_zone'),
+    path('zones/<int:zone_id>/', views.zone_detail, name='zone_detail'),
+    path('zones/<int:zone_id>/rules/create/', views.create_zone_rule, name='create_zone_rule'),
+    path('zones/<int:zone_id>/rules/assign/', views.assign_rule_to_zone, name='assign_rule_to_zone'),
     
     # Gestion des détections
     path('detections/', views.detection_list, name='detections'),

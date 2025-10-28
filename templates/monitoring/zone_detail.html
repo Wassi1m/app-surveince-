@@ -1,0 +1,678 @@
+{% extends "base.html" %}
+
+{% block title %}{{ zone.name }} - Détails Zone{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="margin-top: 70px;">
+    
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>
+                        <i class="fas fa-map-marked-alt me-2"></i>
+                        {{ zone.name }}
+                        <span class="badge bg-{% if zone.risk_level == 'high' %}danger{% elif zone.risk_level == 'medium' %}warning{% else %}success{% endif %} ms-2">
+                            {{ zone.get_risk_level_display }}
+                        </span>
+                    </h2>
+                    <p class="text-muted">{{ zone.location.name }} - {{ zone.description|default:"Aucune description" }}</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'monitoring:zones' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i> Retour
+                    </a>
+                    <button class="btn btn-primary" onclick="editZone({{ zone.id }})">
+                        <i class="fas fa-edit me-1"></i> Modifier
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Informations de la zone -->
+        <div class="col-lg-4">
+            <div class="card bg-dark text-light mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Informations de la Zone
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <strong>Localisation:</strong>
+                        </div>
+                        <div class="col-6">
+                            {{ zone.location.name }}
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <strong>Niveau de risque:</strong>
+                        </div>
+                        <div class="col-6">
+                            <span class="badge bg-{% if zone.risk_level == 'high' %}danger{% elif zone.risk_level == 'medium' %}warning{% else %}success{% endif %}">
+                                {{ zone.get_risk_level_display }}
+                            </span>
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <strong>Caméras:</strong>
+                        </div>
+                        <div class="col-6">
+                            {{ total_cameras }}
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Règles actives:</strong>
+                        </div>
+                        <div class="col-6">
+                            {{ rules_usage|length }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Caméras de la zone -->
+            <div class="card bg-dark text-light">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-video me-2"></i>
+                        Caméras ({{ cameras|length }})
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if cameras %}
+                        <div class="list-group list-group-flush">
+                            {% for camera in cameras %}
+                            <div class="list-group-item bg-transparent text-light border-secondary">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-video {% if camera.status == 'online' %}text-success{% elif camera.status == 'offline' %}text-danger{% else %}text-warning{% endif %} me-2"></i>
+                                        <a href="{% url 'monitoring:camera_detail' camera.id %}" class="text-decoration-none text-light">
+                                            {{ camera.name }}
+                                        </a>
+                                    </div>
+                                    <span class="badge bg-{% if camera.status == 'online' %}success{% elif camera.status == 'offline' %}danger{% else %}warning{% endif %}">
+                                        {{ camera.get_status_display }}
+                                    </span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-video fa-2x text-muted mb-2"></i>
+                            <p class="text-muted">Aucune caméra dans cette zone</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Règles d'Alerte de la Zone -->
+        <div class="col-lg-8">
+            <div class="card bg-dark text-light mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Règles d'Alerte de la Zone ({{ rules_usage|length }})
+                    </h6>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-sm btn-primary" onclick="showAssignZoneRuleModal()">
+                            <i class="fas fa-link me-1"></i> Assigner
+                        </button>
+                        <button class="btn btn-sm btn-success" onclick="showAddZoneRuleModal()">
+                            <i class="fas fa-plus me-1"></i> Créer
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if rules_usage %}
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Nom de la Règle</th>
+                                        <th>Type</th>
+                                        <th>Priorité</th>
+                                        <th>Caméras Assignées</th>
+                                        <th>Statut</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for rule_id, usage in rules_usage.items %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ usage.rule.name }}</strong>
+                                            {% if usage.rule.description %}
+                                                <br><small class="text-muted">{{ usage.rule.description|truncatechars:50 }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info">{{ usage.rule.get_trigger_type_display }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{% if usage.rule.priority == 1 %}danger{% elif usage.rule.priority == 2 %}warning{% else %}secondary{% endif %}">
+                                                Priorité {{ usage.rule.priority }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <span class="me-2">{{ usage.active_count }}/{{ usage.total_count }}</span>
+                                                <div class="progress flex-grow-1" style="height: 6px;">
+                                                    <div class="progress-bar bg-success" 
+                                                         style="width: {% if usage.total_count > 0 %}{{ usage.active_count|floatformat:0 }}{% widthratio usage.active_count usage.total_count 100 %}{% else %}0{% endif %}%">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <small class="text-muted">
+                                                {% for camera in usage.cameras %}
+                                                    {{ camera.name }}{% if not forloop.last %}, {% endif %}
+                                                {% endfor %}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            {% if usage.active_count == usage.total_count %}
+                                                <span class="badge bg-success">Toutes actives</span>
+                                            {% elif usage.active_count > 0 %}
+                                                <span class="badge bg-warning">Partiellement actif</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Inactif</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{% url 'alerts:rules' %}#rule-{{ usage.rule.id }}" class="btn btn-outline-primary btn-sm" title="Voir détails">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <button class="btn btn-outline-info btn-sm" onclick="showRuleCameras({{ usage.rule.id }})" title="Voir caméras">
+                                                    <i class="fas fa-video"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">Aucune règle d'alerte configurée pour cette zone.</p>
+                            <div class="d-flex gap-2 justify-content-center">
+                                <button class="btn btn-primary" onclick="showAssignZoneRuleModal()">
+                                    <i class="fas fa-link me-1"></i> Assigner une règle existante
+                                </button>
+                                <button class="btn btn-success" onclick="showAddZoneRuleModal()">
+                                    <i class="fas fa-plus me-1"></i> Créer une nouvelle règle
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour créer une règle d'alerte pour la zone -->
+<div class="modal fade" id="addZoneRuleModal" tabindex="-1" aria-labelledby="addZoneRuleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addZoneRuleModalLabel">
+                    <i class="fas fa-plus me-2"></i>
+                    Créer une Règle pour la Zone {{ zone.name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Cette règle sera automatiquement assignée à toutes les {{ total_cameras }} caméra(s) de cette zone.
+                </div>
+                
+                <form id="addZoneRuleForm">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Nom de la règle *</label>
+                        <input type="text" class="form-control" name="name" required 
+                               placeholder="Ex: Détection intrusion {{ zone.name }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="2" 
+                                  placeholder="Description optionnelle de la règle"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Type de déclenchement *</label>
+                        <select class="form-select" name="trigger_type" id="zone_trigger_type" onchange="updateZoneTriggerConditions()" required>
+                            <option value="">Sélectionner un type</option>
+                            <option value="detection">Détection d'événement</option>
+                            <option value="time_based">Basé sur le temps</option>
+                            <option value="zone_activity">Activité de zone</option>
+                            <option value="camera_status">Statut caméra</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Conditions de déclenchement dynamiques -->
+                    <div id="zone-trigger-conditions"></div>
+                    
+                    <div class="row">
+                        <div class="col-6">
+                            <label class="form-label">Priorité *</label>
+                            <select class="form-select" name="priority" required>
+                                <option value="1">Critique (1)</option>
+                                <option value="2" selected>Élevée (2)</option>
+                                <option value="3">Moyenne (3)</option>
+                                <option value="4">Faible (4)</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Délai de récupération (min)</label>
+                            <input type="number" class="form-control" name="cooldown_minutes" value="5" min="1">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" name="is_active" id="zone_is_active" checked>
+                        <label class="form-check-label" for="zone_is_active">
+                            Activer immédiatement cette règle
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-success" onclick="createZoneRule()">
+                    <i class="fas fa-save me-1"></i> Créer et Assigner à Toutes les Caméras
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour assigner une règle existante à la zone -->
+<div class="modal fade" id="assignZoneRuleModal" tabindex="-1" aria-labelledby="assignZoneRuleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark text-light">
+            <div class="modal-header">
+                <h5 class="modal-title" id="assignZoneRuleModalLabel">
+                    <i class="fas fa-link me-2"></i>
+                    Assigner une Règle à la Zone {{ zone.name }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Cette règle sera assignée à toutes les {{ total_cameras }} caméra(s) de cette zone.
+                </div>
+                
+                <form id="assignZoneRuleForm">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Règle à assigner *</label>
+                        <select class="form-select" name="rule_id" required>
+                            <option value="">Sélectionner une règle</option>
+                            {% for rule in available_rules %}
+                            <option value="{{ rule.id }}">
+                                {{ rule.name }} 
+                                ({{ rule.get_trigger_type_display }} - Priorité {{ rule.priority }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if not available_rules %}
+                        <div class="form-text text-warning">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            Aucune règle disponible. Créez d'abord des règles d'alerte.
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Priorité personnalisée (optionnel)</label>
+                        <select class="form-select" name="priority_override">
+                            <option value="">Utiliser la priorité de la règle</option>
+                            <option value="1">Critique (1)</option>
+                            <option value="2">Élevée (2)</option>
+                            <option value="3">Moyenne (3)</option>
+                            <option value="4">Faible (4)</option>
+                        </select>
+                        <div class="form-text">
+                            Laissez vide pour utiliser la priorité par défaut de la règle.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" name="is_active" id="assign_zone_is_active" checked>
+                        <label class="form-check-label" for="assign_zone_is_active">
+                            Activer immédiatement cette règle pour toutes les caméras
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="assignZoneRule()">
+                    <i class="fas fa-link me-1"></i> Assigner à Toutes les Caméras
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ===== GESTION DES RÈGLES D'ALERTE DE ZONE =====
+
+function showAddZoneRuleModal() {
+    const modal = new bootstrap.Modal(document.getElementById('addZoneRuleModal'));
+    modal.show();
+}
+
+function showAssignZoneRuleModal() {
+    const modal = new bootstrap.Modal(document.getElementById('assignZoneRuleModal'));
+    modal.show();
+}
+
+function createZoneRule() {
+    const form = document.getElementById('addZoneRuleForm');
+    const formData = new FormData(form);
+    
+    // Validation côté client
+    const name = formData.get('name');
+    const triggerType = formData.get('trigger_type');
+    const priority = formData.get('priority');
+    
+    if (!name || !name.trim()) {
+        alert('Le nom de la règle est requis');
+        return;
+    }
+    
+    if (!triggerType) {
+        alert('Le type de déclenchement est requis');
+        return;
+    }
+    
+    if (!priority) {
+        alert('La priorité est requise');
+        return;
+    }
+    
+    // Collecter les conditions de déclenchement
+    const triggerConditions = {};
+    
+    // Ajouter les conditions selon le type
+    switch(triggerType) {
+        case 'detection':
+            triggerConditions.event_type = formData.get('event_type') || 'intrusion';
+            triggerConditions.min_severity = formData.get('min_severity') || 'medium';
+            triggerConditions.min_confidence = parseInt(formData.get('min_confidence')) || 70;
+            break;
+        case 'time_based':
+            triggerConditions.start_time = formData.get('start_time') || '22:00';
+            triggerConditions.end_time = formData.get('end_time') || '06:00';
+            triggerConditions.weekdays = Array.from(formData.getAll('weekdays')).map(Number);
+            break;
+        case 'zone_activity':
+            triggerConditions.max_detections = parseInt(formData.get('max_detections')) || 10;
+            triggerConditions.time_window = parseInt(formData.get('time_window')) || 60;
+            break;
+        case 'camera_status':
+            triggerConditions.status_change = formData.get('status_change') || 'offline';
+            triggerConditions.duration_minutes = parseInt(formData.get('duration_minutes')) || 5;
+            break;
+    }
+    
+    const data = {
+        name: name.trim(),
+        description: formData.get('description') || '',
+        trigger_type: triggerType,
+        trigger_conditions: triggerConditions,
+        priority: parseInt(priority),
+        cooldown_minutes: parseInt(formData.get('cooldown_minutes')) || 5,
+        is_active: formData.has('is_active')
+    };
+    
+    console.log('🔍 DEBUG: Création règle zone:', data);
+    
+    const url = `/monitoring/zones/{{ zone.id }}/rules/create/`;
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        console.log('🔍 DEBUG: Response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(result => {
+        console.log('🔍 DEBUG: Résultat reçu:', result);
+        
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('addZoneRuleModal')).hide();
+            showToast(result.message || 'Règle créée avec succès', 'success');
+            location.reload();
+        } else {
+            alert('Erreur lors de la création: ' + (result.error || 'Erreur inconnue'));
+        }
+    })
+    .catch(error => {
+        console.error('❌ DEBUG: Erreur création règle zone:', error);
+        alert('Erreur lors de la création: ' + error.message);
+    });
+}
+
+function assignZoneRule() {
+    const form = document.getElementById('assignZoneRuleForm');
+    const formData = new FormData(form);
+    
+    const ruleId = formData.get('rule_id');
+    const isActive = formData.has('is_active');
+    const priorityOverride = formData.get('priority_override');
+    
+    if (!ruleId) {
+        alert('Veuillez sélectionner une règle');
+        return;
+    }
+    
+    const data = {
+        rule_id: parseInt(ruleId),
+        is_active: isActive,
+        priority_override: priorityOverride ? parseInt(priorityOverride) : null
+    };
+    
+    console.log('🔍 DEBUG: Assignation règle zone:', data);
+    
+    const url = `/monitoring/zones/{{ zone.id }}/rules/assign/`;
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('assignZoneRuleModal')).hide();
+            showToast(result.message || 'Règle assignée avec succès', 'success');
+            location.reload();
+        } else {
+            alert('Erreur lors de l\'assignation: ' + (result.error || 'Erreur inconnue'));
+        }
+    })
+    .catch(error => {
+        console.error('❌ DEBUG: Erreur assignation règle zone:', error);
+        alert('Erreur lors de l\'assignation: ' + error.message);
+    });
+}
+
+function updateZoneTriggerConditions() {
+    const triggerType = document.getElementById('zone_trigger_type').value;
+    const conditionsDiv = document.getElementById('zone-trigger-conditions');
+    
+    let html = '';
+    
+    switch(triggerType) {
+        case 'detection':
+            html = `
+                <div class="mb-3">
+                    <label class="form-label">Type d'événement</label>
+                    <select class="form-select" name="event_type">
+                        <option value="">Tous les types</option>
+                        {% for event_type in event_types %}
+                        <option value="{{ event_type.code }}">{{ event_type.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Gravité minimale</label>
+                    <select class="form-select" name="min_severity">
+                        <option value="low">Faible</option>
+                        <option value="medium" selected>Moyenne</option>
+                        <option value="high">Élevée</option>
+                        <option value="critical">Critique</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Confiance minimale (%)</label>
+                    <input type="number" class="form-control" name="min_confidence" value="70" min="0" max="100">
+                </div>
+            `;
+            break;
+        case 'time_based':
+            html = `
+                <div class="row">
+                    <div class="col-6">
+                        <label class="form-label">Heure de début</label>
+                        <input type="time" class="form-control" name="start_time" value="22:00">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Heure de fin</label>
+                        <input type="time" class="form-control" name="end_time" value="06:00">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Jours de la semaine</label>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekdays" value="1" id="zone_monday">
+                            <label class="form-check-label" for="zone_monday">Lun</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekdays" value="2" id="zone_tuesday">
+                            <label class="form-check-label" for="zone_tuesday">Mar</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekdays" value="3" id="zone_wednesday">
+                            <label class="form-check-label" for="zone_wednesday">Mer</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekdays" value="4" id="zone_thursday">
+                            <label class="form-check-label" for="zone_thursday">Jeu</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekdays" value="5" id="zone_friday">
+                            <label class="form-check-label" for="zone_friday">Ven</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekdays" value="6" id="zone_saturday">
+                            <label class="form-check-label" for="zone_saturday">Sam</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="weekdays" value="0" id="zone_sunday">
+                            <label class="form-check-label" for="zone_sunday">Dim</label>
+                        </div>
+                    </div>
+                </div>
+            `;
+            break;
+        case 'zone_activity':
+            html = `
+                <div class="mb-3">
+                    <label class="form-label">Nombre maximum de détections</label>
+                    <input type="number" class="form-control" name="max_detections" value="10" min="1">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Fenêtre de temps (minutes)</label>
+                    <input type="number" class="form-control" name="time_window" value="60" min="1">
+                </div>
+            `;
+            break;
+        case 'camera_status':
+            html = `
+                <div class="mb-3">
+                    <label class="form-label">Changement de statut</label>
+                    <select class="form-select" name="status_change">
+                        <option value="offline">Hors ligne</option>
+                        <option value="online">En ligne</option>
+                        <option value="error">Erreur</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Durée (minutes)</label>
+                    <input type="number" class="form-control" name="duration_minutes" value="5" min="1">
+                </div>
+            `;
+            break;
+    }
+    
+    conditionsDiv.innerHTML = html;
+}
+
+function showRuleCameras(ruleId) {
+    // Afficher les détails des caméras utilisant cette règle
+    alert('Fonctionnalité à implémenter : voir les caméras utilisant cette règle');
+}
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+function showToast(message, type = 'info') {
+    // Créer un toast simple
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} position-fixed`;
+    toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+</script>
+
+{% endblock %}
