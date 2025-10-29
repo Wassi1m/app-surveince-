@@ -165,40 +165,7 @@
                     </li>
                 </ul>
                 
-                <!-- Section droite de la navbar -->
-                <div class="d-flex align-items-center flex-wrap">
-                    <!-- Statut système -->
-                    <div class="navbar-text me-2 d-none d-md-block">
-                        <span class="badge bg-success" id="system-status">
-                            <i class="fas fa-circle pulse"></i>
-                            <span class="d-none d-lg-inline">Système Actif</span>
-                            <span class="d-inline d-lg-none">Actif</span>
-                        </span>
-                    </div>
-                    
-                    <!-- Notifications utilisateur -->
-                    <div class="dropdown me-2">
-                        <button class="btn btn-outline-light btn-sm position-relative" type="button" id="notificationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-bell"></i>
-                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notification-badge" style="font-size: 0.6em;">
-                                0
-                            </span>
-                        </button>
-                        <div class="dropdown-menu dropdown-menu-end dropdown-menu-dark notification-dropdown" style="width: 320px; max-width: 90vw;">
-                            <div class="dropdown-header d-flex justify-content-between align-items-center">
-                                <span class="fw-bold">Notifications</span>
-                                <button class="btn btn-sm btn-link text-muted p-0" id="mark-all-read">
-                                    Tout marquer
-                                </button>
-                            </div>
-                            <div class="dropdown-divider"></div>
-                            <div id="notification-list" class="notification-list" style="max-height: 300px; overflow-y: auto;">
-                                <div class="dropdown-item-text text-muted text-center py-3">
-                                    Aucune notification
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+             
                     
                     <!-- Menu utilisateur -->
                     {% if user.is_authenticated %}

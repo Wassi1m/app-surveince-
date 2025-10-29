@@ -62,7 +62,6 @@ class CompanyLoginView(LoginView):
             # Si c'est un owner, la référence d'entreprise est ignorée
             if company_user.is_owner:
                 login(self.request, user)
-                logger.info(f"Connexion Owner: {user.username} - Accès système complet")
                 messages.success(self.request, f"Bienvenue {user.get_full_name() or user.username} !")
                 return redirect(self.get_success_url())
             
@@ -213,7 +212,15 @@ def company_login_view(request):
                 return redirect('dashboard')
             
         except CompanyUser.DoesNotExist:
+            print(f"DEBUG: Aucun profil d'entreprise trouvé pour {user.username}")
             messages.error(request, "Votre compte n'est pas configuré pour une entreprise. Contactez l'administrateur.")
+            return render(request, 'auth/login.html', {
+                'company_reference': company_reference,
+                'username': username
+            })
+        except Exception as e:
+            print(f"DEBUG: Erreur inattendue lors de l'accès au profil: {e}")
+            messages.error(request, "Erreur lors de la connexion. Contactez l'administrateur.")
             return render(request, 'auth/login.html', {
                 'company_reference': company_reference,
                 'username': username

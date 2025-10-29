@@ -403,33 +403,36 @@
                         </div>
                     </div>
                     
-                    <div class="location-actions">
+                    <div class="location-actions d-flex gap-2 flex-wrap">
                         <a href="{% url 'monitoring:location_detail' location.id %}" 
-                           class="btn btn-outline-info">
+                           class="btn btn-sm btn-outline-info" 
+                           data-bs-toggle="tooltip" title="Voir les détails">
                             <i class="fas fa-eye"></i>
-                            Voir
                         </a>
+                    
                         <button onclick="editLocation({{ location.id }})" 
-                                class="btn btn-outline-warning">
+                                class="btn btn-sm btn-outline-warning" 
+                                data-bs-toggle="tooltip" title="Modifier">
                             <i class="fas fa-edit"></i>
-                            Modifier
                         </button>
-                        <a href="{% url 'monitoring:zones' %}?location={{ location.id }}" 
-                           class="btn btn-outline-primary">
-                            <i class="fas fa-th-large"></i>
-                            Zones
-                        </a>
-                        <a href="{% url 'monitoring:cameras' %}?location={{ location.id }}" 
-                           class="btn btn-outline-secondary">
-                            <i class="fas fa-video"></i>
-                            Caméras
-                        </a>
+                    
+                      
+                    
                         <button onclick="deleteLocation({{ location.id }}, '{{ location.name|escapejs }}')" 
-                                class="btn btn-outline-danger">
+                                class="btn btn-sm btn-outline-danger" 
+                                data-bs-toggle="tooltip" title="Supprimer">
                             <i class="fas fa-trash"></i>
-                            Supprimer
                         </button>
                     </div>
+                    
+                    <script>
+                        // Activer tous les tooltips Bootstrap
+                        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+                        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                          return new bootstrap.Tooltip(tooltipTriggerEl)
+                        })
+                    </script>
+                    
                 </div>
             {% endfor %}
         </div>

@@ -76,6 +76,7 @@
         .logo i {
             background: linear-gradient(45deg, #0984e3, #74b9ff);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
             animation: pulse 2s infinite;
         }
@@ -99,8 +100,50 @@
             padding: 40px 30px;
         }
         
-        .form-floating {
-            margin-bottom: 20px;
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+        
+        .form-label {
+            color: #495057;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: block;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-label i {
+            color: #0984e3;
+            margin-right: 8px;
+            font-size: 16px;
+        }
+        
+        .input-wrapper {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .input-wrapper::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #0984e3, #74b9ff);
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+        
+        .input-wrapper:focus-within::before {
+            width: 100%;
+        }
+        
+        .input-wrapper:focus-within .form-label {
+            color: #0984e3;
+            transform: translateY(-2px);
         }
         
         .form-text {
@@ -110,18 +153,56 @@
         }
         
         .form-control {
-            border: 2px solid transparent;
+            border: 2px solid #e9ecef;
             border-radius: 12px;
-            padding: 15px;
+            padding: 16px 20px;
             font-size: 16px;
-            transition: all 0.3s ease;
-            background: rgba(248, 249, 250, 0.8);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(248, 249, 250, 0.9);
+            width: 100%;
+            position: relative;
+            z-index: 1;
         }
         
         .form-control:focus {
-            border-color: #0984e3;
-            box-shadow: 0 0 0 0.2rem rgba(9, 132, 227, 0.25);
+            border-color: transparent;
+            box-shadow: 0 8px 25px rgba(9, 132, 227, 0.15);
             background: white;
+            outline: none;
+            transform: translateY(-2px);
+        }
+        
+        .form-control:hover:not(:focus) {
+            border-color: #c6d0f5;
+            background: rgba(248, 249, 250, 1);
+        }
+        
+        .form-control::placeholder {
+            color: #a0a9b8;
+            font-weight: 400;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus::placeholder {
+            color: #c6d0f5;
+            transform: translateX(5px);
+        }
+        
+        /* Animation de validation */
+        .form-control.is-valid {
+            border-color: #28a745;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%2328a745' d='m2.3 6.73.94-.94 2.94 2.94L8.5 6.4l.94.94L6.5 10.27z'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+        }
+        
+        .form-control.is-invalid {
+            border-color: #dc3545;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='m5.5 5.5 1 1m0-1-1 1'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
         }
         
         .btn-login {
@@ -200,6 +281,48 @@
             50% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
+        
+        @keyframes successPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); box-shadow: 0 0 20px rgba(40, 167, 69, 0.3); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes errorShake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        
+        @keyframes fadeInScale {
+            0% { 
+                opacity: 0; 
+                transform: scale(0.9) translateY(10px); 
+            }
+            100% { 
+                opacity: 1; 
+                transform: scale(1) translateY(0); 
+            }
+        }
+        
+        /* Animation d'apparition des champs */
+        .form-group {
+            animation: fadeInScale 0.6s ease-out;
+        }
+        
+        .form-group:nth-child(1) { animation-delay: 0.1s; }
+        .form-group:nth-child(2) { animation-delay: 0.2s; }
+        .form-group:nth-child(3) { animation-delay: 0.3s; }
+        
+        /* État focus amélioré */
+        .input-wrapper.focused .form-label {
+            color: #0984e3;
+            transform: translateY(-2px);
+        }
+        
+        .input-wrapper.focused::before {
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -237,31 +360,37 @@
                 <form method="post" action="{% url 'login' %}">
                     {% csrf_token %}
                     
-                    <div class="form-floating">
-                        <input type="text" class="form-control" id="id_company_reference" name="company_reference" 
-                               placeholder="Référence entreprise" required 
-                               value="{{ company_reference|default:'' }}">
-                        <label for="id_company_reference">
-                            <i class="fas fa-building me-2"></i>Référence de l'entreprise
-                        </label>
+                    <div class="form-group">
+                        <div class="input-wrapper">
+                            <label for="id_company_reference" class="form-label">
+                                <i class="fas fa-building"></i>Référence de l'entreprise
+                            </label>
+                            <input type="text" class="form-control" id="id_company_reference" name="company_reference" 
+                                   placeholder="Ex: ABC12345" required 
+                                   value="{{ company_reference|default:'' }}">
+                        </div>
                         <div class="form-text">Référence fournie par votre administrateur (ex: ABC12345)</div>
                     </div>
                     
-                    <div class="form-floating">
-                        <input type="text" class="form-control" id="id_username" name="username" 
-                               placeholder="Nom d'utilisateur" required 
-                               value="{{ username|default:'' }}">
-                        <label for="id_username">
-                            <i class="fas fa-user me-2"></i>Nom d'utilisateur / Email
-                        </label>
+                    <div class="form-group">
+                        <div class="input-wrapper">
+                            <label for="id_username" class="form-label">
+                                <i class="fas fa-user"></i>Nom d'utilisateur / Email
+                            </label>
+                            <input type="text" class="form-control" id="id_username" name="username" 
+                                   placeholder="Votre nom d'utilisateur ou email" required 
+                                   value="{{ username|default:'' }}">
+                        </div>
                     </div>
                     
-                    <div class="form-floating">
-                        <input type="password" class="form-control" id="id_password" name="password" 
-                               placeholder="Mot de passe" required>
-                        <label for="id_password">
-                            <i class="fas fa-key me-2"></i>Mot de passe
-                        </label>
+                    <div class="form-group">
+                        <div class="input-wrapper">
+                            <label for="id_password" class="form-label">
+                                <i class="fas fa-lock"></i>Mot de passe
+                            </label>
+                            <input type="password" class="form-control" id="id_password" name="password" 
+                                   placeholder="Votre mot de passe" required>
+                        </div>
                     </div>
                     
                     <input type="hidden" name="next" value="{{ next }}">
@@ -310,16 +439,79 @@
             }
         });
         
-        // Validation en temps réel
+        // Validation en temps réel améliorée
         document.querySelectorAll('.form-control').forEach(input => {
-            input.addEventListener('input', function() {
-                if (this.value.trim() !== '') {
-                    this.classList.add('is-valid');
-                    this.classList.remove('is-invalid');
-                } else {
-                    this.classList.remove('is-valid');
-                }
+            // Animation d'entrée
+            input.addEventListener('focus', function() {
+                this.parentElement.classList.add('focused');
             });
+            
+            input.addEventListener('blur', function() {
+                this.parentElement.classList.remove('focused');
+                validateField(this);
+            });
+            
+            input.addEventListener('input', function() {
+                validateField(this);
+            });
+        });
+        
+        function validateField(input) {
+            const value = input.value.trim();
+            const inputWrapper = input.parentElement;
+            
+            // Supprimer les classes précédentes
+            input.classList.remove('is-valid', 'is-invalid');
+            
+            if (value === '') {
+                return; // Pas de validation si vide
+            }
+            
+            let isValid = false;
+            
+            // Validation spécifique par champ
+            switch(input.id) {
+                case 'id_company_reference':
+                    isValid = value.length >= 4 && /^[A-Z0-9]+$/.test(value.toUpperCase());
+                    break;
+                case 'id_username':
+                    isValid = value.length >= 3;
+                    break;
+                case 'id_password':
+                    isValid = value.length >= 6;
+                    break;
+                default:
+                    isValid = value.length > 0;
+            }
+            
+            if (isValid) {
+                input.classList.add('is-valid');
+                addSuccessAnimation(inputWrapper);
+            } else {
+                input.classList.add('is-invalid');
+                addErrorAnimation(inputWrapper);
+            }
+        }
+        
+        function addSuccessAnimation(wrapper) {
+            wrapper.style.animation = 'successPulse 0.6s ease-out';
+            setTimeout(() => {
+                wrapper.style.animation = '';
+            }, 600);
+        }
+        
+        function addErrorAnimation(wrapper) {
+            wrapper.style.animation = 'errorShake 0.6s ease-out';
+            setTimeout(() => {
+                wrapper.style.animation = '';
+            }, 600);
+        }
+        
+        // Animation de soumission du formulaire
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const submitBtn = this.querySelector('.btn-login');
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Connexion...';
+            submitBtn.disabled = true;
         });
     </script>
 </body>
