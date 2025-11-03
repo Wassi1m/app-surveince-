@@ -1,0 +1,329 @@
+{% extends "history/base_history.html" %}
+{% load static %}
+{% load history_extras %}
+
+{% block title %}Paramètres - Historique{% endblock %}
+
+{% block history_content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="history-detail">
+            <form method="post">
+                {% csrf_token %}
+                
+                <!-- En-tête -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h3><i class="fas fa-cog"></i> Paramètres d'historisation</h3>
+                        <p class="text-muted mb-0">
+                            Configuration de l'historisation pour {{ company.name }}
+                        </p>
+                    </div>
+                    <div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Enregistrer
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Paramètres de rétention -->
+                <div class="detail-section">
+                    <h5><i class="fas fa-archive"></i> Rétention des données</h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="retention_days">Durée de rétention (jours)</label>
+                                <input type="number" class="form-control" id="retention_days" 
+                                       name="retention_days" value="{{ settings.retention_days }}" 
+                                       min="1" max="3650" required>
+                                <small class="form-text text-muted">
+                                    Nombre de jours avant archivage automatique des entrées d'historique.
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <div class="form-check mt-4">
+                                    <input type="checkbox" class="form-check-input" id="auto_archive" 
+                                           name="auto_archive" {% if settings.auto_archive %}checked{% endif %}>
+                                    <label class="form-check-label" for="auto_archive">
+                                        Archivage automatique
+                                    </label>
+                                </div>
+                                <small class="form-text text-muted">
+                                    Activer l'archivage automatique des anciennes entrées.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Paramètres de tracking -->
+                <div class="detail-section">
+                    <h5><i class="fas fa-eye"></i> Suivi des actions</h5>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="track_views" 
+                                       name="track_views" {% if settings.track_views %}checked{% endif %}>
+                                <label class="form-check-label" for="track_views">
+                                    <strong>Traquer les consultations</strong>
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">
+                                Enregistrer les actions de consultation/lecture.
+                            </small>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="track_exports" 
+                                       name="track_exports" {% if settings.track_exports %}checked{% endif %}>
+                                <label class="form-check-label" for="track_exports">
+                                    <strong>Traquer les exports</strong>
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">
+                                Enregistrer les exports de données.
+                            </small>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="track_system_actions" 
+                                       name="track_system_actions" {% if settings.track_system_actions %}checked{% endif %}>
+                                <label class="form-check-label" for="track_system_actions">
+                                    <strong>Traquer les actions système</strong>
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">
+                                Enregistrer les actions automatiques du système.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Catégories à traquer -->
+                <div class="detail-section">
+                    <h5><i class="fas fa-tags"></i> Catégories à historiser</h5>
+                    <p class="text-muted">Sélectionnez les types d'objets dont vous souhaitez conserver l'historique.</p>
+                    
+                    <div class="row">
+                        {% for category_code, category_label in category_choices %}
+                        <div class="col-md-3 mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" 
+                                       id="category_{{ category_code }}" 
+                                       name="enabled_categories" 
+                                       value="{{ category_code }}"
+                                       {% if category_code in settings.enabled_categories %}checked{% endif %}>
+                                <label class="form-check-label" for="category_{{ category_code }}">
+                                    <strong>{{ category_label }}</strong>
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllCategories()">
+                            <i class="fas fa-check-square"></i> Tout sélectionner
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllCategories()">
+                            <i class="fas fa-square"></i> Tout désélectionner
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Paramètres de notification -->
+                <div class="detail-section">
+                    <h5><i class="fas fa-bell"></i> Notifications</h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="notify_sensitive_actions" 
+                                       name="notify_sensitive_actions" {% if settings.notify_sensitive_actions %}checked{% endif %}>
+                                <label class="form-check-label" for="notify_sensitive_actions">
+                                    <strong>Notifier les actions sensibles</strong>
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">
+                                Envoyer des notifications pour les actions critiques.
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-12">
+                            <div class="form-group">
+                                <label for="notification_emails">Emails de notification</label>
+                                <textarea class="form-control" id="notification_emails" 
+                                          name="notification_emails" rows="3"
+                                          placeholder="email1@exemple.com, email2@exemple.com">{% if settings.notification_emails %}{{ settings.notification_emails|join:", " }}{% endif %}</textarea>
+                                <small class="form-text text-muted">
+                                    Séparez les adresses email par des virgules. Ces adresses recevront les notifications d'actions sensibles.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Informations sur les paramètres actuels -->
+                <div class="detail-section">
+                    <h5><i class="fas fa-info-circle"></i> Informations</h5>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="detail-label">Dernière modification</div>
+                            <div class="detail-value">
+                                {{ settings.updated_at|date:"d/m/Y à H:i" }}
+                                {% if settings.updated_by %}
+                                    par {{ settings.updated_by.get_full_name|default:settings.updated_by.username }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="detail-label">Création des paramètres</div>
+                            <div class="detail-value">
+                                {{ settings.created_at|date:"d/m/Y à H:i" }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Actions -->
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-save"></i> Enregistrer les paramètres
+                    </button>
+                    <a href="{% url 'history:dashboard' %}" class="btn btn-secondary btn-lg ml-2">
+                        <i class="fas fa-times"></i> Annuler
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmation -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmer les modifications</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir modifier ces paramètres d'historisation ?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Attention :</strong> La modification de ces paramètres affectera 
+                    la façon dont les futures actions seront enregistrées dans l'historique.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="submitForm()">Confirmer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+function selectAllCategories() {
+    const checkboxes = document.querySelectorAll('input[name="enabled_categories"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = true;
+    });
+}
+
+function deselectAllCategories() {
+    const checkboxes = document.querySelectorAll('input[name="enabled_categories"]');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+}
+
+function submitForm() {
+    document.querySelector('form').submit();
+    $('#confirmModal').modal('hide');
+}
+
+// Validation du formulaire
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    
+    form.addEventListener('submit', function(e) {
+        // Vérifier qu'au moins une catégorie est sélectionnée
+        const categoryCheckboxes = document.querySelectorAll('input[name="enabled_categories"]:checked');
+        
+        if (categoryCheckboxes.length === 0) {
+            e.preventDefault();
+            showAlert('Vous devez sélectionner au moins une catégorie à historiser.', 'warning');
+            return false;
+        }
+        
+        // Vérifier la durée de rétention
+        const retentionDays = parseInt(document.getElementById('retention_days').value);
+        if (retentionDays < 1 || retentionDays > 3650) {
+            e.preventDefault();
+            showAlert('La durée de rétention doit être comprise entre 1 et 3650 jours.', 'warning');
+            return false;
+        }
+        
+        // Validation des emails
+        const emailsText = document.getElementById('notification_emails').value.trim();
+        if (emailsText) {
+            const emails = emailsText.split(',').map(email => email.trim());
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            
+            for (let email of emails) {
+                if (email && !emailRegex.test(email)) {
+                    e.preventDefault();
+                    showAlert(`L'adresse email "${email}" n'est pas valide.`, 'warning');
+                    return false;
+                }
+            }
+        }
+        
+        // Tout est OK, on peut soumettre
+        return true;
+    });
+});
+
+// Prévisualisation des changements
+function previewChanges() {
+    const retentionDays = document.getElementById('retention_days').value;
+    const autoArchive = document.getElementById('auto_archive').checked;
+    const selectedCategories = document.querySelectorAll('input[name="enabled_categories"]:checked').length;
+    
+    let preview = `
+        <strong>Résumé des modifications :</strong><br>
+        • Durée de rétention : ${retentionDays} jours<br>
+        • Archivage automatique : ${autoArchive ? 'Activé' : 'Désactivé'}<br>
+        • Catégories sélectionnées : ${selectedCategories}<br>
+    `;
+    
+    showAlert(preview, 'info');
+}
+
+// Raccourcis clavier
+document.addEventListener('keydown', function(e) {
+    // Ctrl+S pour sauvegarder
+    if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        document.querySelector('form').submit();
+    }
+});
+</script>
+{% endblock %}

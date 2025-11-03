@@ -137,6 +137,10 @@
                             <li><a class="dropdown-item" href="{% url 'companies:create_employee' %}">
                                 <i class="fas fa-user-plus me-2 text-success"></i>Ajouter un Employé
                             </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'history:dashboard' %}">
+                                <i class="fas fa-history me-2 text-warning"></i>Historique des Actions
+                            </a></li>
                         </ul>
                     </li>
                     {% endif %}

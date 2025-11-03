@@ -1,0 +1,341 @@
+{% extends "history/base_history.html" %}
+{% load static %}
+{% load history_extras %}
+
+{% block title %}Historique complet{% endblock %}
+
+{% block history_content %}
+<!-- Filtres -->
+<div class="history-filters">
+    <form method="get" id="filter-form">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="form-group">
+                    <label for="user">Utilisateur</label>
+                    <select name="user" id="user" class="form-control">
+                        <option value="">Tous les utilisateurs</option>
+                        {% for company_user in users %}
+                        <option value="{{ company_user.user.id }}" 
+                                {% if filters.user == company_user.user.id|stringformat:"s" %}selected{% endif %}>
+                            {{ company_user.user.get_full_name|default:company_user.user.username }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="col-md-2">
+                <div class="form-group">
+                    <label for="action">Action</label>
+                    <select name="action" id="action" class="form-control">
+                        <option value="">Toutes les actions</option>
+                        {% for action_code, action_label in action_choices %}
+                        <option value="{{ action_code }}" 
+                                {% if filters.action == action_code %}selected{% endif %}>
+                            {{ action_label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="col-md-2">
+                <div class="form-group">
+                    <label for="category">Catégorie</label>
+                    <select name="category" id="category" class="form-control">
+                        <option value="">Toutes les catégories</option>
+                        {% for category_code, category_label in category_choices %}
+                        <option value="{{ category_code }}" 
+                                {% if filters.category == category_code %}selected{% endif %}>
+                            {{ category_label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="col-md-2">
+                <div class="form-group">
+                    <label for="date_from">Date de début</label>
+                    <input type="date" name="date_from" id="date_from" 
+                           class="form-control" value="{{ filters.date_from }}">
+                </div>
+            </div>
+            
+            <div class="col-md-2">
+                <div class="form-group">
+                    <label for="date_to">Date de fin</label>
+                    <input type="date" name="date_to" id="date_to" 
+                           class="form-control" value="{{ filters.date_to }}">
+                </div>
+            </div>
+            
+            <div class="col-md-1">
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-3">
+                <div class="form-group">
+                    <label for="location">Localisation</label>
+                    <select name="location" id="location" class="form-control">
+                        <option value="">Toutes les localisations</option>
+                        {% for location in locations %}
+                        <option value="{{ location.id }}" 
+                                {% if filters.location == location.id|stringformat:"s" %}selected{% endif %}>
+                            {{ location.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="search">Recherche textuelle</label>
+                    <input type="text" name="search" id="search" 
+                           class="form-control" value="{{ filters.search }}"
+                           placeholder="Rechercher dans les objets, descriptions, utilisateurs...">
+                </div>
+            </div>
+            
+            <div class="col-md-3">
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <div class="btn-group btn-block">
+                        <a href="{% url 'history:list' %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Effacer
+                        </a>
+                        <button type="button" class="btn btn-export" onclick="exportHistory()">
+                            <i class="fas fa-download"></i> Exporter
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Résultats -->
+<div class="history-table">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-list"></i> Historique complet
+            <small class="text-muted">({{ total_count }} entrée{{ total_count|pluralize }})</small>
+        </h5>
+        
+        {% if page_obj.has_other_pages %}
+        <small class="text-muted">
+            Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+        </small>
+        {% endif %}
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>Date/Heure</th>
+                    <th>Utilisateur</th>
+                    <th>Action</th>
+                    <th>Catégorie</th>
+                    <th>Objet</th>
+                    <th>Description</th>
+                    <th>Localisation</th>
+                    <th>IP</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in page_obj %}
+                <tr>
+                    <td>
+                        <small>{{ entry.timestamp|date:"d/m/Y H:i:s" }}</small>
+                    </td>
+                    <td>
+                        {% if entry.user %}
+                            <div>
+                                <strong>{{ entry.user.get_full_name|default:entry.user.username }}</strong>
+                                {% if entry.is_system_action %}
+                                    <br><small class="text-muted">(Action système)</small>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <em class="text-muted">Système</em>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="action-badge action-{{ entry.action }}">
+                            {{ entry.get_action_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="category-badge">
+                            {{ entry.get_category_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <strong>{{ entry.object_name|truncatechars:25 }}</strong>
+                        {% if entry.is_sensitive %}
+                            <i class="fas fa-lock text-warning" title="Données sensibles"></i>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <small class="text-muted">{{ entry.description|truncatechars:40 }}</small>
+                        {% if entry.changed_fields %}
+                            <br><small class="text-info">
+                                {{ entry.changed_fields|length }} champ{{ entry.changed_fields|length|pluralize }} modifié{{ entry.changed_fields|length|pluralize }}
+                            </small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if entry.location %}
+                            <small>{{ entry.location.name }}</small>
+                        {% else %}
+                            <small class="text-muted">-</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if entry.ip_address %}
+                            <small class="text-muted">{{ entry.ip_address }}</small>
+                        {% else %}
+                            <small class="text-muted">-</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'history:detail' entry.id %}" 
+                           class="btn btn-sm btn-outline-primary" title="Voir les détails">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-2x mb-3"></i><br>
+                        Aucune entrée d'historique trouvée avec ces critères.
+                        <br><small>Essayez de modifier vos filtres de recherche.</small>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer bg-light">
+        <nav aria-label="Navigation de l'historique">
+            <ul class="pagination justify-content-center mb-0">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in filters.items %}{{ key }}={{ value }}&{% endfor %}page=1">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in filters.items %}{{ key }}={{ value }}&{% endfor %}page={{ page_obj.previous_page_number }}">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% for key, value in filters.items %}{{ key }}={{ value }}&{% endfor %}page={{ num }}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in filters.items %}{{ key }}={{ value }}&{% endfor %}page={{ page_obj.next_page_number }}">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in filters.items %}{{ key }}={{ value }}&{% endfor %}page={{ page_obj.paginator.num_pages }}">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        
+        <div class="text-center mt-2">
+            <small class="text-muted">
+                Affichage de {{ page_obj.start_index }} à {{ page_obj.end_index }} 
+                sur {{ page_obj.paginator.count }} entrées
+            </small>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Token CSRF pour l'export -->
+{% csrf_token %}
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+// Auto-submit du formulaire lors du changement des filtres
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('filter-form');
+    const selects = form.querySelectorAll('select');
+    const dateInputs = form.querySelectorAll('input[type="date"]');
+    
+    // Auto-submit pour les selects
+    selects.forEach(select => {
+        select.addEventListener('change', function() {
+            form.submit();
+        });
+    });
+    
+    // Auto-submit pour les dates (avec délai)
+    let dateTimeout;
+    dateInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            clearTimeout(dateTimeout);
+            dateTimeout = setTimeout(() => {
+                form.submit();
+            }, 500);
+        });
+    });
+    
+    // Submit sur Enter pour la recherche textuelle
+    const searchInput = document.getElementById('search');
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            form.submit();
+        }
+    });
+});
+
+// Raccourcis clavier
+document.addEventListener('keydown', function(e) {
+    // Ctrl+F pour focus sur la recherche
+    if (e.ctrlKey && e.key === 'f') {
+        e.preventDefault();
+        document.getElementById('search').focus();
+    }
+    
+    // Ctrl+E pour export
+    if (e.ctrlKey && e.key === 'e') {
+        e.preventDefault();
+        exportHistory();
+    }
+});
+</script>
+{% endblock %}

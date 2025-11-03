@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+/* Override du thème sombre pour l'historique */
+.main-content {
+    background: #f8f9fa !important;
+    color: #212529 !important;
+}
+
+.history-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+}
+
+.history-stats {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    color: #212529;
+}
+
+.stat-card {
+    text-align: center;
+    padding: 1rem;
+    border-radius: 8px;
+    background: #f8f9fa;
+    margin-bottom: 1rem;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.stat-label {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.history-filters {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    color: #212529;
+}
+
+.history-table {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    overflow: hidden;
+    color: #212529;
+}
+
+.table th {
+    background: #f8f9fa;
+    border: none;
+    font-weight: 600;
+    color: #495057;
+}
+
+.table td {
+    color: #212529;
+}
+
+.action-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 15px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.action-create { background: #d4edda; color: #155724; }
+.action-update { background: #fff3cd; color: #856404; }
+.action-delete { background: #f8d7da; color: #721c24; }
+.action-login { background: #d1ecf1; color: #0c5460; }
+.action-logout { background: #e2e3e5; color: #383d41; }
+
+.category-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 15px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: #e9ecef;
+    color: #495057;
+}
+
+.history-detail {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    padding: 2rem;
+    color: #212529;
+}
+
+.detail-section {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.detail-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.detail-value {
+    color: #6c757d;
+}
+
+.changes-table {
+    font-size: 0.9rem;
+}
+
+.changes-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+}
+
+.old-value {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+
+.new-value {
+    background: #d4edda;
+    color: #155724;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+}
+
+.pagination {
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.btn-export {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+}
+
+.btn-export:hover {
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    color: white;
+}
+
+.filter-form {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.nav-history {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.nav-history .nav-link {
+    color: #495057;
+    font-weight: 500;
+}
+
+.nav-history .nav-link.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+/* Styles pour les formulaires */
+.form-control {
+    color: #212529;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+}
+
+.form-control:focus {
+    color: #212529;
+    background-color: #fff;
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.form-label {
+    color: #495057;
+}
+
+.form-text {
+    color: #6c757d;
+}
+
+/* Styles pour les alertes */
+.alert {
+    color: #212529;
+}
+
+/* Styles pour les modals */
+.modal-content {
+    color: #212529;
+}
+
+/* Override pour les éléments de navigation */
+.container h1, .container h2, .container h3, .container h4, .container h5 {
+    color: #212529;
+}
+
+.container p, .container div, .container span {
+    color: #212529;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="history-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-8">
+                <h1><i class="fas fa-history"></i> Historique des Actions</h1>
+                <p class="mb-0">Suivi complet de toutes les activités de votre entreprise</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="text-white-50">
+                    <small>Entreprise: {{ company.name }}</small><br>
+                    <small>Référence: {{ company.reference }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Navigation de l'historique -->
+    <div class="nav-history">
+        <ul class="nav nav-pills nav-fill">
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" 
+                   href="{% url 'history:dashboard' %}">
+                    <i class="fas fa-tachometer-alt"></i> Tableau de bord
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'list' %}active{% endif %}" 
+                   href="{% url 'history:list' %}">
+                    <i class="fas fa-list"></i> Historique complet
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'settings' %}active{% endif %}" 
+                   href="{% url 'history:settings' %}">
+                    <i class="fas fa-cog"></i> Paramètres
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    {% block history_content %}
+    {% endblock %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Fonctions utilitaires pour l'historique
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR') + ' ' + date.toLocaleTimeString('fr-FR');
+}
+
+function exportHistory() {
+    // Récupérer les filtres actuels
+    const filters = {};
+    
+    const form = document.getElementById('filter-form');
+    if (form) {
+        const formData = new FormData(form);
+        for (let [key, value] of formData.entries()) {
+            if (value) {
+                filters[key] = value;
+            }
+        }
+    }
+    
+    // Envoyer la requête d'export
+    fetch('{% url "history:export" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify(filters)
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.blob();
+        }
+        throw new Error('Erreur lors de l\'export');
+    })
+    .then(blob => {
+        // Télécharger le fichier
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'historique_' + new Date().toISOString().slice(0,10) + '.csv';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        
+        // Afficher un message de succès
+        showAlert('Export terminé avec succès!', 'success');
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        showAlert('Erreur lors de l\'export: ' + error.message, 'danger');
+    });
+}
+
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert">
+            <span>&times;</span>
+        </button>
+    `;
+    
+    const container = document.querySelector('.container');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-dismiss après 5 secondes
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+
+// Auto-refresh pour le tableau de bord (toutes les 30 secondes)
+if (window.location.pathname.includes('history') && 
+    window.location.pathname.endsWith('/')) {
+    setInterval(() => {
+        // Recharger seulement les statistiques
+        fetch('{% url "history:stats_api" %}')
+        .then(response => response.json())
+        .then(data => {
+            // Mettre à jour les statistiques si nécessaire
+            updateStats(data);
+        })
+        .catch(error => console.error('Erreur lors du refresh:', error));
+    }, 30000);
+}
+
+function updateStats(data) {
+    // Mettre à jour les éléments de statistiques
+    const totalElement = document.getElementById('total-entries');
+    if (totalElement && data.total_entries !== undefined) {
+        totalElement.textContent = data.total_entries;
+    }
+}
+</script>
+{% endblock %}

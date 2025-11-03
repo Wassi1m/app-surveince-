@@ -1,0 +1,399 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+/* Override du thème sombre pour l'historique */
+.main-content {
+    background: #f8f9fa !important;
+    color: #212529 !important;
+}
+
+.history-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+}
+
+.card {
+    background: white;
+    color: #212529;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.table {
+    color: #212529;
+}
+
+.table th {
+    background: #f8f9fa;
+    color: #495057;
+}
+
+.form-control {
+    color: #212529 !important;
+    background-color: #fff !important;
+    border: 1px solid #ced4da !important;
+}
+
+.form-control:focus {
+    color: #212529 !important;
+    background-color: #fff !important;
+    border-color: #667eea !important;
+}
+
+.form-label, label {
+    color: #495057 !important;
+}
+
+.form-select {
+    color: #212529 !important;
+    background-color: #fff !important;
+    border: 1px solid #ced4da !important;
+}
+
+select.form-control {
+    color: #212529 !important;
+    background-color: #fff !important;
+}
+
+.action-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 15px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.action-create { background: #d4edda; color: #155724; }
+.action-update { background: #fff3cd; color: #856404; }
+.action-delete { background: #f8d7da; color: #721c24; }
+.action-login { background: #d1ecf1; color: #0c5460; }
+.action-logout { background: #e2e3e5; color: #383d41; }
+
+.category-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 15px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: #e9ecef;
+    color: #495057;
+}
+
+.nav-pills .nav-link {
+    color: #495057;
+}
+
+.nav-pills .nav-link.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-export {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+}
+
+.btn-export:hover {
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    color: white;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="history-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-8">
+                <h1><i class="fas fa-history"></i> Historique des Actions</h1>
+                <p class="mb-0">Suivi complet de toutes les activités de votre entreprise</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="text-white-50">
+                    <small>Entreprise: {{ company.name }}</small><br>
+                    <small>Référence: {{ company.reference }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Navigation -->
+    <div class="card">
+        <div class="card-body">
+            <ul class="nav nav-pills nav-fill">
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'history:dashboard' %}">
+                        <i class="fas fa-tachometer-alt"></i> Tableau de bord
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="{% url 'history:list' %}">
+                        <i class="fas fa-list"></i> Historique complet
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'history:settings' %}">
+                        <i class="fas fa-cog"></i> Paramètres
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-filter"></i> Filtres de recherche</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" id="filter-form">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="user" class="form-label">Utilisateur</label>
+                            <select name="user" id="user" class="form-control">
+                                <option value="">Tous les utilisateurs</option>
+                                {% for company_user in users %}
+                                <option value="{{ company_user.user.id }}" 
+                                        {% if filters.user == company_user.user.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ company_user.user.get_full_name|default:company_user.user.username }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <label for="action" class="form-label">Action</label>
+                            <select name="action" id="action" class="form-control">
+                                <option value="">Toutes les actions</option>
+                                {% for action_code, action_label in action_choices %}
+                                <option value="{{ action_code }}" 
+                                        {% if filters.action == action_code %}selected{% endif %}>
+                                    {{ action_label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <label for="category" class="form-label">Catégorie</label>
+                            <select name="category" id="category" class="form-control">
+                                <option value="">Toutes les catégories</option>
+                                {% for category_code, category_label in category_choices %}
+                                <option value="{{ category_code }}" 
+                                        {% if filters.category == category_code %}selected{% endif %}>
+                                    {{ category_label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <label for="date_from" class="form-label">Date de début</label>
+                            <input type="date" name="date_from" id="date_from" 
+                                   class="form-control" value="{{ filters.date_from }}">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <div class="mb-3">
+                            <label for="date_to" class="form-label">Date de fin</label>
+                            <input type="date" name="date_to" id="date_to" 
+                                   class="form-control" value="{{ filters.date_to }}">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-1">
+                        <div class="mb-3">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-primary d-block w-100">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="location" class="form-label">Localisation</label>
+                            <select name="location" id="location" class="form-control">
+                                <option value="">Toutes les localisations</option>
+                                {% for location in locations %}
+                                <option value="{{ location.id }}" 
+                                        {% if filters.location == location.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ location.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="search" class="form-label">Recherche textuelle</label>
+                            <input type="text" name="search" id="search" 
+                                   class="form-control" value="{{ filters.search }}"
+                                   placeholder="Rechercher dans les objets, descriptions, utilisateurs...">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'history:list' %}" class="btn btn-secondary">
+                                    <i class="fas fa-times"></i> Effacer
+                                </a>
+                                <button type="button" class="btn btn-export" onclick="exportHistory()">
+                                    <i class="fas fa-download"></i> Exporter
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Résultats -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-list"></i> Historique complet
+                <small class="text-muted">({{ total_count }} entrée{{ total_count|pluralize }})</small>
+            </h5>
+            
+            {% if page_obj.has_other_pages %}
+            <small class="text-muted">
+                Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}
+            </small>
+            {% endif %}
+        </div>
+        
+        <div class="card-body p-0">
+            {% if page_obj %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Date/Heure</th>
+                                <th>Utilisateur</th>
+                                <th>Action</th>
+                                <th>Catégorie</th>
+                                <th>Objet</th>
+                                <th>Description</th>
+                                <th>IP</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in page_obj %}
+                            <tr>
+                                <td>{{ entry.timestamp|date:"d/m/Y H:i:s" }}</td>
+                                <td>
+                                    {% if entry.user %}
+                                        {{ entry.user.get_full_name|default:entry.user.username }}
+                                    {% else %}
+                                        <em class="text-muted">Système</em>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="action-badge action-{{ entry.action }}">
+                                        {{ entry.get_action_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="category-badge">
+                                        {{ entry.get_category_display }}
+                                    </span>
+                                </td>
+                                <td>{{ entry.object_name|truncatechars:25 }}</td>
+                                <td>{{ entry.description|truncatechars:40 }}</td>
+                                <td>
+                                    {% if entry.ip_address %}
+                                        {{ entry.ip_address }}
+                                    {% else %}
+                                        <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'history:detail' entry.id %}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-4">
+                                    <i class="fas fa-search fa-2x mb-3"></i><br>
+                                    Aucune entrée d'historique trouvée avec ces critères.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </div>
+        
+        {% if page_obj.has_other_pages %}
+        <div class="card-footer">
+            <nav>
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Précédent</a>
+                        </li>
+                    {% endif %}
+                    
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_obj.number }}</span>
+                    </li>
+                    
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Suivant</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Token CSRF pour l'export -->
+{% csrf_token %}
+
+<script>
+function exportHistory() {
+    alert('Fonction d\'export en cours de développement');
+}
+
+// Auto-submit du formulaire lors du changement des filtres
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('filter-form');
+    const selects = form.querySelectorAll('select');
+    
+    selects.forEach(select => {
+        select.addEventListener('change', function() {
+            form.submit();
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,335 @@
+{% extends "history/base_history.html" %}
+{% load static %}
+{% load history_extras %}
+
+{% block title %}Détail - {{ entry.object_name }}{% endblock %}
+
+{% block history_content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="history-detail">
+            <!-- En-tête -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h3>
+                        <span class="action-badge action-{{ entry.action }}">
+                            {{ entry.get_action_display }}
+                        </span>
+                        {{ entry.object_name }}
+                    </h3>
+                    <p class="text-muted mb-0">
+                        <i class="fas fa-clock"></i> {{ entry.timestamp|date:"d/m/Y à H:i:s" }}
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'history:list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Retour à la liste
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Informations générales -->
+            <div class="detail-section">
+                <h5><i class="fas fa-info-circle"></i> Informations générales</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="detail-label">Action</div>
+                        <div class="detail-value">
+                            <span class="action-badge action-{{ entry.action }}">
+                                {{ entry.get_action_display }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">Catégorie</div>
+                        <div class="detail-value">
+                            <span class="category-badge">
+                                {{ entry.get_category_display }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="detail-label">Objet concerné</div>
+                        <div class="detail-value">
+                            <strong>{{ entry.object_name }}</strong>
+                            {% if entry.is_sensitive %}
+                                <i class="fas fa-lock text-warning ml-2" title="Données sensibles"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">Type d'objet</div>
+                        <div class="detail-value">
+                            {% if entry.content_type %}
+                                {{ entry.content_type.model|title }}
+                                <small class="text-muted">({{ entry.content_type.app_label }})</small>
+                            {% else %}
+                                <em class="text-muted">Non spécifié</em>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="detail-label">Description</div>
+                        <div class="detail-value">{{ entry.description }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Informations utilisateur -->
+            <div class="detail-section">
+                <h5><i class="fas fa-user"></i> Utilisateur et contexte</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="detail-label">Utilisateur</div>
+                        <div class="detail-value">
+                            {% if entry.user %}
+                                <div>
+                                    <strong>{{ entry.user.get_full_name|default:entry.user.username }}</strong>
+                                    <br><small class="text-muted">{{ entry.user.email }}</small>
+                                </div>
+                            {% else %}
+                                <em class="text-muted">Action système</em>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">Type d'action</div>
+                        <div class="detail-value">
+                            {% if entry.is_system_action %}
+                                <span class="badge badge-secondary">Action système</span>
+                            {% else %}
+                                <span class="badge badge-primary">Action utilisateur</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="detail-label">Entreprise</div>
+                        <div class="detail-value">
+                            {% if entry.company %}
+                                <strong>{{ entry.company.name }}</strong>
+                                <br><small class="text-muted">Réf: {{ entry.company.reference }}</small>
+                            {% else %}
+                                <em class="text-muted">Non spécifiée</em>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">Localisation</div>
+                        <div class="detail-value">
+                            {% if entry.location %}
+                                {{ entry.location.name }}
+                            {% else %}
+                                <em class="text-muted">Non spécifiée</em>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Informations techniques -->
+            <div class="detail-section">
+                <h5><i class="fas fa-cog"></i> Informations techniques</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="detail-label">Adresse IP</div>
+                        <div class="detail-value">
+                            {% if entry.ip_address %}
+                                <code>{{ entry.ip_address }}</code>
+                            {% else %}
+                                <em class="text-muted">Non disponible</em>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="detail-label">Clé de session</div>
+                        <div class="detail-value">
+                            {% if entry.session_key %}
+                                <code>{{ entry.session_key|truncatechars:20 }}</code>
+                            {% else %}
+                                <em class="text-muted">Non disponible</em>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                {% if entry.user_agent %}
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="detail-label">User Agent</div>
+                        <div class="detail-value">
+                            <small class="text-muted">{{ entry.user_agent|truncatechars:100 }}</small>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Détails des modifications -->
+            {% if entry.action == 'update' and entry.changed_fields %}
+            <div class="detail-section">
+                <h5><i class="fas fa-edit"></i> Détails des modifications</h5>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>{{ entry.changed_fields|length }}</strong> champ{{ entry.changed_fields|length|pluralize }} 
+                    {{ entry.changed_fields|length|pluralize:"a été modifié,ont été modifiés" }}.
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-sm changes-table">
+                        <thead>
+                            <tr>
+                                <th>Champ</th>
+                                <th>Ancienne valeur</th>
+                                <th>Nouvelle valeur</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for field in entry.changed_fields %}
+                            <tr>
+                                <td><strong>{{ field }}</strong></td>
+                                <td>
+                                    {% if entry.old_values and field in entry.old_values %}
+                                        <span class="old-value">{{ entry.old_values|lookup:field|default:"(vide)" }}</span>
+                                    {% else %}
+                                        <em class="text-muted">(non disponible)</em>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if entry.new_values and field in entry.new_values %}
+                                        <span class="new-value">{{ entry.new_values|lookup:field|default:"(vide)" }}</span>
+                                    {% else %}
+                                        <em class="text-muted">(non disponible)</em>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Données brutes (pour debug) -->
+            {% if user.is_superuser %}
+            <div class="detail-section">
+                <h5>
+                    <i class="fas fa-code"></i> Données brutes 
+                    <small class="text-muted">(visible uniquement par les administrateurs)</small>
+                </h5>
+                
+                <div class="accordion" id="rawDataAccordion">
+                    {% if entry.old_values %}
+                    <div class="card">
+                        <div class="card-header" id="oldValuesHeader">
+                            <button class="btn btn-link" type="button" data-toggle="collapse" 
+                                    data-target="#oldValuesCollapse">
+                                Anciennes valeurs (JSON)
+                            </button>
+                        </div>
+                        <div id="oldValuesCollapse" class="collapse" 
+                             data-parent="#rawDataAccordion">
+                            <div class="card-body">
+                                <pre><code>{{ entry.old_values|pprint }}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if entry.new_values %}
+                    <div class="card">
+                        <div class="card-header" id="newValuesHeader">
+                            <button class="btn btn-link" type="button" data-toggle="collapse" 
+                                    data-target="#newValuesCollapse">
+                                Nouvelles valeurs (JSON)
+                            </button>
+                        </div>
+                        <div id="newValuesCollapse" class="collapse" 
+                             data-parent="#rawDataAccordion">
+                            <div class="card-body">
+                                <pre><code>{{ entry.new_values|pprint }}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Actions -->
+            <div class="text-center mt-4">
+                <a href="{% url 'history:list' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Retour à la liste
+                </a>
+                
+                {% if entry.content_object %}
+                <button class="btn btn-info" onclick="showObjectInfo()">
+                    <i class="fas fa-external-link-alt"></i> Voir l'objet
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour les informations de l'objet -->
+<div class="modal fade" id="objectInfoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Informations sur l'objet</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                {% if entry.content_object %}
+                <div class="alert alert-info">
+                    <strong>Type:</strong> {{ entry.content_type.model|title }}<br>
+                    <strong>ID:</strong> {{ entry.object_id }}<br>
+                    <strong>Représentation:</strong> {{ entry.content_object }}
+                </div>
+                
+                <p class="text-muted">
+                    Cet objet peut avoir été modifié ou supprimé depuis cette action.
+                    Les informations affichées correspondent à l'état actuel de l'objet.
+                </p>
+                {% else %}
+                <div class="alert alert-warning">
+                    L'objet associé à cette action n'existe plus ou n'est plus accessible.
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+function showObjectInfo() {
+    $('#objectInfoModal').modal('show');
+}
+
+// Raccourcis clavier
+document.addEventListener('keydown', function(e) {
+    // Échap pour retourner à la liste
+    if (e.key === 'Escape') {
+        window.location.href = '{% url "history:list" %}';
+    }
+});
+</script>
+{% endblock %}
