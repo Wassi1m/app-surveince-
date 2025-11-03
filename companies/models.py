@@ -69,10 +69,113 @@ class Company(models.Model):
         """Nombre de lieux dans l'entreprise"""
         return self.locations.count()
     
+    @property
+    def subcompany_count(self):
+        """Nombre de sous-entreprises"""
+        return self.subcompanies.count()
+    
+    def create_default_subcompany(self):
+        """Crée une sous-entreprise par défaut lors de la création de l'entreprise"""
+        if not self.subcompanies.exists():
+            SubCompany.objects.create(
+                parent_company=self,
+                name=f"{self.name} - Principal",
+                reference=f"{self.reference}-MAIN",
+                is_default=True,
+                description="Sous-entreprise principale créée automatiquement"
+            )
+    
     class Meta:
         verbose_name = "Entreprise"
         verbose_name_plural = "Entreprises"
         ordering = ['name']
+
+
+class SubCompany(models.Model):
+    """Modèle représentant une sous-entreprise"""
+    parent_company = models.ForeignKey(
+        Company, 
+        on_delete=models.CASCADE, 
+        related_name='subcompanies',
+        verbose_name="Entreprise parente"
+    )
+    name = models.CharField(max_length=200, verbose_name="Nom de la sous-entreprise")
+    reference = models.CharField(
+        max_length=30, 
+        unique=True, 
+        verbose_name="Référence unique",
+        help_text="Référence unique générée automatiquement"
+    )
+    description = models.TextField(blank=True, verbose_name="Description")
+    
+    # Informations de gestion
+    is_active = models.BooleanField(default=True, verbose_name="Sous-entreprise active")
+    is_default = models.BooleanField(default=False, verbose_name="Sous-entreprise par défaut")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        verbose_name="Créé par"
+    )
+    
+    # Limites spécifiques à la sous-entreprise
+    max_users = models.PositiveIntegerField(default=20, verbose_name="Nombre maximum d'utilisateurs")
+    max_cameras = models.PositiveIntegerField(default=10, verbose_name="Nombre maximum de caméras")
+    max_locations = models.PositiveIntegerField(default=3, verbose_name="Nombre maximum de lieux")
+    
+    # Configuration personnalisée
+    settings = models.JSONField(
+        default=dict, 
+        verbose_name="Paramètres personnalisés",
+        help_text="Configuration spécifique à la sous-entreprise"
+    )
+    
+    def save(self, *args, **kwargs):
+        if not self.reference:
+            self.reference = self.generate_unique_reference()
+        super().save(*args, **kwargs)
+    
+    def generate_unique_reference(self):
+        """Génère une référence unique pour la sous-entreprise"""
+        base_ref = self.parent_company.reference
+        counter = 1
+        while True:
+            reference = f"{base_ref}-SUB{counter:02d}"
+            if not SubCompany.objects.filter(reference=reference).exists():
+                return reference
+            counter += 1
+    
+    def __str__(self):
+        return f"{self.name} ({self.reference})"
+    
+    @property
+    def user_count(self):
+        """Nombre d'utilisateurs dans la sous-entreprise"""
+        return self.subcompany_users.count()
+    
+    @property
+    def camera_count(self):
+        """Nombre de caméras dans la sous-entreprise"""
+        return sum(location.cameras.count() for location in self.locations.all())
+    
+    @property
+    def location_count(self):
+        """Nombre de lieux dans la sous-entreprise"""
+        return self.locations.count()
+    
+    @property
+    def full_name(self):
+        """Nom complet avec entreprise parente"""
+        return f"{self.parent_company.name} > {self.name}"
+    
+    class Meta:
+        verbose_name = "Sous-entreprise"
+        verbose_name_plural = "Sous-entreprises"
+        ordering = ['parent_company__name', 'name']
+        unique_together = ['parent_company', 'name']
 
 
 class CompanyUser(models.Model):
@@ -93,6 +196,25 @@ class CompanyUser(models.Model):
         blank=True
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='employee')
+    
+    # Sous-entreprises auxquelles l'utilisateur a accès
+    subcompanies = models.ManyToManyField(
+        SubCompany,
+        through='SubCompanyUser',
+        related_name='users',
+        blank=True,
+        verbose_name="Sous-entreprises"
+    )
+    
+    # Sous-entreprise actuellement sélectionnée (pour les managers)
+    current_subcompany = models.ForeignKey(
+        SubCompany,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='current_users',
+        verbose_name="Sous-entreprise courante"
+    )
     
     # Informations supplémentaires
     employee_id = models.CharField(max_length=50, blank=True, verbose_name="ID employé")
@@ -135,6 +257,41 @@ class CompanyUser(models.Model):
     def full_name(self):
         """Nom complet de l'utilisateur"""
         return self.user.get_full_name() or self.user.username
+    
+    def get_accessible_subcompanies(self):
+        """Retourne les sous-entreprises accessibles selon le rôle"""
+        if self.is_owner:
+            # Les owners voient toutes les sous-entreprises de toutes les entreprises
+            return SubCompany.objects.filter(is_active=True)
+        elif self.is_manager:
+            # Vérifier si le manager a des assignations spécifiques
+            assigned_subcompanies = self.subcompanies.filter(is_active=True)
+            if assigned_subcompanies.exists():
+                # Manager avec accès limité : seulement ses assignations
+                return assigned_subcompanies
+            else:
+                # Manager sans assignations : accès à toutes les sous-entreprises de son entreprise
+                return self.company.subcompanies.filter(is_active=True)
+        else:
+            # Les employés voient seulement leurs sous-entreprises assignées
+            return self.subcompanies.filter(is_active=True)
+    
+    def can_access_subcompany(self, subcompany):
+        """Vérifie si l'utilisateur peut accéder à une sous-entreprise"""
+        if self.is_owner:
+            return True
+        elif self.is_manager:
+            return subcompany.parent_company == self.company
+        else:
+            return self.subcompanies.filter(id=subcompany.id).exists()
+    
+    def set_current_subcompany(self, subcompany):
+        """Définit la sous-entreprise courante"""
+        if self.can_access_subcompany(subcompany):
+            self.current_subcompany = subcompany
+            self.save()
+            return True
+        return False
     
     def has_permission(self, permission):
         """Vérifie si l'utilisateur a une permission spécifique"""
@@ -282,3 +439,43 @@ class CompanySettings(models.Model):
     class Meta:
         verbose_name = "Paramètres d'entreprise"
         verbose_name_plural = "Paramètres d'entreprise"
+
+
+class SubCompanyUser(models.Model):
+    """Modèle de liaison entre utilisateurs et sous-entreprises"""
+    company_user = models.ForeignKey(
+        CompanyUser,
+        on_delete=models.CASCADE,
+        related_name='subcompany_assignments'
+    )
+    subcompany = models.ForeignKey(
+        SubCompany,
+        on_delete=models.CASCADE,
+        related_name='subcompany_users'
+    )
+    
+    # Permissions spécifiques à cette sous-entreprise (simplifiées)
+    can_manage_monitoring = models.BooleanField(default=False, verbose_name="Surveillance (Caméras, Zones, Localisations)")
+    can_manage_alerts = models.BooleanField(default=False, verbose_name="Gérer les alertes")
+    can_manage_alert_rules = models.BooleanField(default=False, verbose_name="Règles d'alerte")
+    can_view_reports = models.BooleanField(default=True, verbose_name="Voir les rapports")
+    
+    # Métadonnées
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    assigned_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Assigné par"
+    )
+    is_active = models.BooleanField(default=True, verbose_name="Assignation active")
+    
+    def __str__(self):
+        return f"{self.company_user.user.username} -> {self.subcompany.name}"
+    
+    class Meta:
+        verbose_name = "Assignation sous-entreprise"
+        verbose_name_plural = "Assignations sous-entreprises"
+        unique_together = ['company_user', 'subcompany']
+        ordering = ['subcompany__name', 'company_user__user__username']

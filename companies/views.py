@@ -123,54 +123,19 @@ def company_create(request):
             with transaction.atomic():
                 company = form.save()
                 
-                # Créer un manager pour l'entreprise
-                manager_email = form.cleaned_data['manager_email']
-                manager_password = generate_random_password()
-                
-                # Créer l'utilisateur manager
-                manager_user = User.objects.create_user(
-                    username=manager_email,
-                    email=manager_email,
-                    password=manager_password,
-                    first_name=form.cleaned_data.get('manager_first_name', ''),
-                    last_name=form.cleaned_data.get('manager_last_name', '')
-                )
-                
-                # Créer le profil CompanyUser
-                CompanyUser.objects.create(
-                    user=manager_user,
-                    company=company,
-                    role='manager',
-                    can_manage_users=True,
-                    can_manage_cameras=True,
-                    can_manage_alerts=True,
-                    can_view_reports=True
-                )
-                
                 # Créer les paramètres par défaut
                 CompanySettings.objects.create(company=company)
                 
-                # Envoyer les informations par email (simulation)
-                send_manager_credentials(company, manager_email, manager_password)
-                
                 # Logger la création d'entreprise
                 logger.info(f"Entreprise créée: {company.name} (Ref: {company.reference}) par {request.user.username}")
-                logger.info(f"Manager créé: {manager_email} pour l'entreprise {company.name}")
-                
-                # Stocker les informations du manager dans la session pour les afficher
-                request.session['manager_credentials'] = {
-                    'company_name': company.name,
-                    'company_reference': company.reference,
-                    'manager_email': manager_email,
-                    'manager_password': manager_password,
-                    'company_id': company.pk
-                }
                 
                 messages.success(
                     request, 
-                    f"Entreprise '{company.name}' créée avec succès!"
+                    f"Entreprise '{company.name}' créée avec succès! Configurez maintenant les sous-entreprises et managers."
                 )
-                return redirect('companies:company_created', pk=company.pk)
+                
+                # Rediriger directement vers l'assistant sous-entreprises
+                return redirect('companies:subcompany_wizard', company_id=company.pk)
     else:
         form = CompanyForm()
     
@@ -245,38 +210,101 @@ def company_login(request):
             username = form.cleaned_data['username']
             password = form.cleaned_data['password']
             
-            try:
-                company = Company.objects.get(reference=company_reference, is_active=True)
-                user = authenticate(request, username=username, password=password)
-                
-                if user:
-                    # Vérifier que l'utilisateur appartient à cette entreprise
+            # Authentifier d'abord l'utilisateur
+            user = authenticate(request, username=username, password=password)
+            
+            if user:
+                try:
+                    company_user = user.company_profile
+                    
+                    # Les owners peuvent se connecter avec n'importe quelle référence d'entreprise
+                    if company_user.is_owner and company_user.is_active:
+                        login(request, user)
+                        company_user.last_login_company = timezone.now()
+                        company_user.save()
+                        return redirect('companies:owner_dashboard')
+                    
+                    # Pour les managers et employés, vérifier l'entreprise
                     try:
-                        company_user = user.company_profile
+                        company = Company.objects.get(reference=company_reference, is_active=True)
+                        
                         if company_user.company == company and company_user.is_active:
                             login(request, user)
                             company_user.last_login_company = timezone.now()
                             company_user.save()
                             
                             # Rediriger selon le rôle
-                            if company_user.is_owner:
-                                return redirect('companies:owner_dashboard')
-                            elif company_user.is_manager:
-                                return redirect('companies:manager_dashboard')
+                            if company_user.is_manager:
+                                # Vérifier si le manager a plusieurs sous-entreprises
+                                accessible_subcompanies = company_user.get_accessible_subcompanies()
+                                if accessible_subcompanies.count() > 1:
+                                    # Toujours rediriger vers le sélecteur s'il y a plusieurs choix
+                                    # Réinitialiser current_subcompany pour forcer la sélection
+                                    company_user.current_subcompany = None
+                                    company_user.save()
+                                    return redirect('companies:subcompany_selector')
+                                else:
+                                    # Une seule sous-entreprise, la définir comme courante
+                                    if accessible_subcompanies.exists():
+                                        company_user.current_subcompany = accessible_subcompanies.first()
+                                        company_user.save()
+                                    return redirect('companies:manager_dashboard')
                             else:
                                 return redirect('dashboard')
                         else:
                             messages.error(request, "Vous n'êtes pas autorisé à accéder à cette entreprise.")
-                    except CompanyUser.DoesNotExist:
-                        messages.error(request, "Profil d'entreprise non trouvé.")
-                else:
-                    messages.error(request, "Nom d'utilisateur ou mot de passe incorrect.")
-            except Company.DoesNotExist:
-                messages.error(request, "Référence d'entreprise invalide.")
+                    
+                    except Company.DoesNotExist:
+                        messages.error(request, "Référence d'entreprise invalide.")
+                        
+                except CompanyUser.DoesNotExist:
+                    messages.error(request, "Profil d'entreprise non trouvé.")
+            else:
+                messages.error(request, "Nom d'utilisateur ou mot de passe incorrect.")
     else:
         form = ManagerLoginForm()
     
     return render(request, 'companies/company_login.html', {'form': form})
+
+
+@login_required
+def subcompany_selector(request):
+    """Page de sélection de sous-entreprise pour les managers"""
+    if not hasattr(request.user, 'company_profile'):
+        return redirect('login')
+    
+    company_user = request.user.company_profile
+    
+    if not company_user.is_manager:
+        return redirect('dashboard')
+    
+    accessible_subcompanies = company_user.get_accessible_subcompanies()
+    
+    # Si une seule sous-entreprise, rediriger directement
+    if accessible_subcompanies.count() <= 1:
+        if accessible_subcompanies.exists():
+            company_user.current_subcompany = accessible_subcompanies.first()
+            company_user.save()
+        return redirect('companies:manager_dashboard')
+    
+    if request.method == 'POST':
+        subcompany_id = request.POST.get('subcompany_id')
+        try:
+            selected_subcompany = accessible_subcompanies.get(id=subcompany_id)
+            company_user.current_subcompany = selected_subcompany
+            company_user.save()
+            messages.success(request, f"Vous consultez maintenant : {selected_subcompany.name}")
+            return redirect('companies:manager_dashboard')
+        except:
+            messages.error(request, "Sous-entreprise invalide.")
+    
+    context = {
+        'subcompanies': accessible_subcompanies,
+        'company': company_user.company,
+        'current_subcompany': company_user.current_subcompany,
+    }
+    
+    return render(request, 'companies/subcompany_selector.html', context)
 
 
 @login_required
@@ -312,9 +340,7 @@ def manage_employees(request):
     company_user = request.user.company_profile
     company = company_user.company
     
-    if not company_user.can_manage_users:
-        messages.error(request, "Vous n'avez pas la permission de gérer les utilisateurs.")
-        return redirect('companies:manager_dashboard')
+    # Les managers ont automatiquement le droit de gérer les utilisateurs
     
     # Actions en lot
     if request.method == 'POST' and 'bulk_action' in request.POST:
@@ -406,19 +432,37 @@ def create_employee(request):
     company_user = request.user.company_profile
     company = company_user.company
     
-    if not company_user.can_manage_users:
-        messages.error(request, "Vous n'avez pas la permission de créer des utilisateurs.")
-        return redirect('companies:manager_dashboard')
+    # Debug: Informations utilisateur et permissions
+    print(f"DEBUG: Utilisateur: {request.user.username}")
+    print(f"DEBUG: Entreprise: {company.name}")
+    print(f"DEBUG: Sous-entreprise courante: {getattr(request, 'current_subcompany', 'Aucune')}")
+    
+    # Les managers ont automatiquement le droit de créer des employés
     
     if request.method == 'POST':
         form = EmployeeCreationForm(request.POST)
+        
+        # Debug: Afficher les données reçues
+        print(f"DEBUG: Données POST reçues: {dict(request.POST)}")
+        print(f"DEBUG: Formulaire valide: {form.is_valid()}")
+        
+        if not form.is_valid():
+            # Debug: Afficher les erreurs de validation
+            print(f"DEBUG: Erreurs de formulaire: {form.errors}")
+            for field, errors in form.errors.items():
+                messages.error(request, f"Erreur {field}: {', '.join(errors)}")
+        
         if form.is_valid():
-            with transaction.atomic():
-                # Créer l'utilisateur
-                user = form.save()
-                
-                # Créer le profil CompanyUser
-                company_user = CompanyUser.objects.create(
+            try:
+                with transaction.atomic():
+                    print(f"DEBUG: Début de la création d'employé...")
+                    
+                    # Créer l'utilisateur
+                    user = form.save()
+                    print(f"DEBUG: Utilisateur créé: {user.username} ({user.email})")
+                    
+                    # Créer le profil CompanyUser
+                new_company_user = CompanyUser.objects.create(
                     user=user,
                     company=company,
                     role=form.cleaned_data['role'],
@@ -426,17 +470,39 @@ def create_employee(request):
                     department=form.cleaned_data.get('department', ''),
                     position=form.cleaned_data.get('position', ''),
                     phone=form.cleaned_data.get('phone', ''),
-                    can_manage_users=form.cleaned_data.get('can_manage_users', False),
-                    can_manage_cameras=form.cleaned_data.get('can_manage_cameras', False),
-                    can_manage_alerts=form.cleaned_data.get('can_manage_alerts', False),
-                    can_view_reports=form.cleaned_data.get('can_view_reports', True),
+                    # Les permissions sont maintenant gérées au niveau SubCompanyUser
                 )
                 
-                # Logger la création d'employé
-                logger.info(f"Employé créé: {user.get_full_name()} ({user.email}) - Rôle: {company_user.role} - Entreprise: {company.name} par {request.user.username}")
+                # Assigner l'employé à la sous-entreprise courante
+                if hasattr(request, 'current_subcompany') and request.current_subcompany:
+                    from .models import SubCompanyUser
+                    SubCompanyUser.objects.create(
+                        company_user=new_company_user,
+                        subcompany=request.current_subcompany,
+                        can_manage_monitoring=form.cleaned_data.get('can_manage_monitoring', False),
+                        can_manage_alerts=form.cleaned_data.get('can_manage_alerts', False),
+                        can_manage_alert_rules=form.cleaned_data.get('can_manage_alert_rules', False),
+                        can_view_reports=form.cleaned_data.get('can_view_reports', True),
+                        assigned_by=request.user,
+                        is_active=True
+                    )
+                    # Définir la sous-entreprise courante pour l'employé
+                    new_company_user.current_subcompany = request.current_subcompany
+                    new_company_user.save()
                 
-                messages.success(request, f"Employé '{user.get_full_name()}' créé avec succès.")
+                # Logger la création d'employé
+                logger.info(f"Employé créé: {user.get_full_name()} ({user.email}) - Rôle: {new_company_user.role} - Entreprise: {company.name} - Sous-entreprise: {request.current_subcompany.name if hasattr(request, 'current_subcompany') and request.current_subcompany else 'Aucune'} par {request.user.username}")
+                
+                messages.success(request, f"Employé '{user.get_full_name()}' créé avec succès dans {request.current_subcompany.name if hasattr(request, 'current_subcompany') and request.current_subcompany else 'l\'entreprise'}.")
+                print(f"DEBUG: Employé créé avec succès, redirection vers manage_employees")
                 return redirect('companies:manage_employees')
+            
+            except Exception as e:
+                print(f"DEBUG: Erreur lors de la création: {str(e)}")
+                messages.error(request, f"Erreur lors de la création de l'employé: {str(e)}")
+        
+        else:
+            print(f"DEBUG: Formulaire invalide, affichage du formulaire avec erreurs")
     else:
         form = EmployeeCreationForm()
     
@@ -454,9 +520,7 @@ def employee_detail(request, pk):
     company_user = request.user.company_profile
     company = company_user.company
     
-    if not company_user.can_manage_users:
-        messages.error(request, "Vous n'avez pas la permission de voir les détails des utilisateurs.")
-        return redirect('companies:manager_dashboard')
+    # Les managers ont automatiquement le droit de voir les détails des utilisateurs
     
     # Récupérer l'employé (s'assurer qu'il appartient à la même entreprise)
     employee = get_object_or_404(
@@ -493,9 +557,7 @@ def edit_employee(request, pk):
     company_user = request.user.company_profile
     company = company_user.company
     
-    if not company_user.can_manage_users:
-        messages.error(request, "Vous n'avez pas la permission de modifier les utilisateurs.")
-        return redirect('companies:manager_dashboard')
+    # Les managers ont automatiquement le droit de modifier les utilisateurs
     
     # Récupérer l'employé (s'assurer qu'il appartient à la même entreprise)
     employee = get_object_or_404(
@@ -524,10 +586,7 @@ def edit_employee(request, pk):
             'position': request.POST.get('position', ''),
             'phone': request.POST.get('phone', ''),
             'is_active': 'is_active' in request.POST,
-            'can_manage_users': 'can_manage_users' in request.POST,
-            'can_manage_cameras': 'can_manage_cameras' in request.POST,
-            'can_manage_alerts': 'can_manage_alerts' in request.POST,
-            'can_view_reports': 'can_view_reports' in request.POST,
+            # Les permissions sont maintenant gérées au niveau SubCompanyUser
         }
         
         try:
@@ -562,10 +621,7 @@ def edit_employee(request, pk):
         'position': employee.position,
         'phone': employee.phone,
         'is_active': employee.is_active,
-        'can_manage_users': employee.can_manage_users,
-        'can_manage_cameras': employee.can_manage_cameras,
-        'can_manage_alerts': employee.can_manage_alerts,
-        'can_view_reports': employee.can_view_reports,
+        # Les permissions sont maintenant affichées via SubCompanyUser
     }
     
     context = {
@@ -586,9 +642,7 @@ def delete_employee(request, pk):
     company_user = request.user.company_profile
     company = company_user.company
     
-    if not company_user.can_manage_users:
-        messages.error(request, "Vous n'avez pas la permission de supprimer des utilisateurs.")
-        return redirect('companies:manager_dashboard')
+    # Les managers ont automatiquement le droit de supprimer des utilisateurs
     
     # Récupérer l'employé (s'assurer qu'il appartient à la même entreprise)
     employee = get_object_or_404(

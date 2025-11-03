@@ -83,6 +83,14 @@ class HistoryEntry(models.Model):
         related_name='history_entries',
         verbose_name="Entreprise"
     )
+    subcompany = models.ForeignKey(
+        'companies.SubCompany',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='history_entries',
+        verbose_name="Sous-entreprise"
+    )
     location = models.ForeignKey(
         'monitoring.Location', 
         on_delete=models.SET_NULL, 

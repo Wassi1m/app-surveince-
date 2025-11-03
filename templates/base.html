@@ -24,6 +24,9 @@
     <!-- Custom CSS Moderne -->
     <link href="{% static 'css/surveillance.css' %}?v={{ CACHE_VERSION|default:'2025-10-23' }}" rel="stylesheet">
     
+    <!-- Fix global pour la visibilité des inputs -->
+    <link href="{% static 'css/input-visibility-fix.css' %}?v={{ CACHE_VERSION|default:'2025-10-23' }}" rel="stylesheet">
+    
     {% block extra_css %}{% endblock %}
 </head>
 <body class="bg-dark text-light">
@@ -119,31 +122,61 @@
                     {% endif %}
                     
                     <!-- Bouton Manager - Gestion des Employés -->
-                    {% if request.user.is_authenticated and request.company_user.is_manager %}
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle manager-menu" href="#" id="managerDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-users-cog me-1 text-info"></i>
-                            <span class="d-none d-lg-inline">Gestion Équipe</span>
-                            <span class="d-inline d-lg-none">Manager</span>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-dark">
-                            <li><a class="dropdown-item" href="{% url 'companies:manager_dashboard' %}">
-                                <i class="fas fa-tachometer-alt me-2 text-info"></i>Dashboard Manager
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'companies:manage_employees' %}">
-                                <i class="fas fa-users me-2"></i>Gérer les Employés
-                            </a></li>
-                            <li><a class="dropdown-item" href="{% url 'companies:create_employee' %}">
-                                <i class="fas fa-user-plus me-2 text-success"></i>Ajouter un Employé
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'history:dashboard' %}">
-                                <i class="fas fa-history me-2 text-warning"></i>Historique des Actions
-                            </a></li>
-                        </ul>
-                    </li>
-                    {% endif %}
+                        {% if request.user.is_authenticated and request.company_user.is_manager %}
+                        <!-- Sélecteur de sous-entreprise -->
+                        {% if accessible_subcompanies %}
+                        <li class="nav-item dropdown me-2">
+                            <a class="nav-link dropdown-toggle subcompany-selector" href="#" id="subcompanyDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-sitemap me-1 text-warning"></i>
+                                <span class="d-none d-lg-inline">
+                                    {% if current_subcompany %}{{ current_subcompany.name }}{% else %}Sélectionner{% endif %}
+                                </span>
+                                <span class="d-inline d-lg-none">Sous-entreprise</span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-dark">
+                                <li><h6 class="dropdown-header">Sous-entreprises disponibles</h6></li>
+                                {% for subcompany in accessible_subcompanies %}
+                                <li>
+                                    <a class="dropdown-item {% if current_subcompany.id == subcompany.id %}active{% endif %}" 
+                                       href="#" onclick="changeSubcompany({{ subcompany.id }})">
+                                        <i class="fas fa-building me-2"></i>{{ subcompany.name }}
+                                        {% if current_subcompany.id == subcompany.id %}
+                                        <i class="fas fa-check ms-2 text-success"></i>
+                                        {% endif %}
+                                    </a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </li>
+                        {% endif %}
+                        
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle manager-menu" href="#" id="managerDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-users-cog me-1 text-info"></i>
+                                <span class="d-none d-lg-inline">Gestion Équipe</span>
+                                <span class="d-inline d-lg-none">Manager</span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-dark">
+                                <li><a class="dropdown-item" href="{% url 'companies:manager_dashboard' %}">
+                                    <i class="fas fa-tachometer-alt me-2 text-info"></i>Dashboard Manager
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'companies:manage_employees' %}">
+                                    <i class="fas fa-users me-2"></i>Gérer les Employés
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'companies:create_employee' %}">
+                                    <i class="fas fa-user-plus me-2 text-success"></i>Ajouter un Employé
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'companies:subcompany_selector' %}">
+                                    <i class="fas fa-sitemap me-2 text-info"></i>Changer de Sous-entreprise
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'history:dashboard' %}">
+                                    <i class="fas fa-history me-2 text-warning"></i>Historique des Actions
+                                </a></li>
+                            </ul>
+                        </li>
+                        {% endif %}
                     
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="settingsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -152,6 +185,7 @@
                             <span class="d-inline d-lg-none">Config</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-dark">
+                            {% comment %}TODO: Ajouter vérifications de permissions{% endcomment %}
                             <li><a class="dropdown-item" href="{% url 'monitoring:locations' %}">
                                 <i class="fas fa-map-marker-alt me-2"></i>Localisations
                             </a></li>
@@ -273,9 +307,66 @@
         </div>
     </div>
 
+    <!-- Audio pour les alertes -->
+    <audio id="alert-sound" preload="auto" style="display: none;">
+        <source src="{% static 'audio/alert.ogg' %}" type="audio/ogg">
+        <source src="{% static 'audio/alert.mp3' %}" type="audio/mpeg">
+        Votre navigateur ne supporte pas l'audio HTML5.
+    </audio>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{% static 'js/surveillance.js' %}?v={{ CACHE_VERSION|default:'2025-10-23' }}"></script>
+    
+    <!-- Subcompany Selector JS -->
+    <script>
+    function changeSubcompany(subcompanyId) {
+        // Afficher un indicateur de chargement
+        const selector = document.querySelector('.subcompany-selector');
+        const originalText = selector.innerHTML;
+        selector.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Changement...';
+        
+        // Préparer les données
+        const formData = new FormData();
+        formData.append('subcompany_id', subcompanyId);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        // Envoyer la requête
+        fetch('{% url "companies:api_subcompany_selector" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Recharger la page pour appliquer le changement
+                window.location.reload();
+            } else {
+                alert('Erreur: ' + (data.error || 'Impossible de changer de sous-entreprise'));
+                selector.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur de connexion');
+            selector.innerHTML = originalText;
+        });
+    }
+    
+    // Ajouter le token CSRF si pas présent
+    document.addEventListener('DOMContentLoaded', function() {
+        if (!document.querySelector('[name=csrfmiddlewaretoken]')) {
+            const csrfToken = document.createElement('input');
+            csrfToken.type = 'hidden';
+            csrfToken.name = 'csrfmiddlewaretoken';
+            csrfToken.value = '{{ csrf_token }}';
+            document.body.appendChild(csrfToken);
+        }
+    });
+    </script>
     
     {% block extra_js %}{% endblock %}
 
@@ -482,7 +573,15 @@
         function playAlertSound() {
             const audio = document.getElementById('alert-sound');
             if (audio) {
-                audio.play().catch(e => console.log('Cannot play alert sound:', e));
+                // Réinitialiser l'audio au début
+                audio.currentTime = 0;
+                
+                // Jouer avec gestion d'erreur améliorée
+                audio.play().catch(e => {
+                    console.debug('Son d\'alerte non joué (normal si pas d\'interaction utilisateur):', e.message);
+                });
+            } else {
+                console.warn('Élément audio alert-sound non trouvé');
             }
         }
 
@@ -506,17 +605,32 @@
         }
 
         function setupEventHandlers() {
-            // Marquer toutes les notifications comme lues
-            document.getElementById('mark-all-read').addEventListener('click', function() {
-                // Implémentation à venir
-                document.getElementById('notification-badge').textContent = '0';
-            });
+            // Marquer toutes les notifications comme lues (seulement si l'élément existe)
+            const markAllReadBtn = document.getElementById('mark-all-read');
+            if (markAllReadBtn) {
+                markAllReadBtn.addEventListener('click', function() {
+                    // Implémentation à venir
+                    const badge = document.getElementById('notification-badge');
+                    if (badge) {
+                        badge.textContent = '0';
+                    }
+                });
+            }
 
-            // Accuser réception d'une alerte d'urgence
-            document.getElementById('acknowledge-emergency').addEventListener('click', function() {
-                // Implémentation à venir
-                bootstrap.Modal.getInstance(document.getElementById('emergencyAlertModal')).hide();
-            });
+            // Accuser réception d'une alerte d'urgence (seulement si l'élément existe)
+            const acknowledgeBtn = document.getElementById('acknowledge-emergency');
+            if (acknowledgeBtn) {
+                acknowledgeBtn.addEventListener('click', function() {
+                    // Implémentation à venir
+                    const modal = document.getElementById('emergencyAlertModal');
+                    if (modal) {
+                        const modalInstance = bootstrap.Modal.getInstance(modal);
+                        if (modalInstance) {
+                            modalInstance.hide();
+                        }
+                    }
+                });
+            }
         }
     </script>
 </body>

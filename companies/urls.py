@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views, subcompany_views
 
 app_name = 'companies'
 
@@ -26,9 +26,18 @@ urlpatterns = [
     
     # Dashboard Manager
     path('manager/', views.manager_dashboard, name='manager_dashboard'),
+    path('manager/subcompany-selector/', views.subcompany_selector, name='subcompany_selector'),
     path('manager/employees/', views.manage_employees, name='manage_employees'),
     path('manager/employees/create/', views.create_employee, name='create_employee'),
     path('manager/employees/<int:pk>/', views.employee_detail, name='employee_detail'),
     path('manager/employees/<int:pk>/edit/', views.edit_employee, name='edit_employee'),
     path('manager/employees/<int:pk>/delete/', views.delete_employee, name='delete_employee'),
+    
+    # Gestion des sous-entreprises
+    path('subcompany-wizard/<int:company_id>/', subcompany_views.subcompany_management_wizard, name='subcompany_wizard'),
+    path('subcompanies/<int:company_id>/', subcompany_views.subcompany_list, name='subcompany_list'),
+    path('subcompanies/<int:company_id>/create/', subcompany_views.subcompany_create, name='subcompany_create'),
+    
+    # Sélecteur de sous-entreprise (AJAX)
+    path('api/subcompany-selector/', subcompany_views.subcompany_selector, name='api_subcompany_selector'),
 ]

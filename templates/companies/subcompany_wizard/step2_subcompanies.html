@@ -1,0 +1,399 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Assistant de Configuration - Étape 2{% endblock %}
+
+{% block extra_css %}
+<style>
+    .wizard-container {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        padding: 2rem;
+        margin: 2rem auto;
+        max-width: 900px;
+    }
+    
+    .wizard-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        color: #2c3e50;
+    }
+    
+    .step-indicator {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+    
+    .step {
+        flex: 1;
+        text-align: center;
+        position: relative;
+    }
+    
+    .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e9ecef;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 0.5rem;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    
+    .step.active .step-number {
+        background: #007bff;
+        color: white;
+    }
+    
+    .step.completed .step-number {
+        background: #28a745;
+        color: white;
+    }
+    
+    .step-title {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    
+    .step.active .step-title {
+        color: #007bff;
+        font-weight: bold;
+    }
+    
+    .subcompany-form {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+    }
+    
+    .subcompany-form:hover {
+        border-color: #007bff;
+        box-shadow: 0 5px 15px rgba(0, 123, 255, 0.1);
+    }
+    
+    .existing-subcompanies {
+        background: #e8f5e8;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .subcompany-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        background: white;
+        border-radius: 5px;
+        margin-bottom: 0.5rem;
+        border-left: 4px solid #28a745;
+    }
+    
+    .btn-add-subcompany {
+        background: linear-gradient(45deg, #007bff, #0056b3);
+        border: none;
+        border-radius: 25px;
+        padding: 0.75rem 1.5rem;
+        color: white;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-add-subcompany:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 123, 255, 0.3);
+    }
+    
+    .btn-remove {
+        background: #dc3545;
+        border: none;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .wizard-actions {
+        text-align: center;
+        margin-top: 2rem;
+    }
+    
+    .btn-wizard {
+        padding: 0.75rem 2rem;
+        margin: 0 0.5rem;
+        border-radius: 25px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* CORRECTIONS POUR LA VISIBILITÉ DU TEXTE */
+    .form-control {
+        background-color: #ffffff;
+        border: 2px solid #e9ecef;
+        color: #2c3e50 !important; /* Force la couleur du texte */
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus {
+        background-color: #ffffff;
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        color: #2c3e50 !important;
+    }
+    
+    .form-control::placeholder {
+        color: #6c757d !important;
+        opacity: 0.8;
+    }
+    
+    .form-label {
+        color: #2c3e50;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Amélioration de la lisibilité générale */
+    body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px 0;
+    }
+    
+    /* Contraste amélioré pour les textes */
+    .text-muted {
+        color: #5a6c7d !important;
+    }
+    
+    .alert-info {
+        background-color: #e3f2fd;
+        border-color: #007bff;
+        color: #2c3e50;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="wizard-container">
+        <div class="wizard-header">
+            <h2><i class="fas fa-sitemap me-2"></i>Création des Sous-entreprises</h2>
+            <p class="text-muted">Organisez votre entreprise en sous-divisions</p>
+        </div>
+        
+        <!-- Indicateur de progression -->
+        <div class="step-indicator">
+            <div class="step completed">
+                <div class="step-number"><i class="fas fa-check"></i></div>
+                <div class="step-title">Entreprise</div>
+            </div>
+            <div class="step active">
+                <div class="step-number">2</div>
+                <div class="step-title">Sous-entreprises</div>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-title">Managers</div>
+            </div>
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-title">Assignations</div>
+            </div>
+            <div class="step">
+                <div class="step-number">5</div>
+                <div class="step-title">Confirmation</div>
+            </div>
+        </div>
+        
+        <!-- Sous-entreprises existantes -->
+        {% if existing_subcompanies %}
+        <div class="existing-subcompanies">
+            <h5><i class="fas fa-check-circle me-2 text-success"></i>Sous-entreprises existantes</h5>
+            {% for subcompany in existing_subcompanies %}
+            <div class="subcompany-item">
+                <div>
+                    <strong>{{ subcompany.name }}</strong>
+                    <small class="text-muted d-block">{{ subcompany.reference }}</small>
+                    {% if subcompany.description %}
+                    <small class="text-muted">{{ subcompany.description }}</small>
+                    {% endif %}
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-success">Existante</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <!-- Formulaire de création -->
+        <form method="post" id="subcompanyForm">
+            {% csrf_token %}
+            
+            <div class="alert alert-info">
+                <h5><i class="fas fa-lightbulb me-2"></i>Conseils</h5>
+                <ul class="mb-0">
+                    <li>Créez des sous-entreprises pour chaque division, département ou site</li>
+                    <li>Utilisez des noms clairs et descriptifs</li>
+                    <li>Vous pourrez assigner des managers à chaque sous-entreprise à l'étape suivante</li>
+                </ul>
+            </div>
+            
+            <div id="subcompanies-container">
+                <!-- Les formulaires de sous-entreprises seront ajoutés ici -->
+            </div>
+            
+            <div class="text-center mb-3">
+                <button type="button" class="btn btn-add-subcompany" onclick="addSubcompanyForm()">
+                    <i class="fas fa-plus me-2"></i>Ajouter une sous-entreprise
+                </button>
+            </div>
+            
+            <!-- Actions -->
+            <div class="wizard-actions">
+                <a href="?step=1" class="btn btn-secondary btn-wizard">
+                    <i class="fas fa-arrow-left me-2"></i>Précédent
+                </a>
+                <button type="submit" class="btn btn-primary btn-wizard">
+                    Suivant <i class="fas fa-arrow-right ms-2"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Template pour nouveau formulaire de sous-entreprise -->
+<template id="subcompany-template">
+    <div class="subcompany-form" data-index="__INDEX__">
+        <div class="row">
+            <div class="col-md-6">
+                <label class="form-label">Nom de la sous-entreprise *</label>
+                <input type="text" class="form-control" name="subcompany_names[]" required 
+                       placeholder="Ex: Direction Générale, RH, Informatique...">
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Description</label>
+                <input type="text" class="form-control" name="subcompany_descriptions[]" 
+                       placeholder="Description optionnelle de la sous-entreprise">
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button type="button" class="btn btn-remove" onclick="removeSubcompanyForm(this)">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let subcompanyIndex = 0;
+
+function addSubcompanyForm() {
+    const container = document.getElementById('subcompanies-container');
+    const template = document.getElementById('subcompany-template');
+    const clone = template.content.cloneNode(true);
+    
+    // Remplacer l'index dans le template
+    const html = clone.querySelector('.subcompany-form').outerHTML.replace(/__INDEX__/g, subcompanyIndex);
+    
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    const formElement = div.firstElementChild;
+    
+    // Animation d'entrée
+    formElement.style.opacity = '0';
+    formElement.style.transform = 'translateY(-20px)';
+    
+    container.appendChild(formElement);
+    
+    setTimeout(() => {
+        formElement.style.transition = 'all 0.3s ease';
+        formElement.style.opacity = '1';
+        formElement.style.transform = 'translateY(0)';
+    }, 100);
+    
+    subcompanyIndex++;
+    
+    // Focus sur le premier champ avec sélection du texte
+    const nameInput = formElement.querySelector('input[name="subcompany_names[]"]');
+    nameInput.focus();
+    nameInput.select();
+}
+
+function removeSubcompanyForm(button) {
+    const form = button.closest('.subcompany-form');
+    
+    // Animation de sortie
+    form.style.transition = 'all 0.3s ease';
+    form.style.opacity = '0';
+    form.style.transform = 'translateX(-100%)';
+    
+    setTimeout(() => {
+        form.remove();
+    }, 300);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Ajouter un formulaire par défaut
+    addSubcompanyForm();
+    
+    // Animation d'entrée du container
+    const container = document.querySelector('.wizard-container');
+    container.style.opacity = '0';
+    container.style.transform = 'translateY(20px)';
+    
+    setTimeout(() => {
+        container.style.transition = 'all 0.5s ease';
+        container.style.opacity = '1';
+        container.style.transform = 'translateY(0)';
+    }, 100);
+    
+    // Validation du formulaire
+    document.getElementById('subcompanyForm').addEventListener('submit', function(e) {
+        const names = document.querySelectorAll('input[name="subcompany_names[]"]');
+        let hasValidName = false;
+        
+        names.forEach(input => {
+            if (input.value.trim()) {
+                hasValidName = true;
+            }
+        });
+        
+        if (!hasValidName) {
+            e.preventDefault();
+            // Utiliser une alerte plus stylée si disponible, sinon alert basique
+            alert('Veuillez ajouter au moins une sous-entreprise avec un nom.');
+            return false;
+        }
+    });
+
+    // Forcer la couleur du texte dans tous les champs de formulaire
+    const inputs = document.querySelectorAll('.form-control');
+    inputs.forEach(input => {
+        input.style.color = '#2c3e50';
+        input.style.fontWeight = '500';
+        
+        // S'assurer que la couleur est maintenue lors de la saisie
+        input.addEventListener('input', function() {
+            this.style.color = '#2c3e50';
+        });
+    });
+});
+</script>
+{% endblock %}

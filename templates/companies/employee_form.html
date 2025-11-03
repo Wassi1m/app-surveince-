@@ -515,6 +515,14 @@
                 {% endfor %}
             {% endif %}
             
+            <!-- Erreurs de formulaire -->
+            {% if form.non_field_errors %}
+                <div class="alert alert-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+            
             <form method="post" id="employee-form">
                 {% csrf_token %}
                 
@@ -727,28 +735,15 @@
                     </div>
                     
                     <div class="permissions-grid">
-                        <div class="permission-card" onclick="togglePermission('can_manage_users')">
-                            <input type="checkbox" id="{{ form.can_manage_users.id_for_label }}" name="can_manage_users" class="permission-checkbox">
-                            <label for="{{ form.can_manage_users.id_for_label }}" class="permission-label">
-                                <div class="permission-icon">
-                                    <i class="fas fa-users-cog"></i>
-                                </div>
-                                <div>
-                                    <div style="font-weight: 600;">Gérer les utilisateurs</div>
-                                    <div style="font-size: 0.8rem; color: #6c757d;">Créer et modifier les comptes</div>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div class="permission-card" onclick="togglePermission('can_manage_cameras')">
-                            <input type="checkbox" id="{{ form.can_manage_cameras.id_for_label }}" name="can_manage_cameras" class="permission-checkbox">
-                            <label for="{{ form.can_manage_cameras.id_for_label }}" class="permission-label">
+                        <div class="permission-card" onclick="togglePermission('can_manage_monitoring')">
+                            <input type="checkbox" id="{{ form.can_manage_monitoring.id_for_label }}" name="can_manage_monitoring" class="permission-checkbox">
+                            <label for="{{ form.can_manage_monitoring.id_for_label }}" class="permission-label">
                                 <div class="permission-icon">
                                     <i class="fas fa-video"></i>
                                 </div>
                                 <div>
-                                    <div style="font-weight: 600;">Gérer les caméras</div>
-                                    <div style="font-size: 0.8rem; color: #6c757d;">Configuration et surveillance</div>
+                                    <div style="font-weight: 600;">Surveillance</div>
+                                    <div style="font-size: 0.8rem; color: #6c757d;">Caméras, Zones, Localisations</div>
                                 </div>
                             </label>
                         </div>
@@ -761,7 +756,20 @@
                                 </div>
                                 <div>
                                     <div style="font-weight: 600;">Gérer les alertes</div>
-                                    <div style="font-size: 0.8rem; color: #6c757d;">Règles et notifications</div>
+                                    <div style="font-size: 0.8rem; color: #6c757d;">Centre des alertes</div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div class="permission-card" onclick="togglePermission('can_manage_alert_rules')">
+                            <input type="checkbox" id="{{ form.can_manage_alert_rules.id_for_label }}" name="can_manage_alert_rules" class="permission-checkbox">
+                            <label for="{{ form.can_manage_alert_rules.id_for_label }}" class="permission-label">
+                                <div class="permission-icon">
+                                    <i class="fas fa-cogs"></i>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 600;">Règles d'Alerte</div>
+                                    <div style="font-size: 0.8rem; color: #6c757d;">Configuration des règles</div>
                                 </div>
                             </label>
                         </div>

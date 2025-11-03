@@ -536,6 +536,101 @@
             <form method="post" id="company-form">
                 {% csrf_token %}
                 
+                <!-- Affichage des erreurs du formulaire avec messages descriptifs -->
+                {% if form.errors %}
+                    <div class="alert alert-danger mb-4 border-0 shadow-sm">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="alert-icon me-3">
+                                <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-1">❌ Impossible de créer l'entreprise</h5>
+                                <p class="mb-0 text-muted">Veuillez corriger les erreurs suivantes :</p>
+                            </div>
+                        </div>
+                        
+                        {% for field, errors in form.errors.items %}
+                            <div class="error-item mb-3 p-3 bg-light rounded">
+                                {% if field == 'manager_email' %}
+                                    <div class="d-flex align-items-start">
+                                        <i class="fas fa-envelope text-danger me-2 mt-1"></i>
+                                        <div class="flex-grow-1">
+                                            <strong>Email du manager déjà utilisé</strong>
+                                            <div class="text-muted small mb-2">
+                                                L'adresse email que vous avez saisie est déjà associée à un autre compte manager.
+                                            </div>
+                                            {% for error in errors %}
+                                                <div class="text-danger small">{{ error }}</div>
+                                            {% endfor %}
+                                            <div class="mt-2">
+                                                <strong>💡 Solutions :</strong>
+                                                <ul class="small text-muted mb-0 mt-1">
+                                                    <li>Utilisez une adresse email différente (ex: manager2@votre-domaine.com)</li>
+                                                    <li>Ou contactez l'administrateur si vous souhaitez réutiliser cet email</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% elif field == 'name' %}
+                                    <div class="d-flex align-items-start">
+                                        <i class="fas fa-building text-danger me-2 mt-1"></i>
+                                        <div class="flex-grow-1">
+                                            <strong>Problème avec le nom de l'entreprise</strong>
+                                            {% for error in errors %}
+                                                <div class="text-danger small">{{ error }}</div>
+                                            {% endfor %}
+                                            <div class="mt-2">
+                                                <strong>💡 Solution :</strong>
+                                                <div class="small text-muted">Vérifiez que le nom est unique et contient au moins 3 caractères.</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="d-flex align-items-start">
+                                        <i class="fas fa-exclamation-circle text-danger me-2 mt-1"></i>
+                                        <div class="flex-grow-1">
+                                            <strong>{{ field|title }}</strong>
+                                            {% for error in errors %}
+                                                <div class="text-danger small">{{ error }}</div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                        
+                        <div class="mt-3 p-3 bg-info bg-opacity-10 rounded">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-info-circle text-info me-2"></i>
+                                <div class="small">
+                                    <strong>Besoin d'aide ?</strong> 
+                                    Corrigez les erreurs ci-dessus et cliquez à nouveau sur "Créer l'entreprise".
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <!-- Information sur le processus -->
+                <div class="alert alert-info border-0 shadow-sm mb-4">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <i class="fas fa-info-circle fa-2x text-info"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h5 class="mb-1">🚀 Nouveau processus simplifié</h5>
+                            <p class="mb-2 text-muted">
+                                Créez d'abord votre entreprise, puis vous serez guidé par un assistant pour :
+                            </p>
+                            <ul class="mb-0 text-muted small">
+                                <li><strong>Étape 1</strong> : Créer les sous-entreprises</li>
+                                <li><strong>Étape 2</strong> : Créer les managers</li>
+                                <li><strong>Étape 3</strong> : Assigner les managers aux sous-entreprises</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Informations générales -->
                 <div class="form-section">
                     <div class="section-header">
@@ -552,8 +647,15 @@
                                 {{ form.name.label }} <span class="required">*</span>
                             </label>
                             <input type="text" name="{{ form.name.name }}" id="{{ form.name.id_for_label }}" 
-                                   class="form-control" placeholder="Ex: SARL TechnoSurveillance" 
+                                   class="form-control{% if form.name.errors %} is-invalid{% endif %}" placeholder="Ex: SARL TechnoSurveillance" 
                                    value="{{ form.name.value|default:'' }}" required>
+                            {% if form.name.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.name.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                             <div class="help-text">
                                 <i class="fas fa-info-circle"></i>
                                 Nom officiel de votre entreprise tel qu'il apparaît sur vos documents légaux
@@ -675,8 +777,15 @@
                                 {{ form.manager_email.label }} <span class="required">*</span>
                             </label>
                             <input type="email" name="{{ form.manager_email.name }}" id="{{ form.manager_email.id_for_label }}" 
-                                   class="form-control" placeholder="Ex: manager@monentreprise.fr" 
+                                   class="form-control{% if form.manager_email.errors %} is-invalid{% endif %}" placeholder="Ex: manager@monentreprise.fr" 
                                    value="{{ form.manager_email.value|default:'' }}" required>
+                            {% if form.manager_email.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.manager_email.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                             <div class="help-text">
                                 <i class="fas fa-info-circle"></i>
                                 Cet email servira de nom d'utilisateur pour le manager
@@ -819,6 +928,54 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Mise à jour initiale
     updateProgress();
+    
+    // Validation en temps réel pour l'email du manager
+    const managerEmailField = document.getElementById('{{ form.manager_email.id_for_label }}');
+    if (managerEmailField) {
+        let emailCheckTimeout;
+        
+        managerEmailField.addEventListener('input', function() {
+            clearTimeout(emailCheckTimeout);
+            const email = this.value.trim();
+            
+            // Supprimer les messages d'aide précédents
+            const existingHelp = this.parentElement.querySelector('.email-help-message');
+            if (existingHelp) {
+                existingHelp.remove();
+            }
+            
+            if (email && email.includes('@')) {
+                emailCheckTimeout = setTimeout(() => {
+                    // Vérifier si l'email existe déjà (simulation côté client)
+                    fetch('/api/check-email/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        },
+                        body: JSON.stringify({ email: email })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.exists) {
+                            // Afficher un message d'aide
+                            const helpDiv = document.createElement('div');
+                            helpDiv.className = 'email-help-message alert alert-warning mt-2 small';
+                            helpDiv.innerHTML = `
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Email déjà utilisé !</strong><br>
+                                Suggestions : ${data.suggestions || 'Essayez un autre email'}
+                            `;
+                            managerEmailField.parentElement.appendChild(helpDiv);
+                        }
+                    })
+                    .catch(error => {
+                        console.debug('Vérification email:', error);
+                    });
+                }, 1000); // Attendre 1 seconde après la saisie
+            }
+        });
+    }
     
     // Animation des sections au scroll
     const observerOptions = {

@@ -24,15 +24,23 @@ logger = logging.getLogger('alerts')
 @login_required
 def alert_center(request):
     """Centre des alertes"""
+    # Vérifier les permissions pour accéder aux alertes
+    from companies.utils import get_user_permissions_for_subcompany
+    if hasattr(request, 'current_subcompany') and request.current_subcompany:
+        permissions = get_user_permissions_for_subcompany(request.user, request.current_subcompany)
+        if not permissions.get('can_manage_alerts', False):
+            messages.error(request, "Vous n'avez pas la permission d'accéder aux alertes.")
+            return redirect('dashboard')
+    
     # Filtres
     status_filter = request.GET.get('status', 'active')
     priority_filter = request.GET.get('priority')
     location_filter = request.GET.get('location')
     
-    # Filtrer par entreprise si l'utilisateur n'est pas owner
-    alert_filter = {}
-    if hasattr(request, 'current_company') and request.current_company:
-        alert_filter['company'] = request.current_company
+    # Utiliser le système de filtrage par sous-entreprise
+    from companies.utils import get_user_data_filters
+    filters = get_user_data_filters(request)
+    alert_filter = filters.get('alert_filter', {})
     
     alerts = Alert.objects.filter(**alert_filter).select_related(
         'detection_event', 'detection_event__camera', 'detection_event__zone', 'alert_rule'
@@ -81,10 +89,7 @@ def alert_center(request):
     }
     
     # Options pour les filtres
-    location_filter_obj = {}
-    if hasattr(request, 'current_company') and request.current_company:
-        location_filter_obj['company'] = request.current_company
-    
+    location_filter_obj = filters.get('location_filter', {})
     locations = Location.objects.filter(is_active=True, **location_filter_obj)
     priority_choices = Alert.PRIORITY_LEVELS
     status_choices = Alert.STATUS_CHOICES
@@ -215,19 +220,48 @@ def resolve_alert(request, alert_id):
 @login_required
 def rules_list(request):
     """Liste des règles d'alerte"""
+    # Vérifier les permissions pour accéder aux règles d'alerte
+    from companies.utils import get_user_permissions_for_subcompany
+    if hasattr(request, 'current_subcompany') and request.current_subcompany:
+        permissions = get_user_permissions_for_subcompany(request.user, request.current_subcompany)
+        if not permissions.get('can_manage_alert_rules', False):
+            messages.error(request, "Vous n'avez pas la permission de gérer les règles d'alerte.")
+            return redirect('dashboard')
+    
     print("🔥 DEBUG: Page rules_list appelée!")
     print(f"🔥 DEBUG: User: {request.user.username}")
     print(f"🔥 DEBUG: Path: {request.path}")
+    print(f"🔥 DEBUG: current_subcompany: {getattr(request, 'current_subcompany', 'None')}")
     
-    # Filtrer par entreprise si l'utilisateur n'est pas owner
+    # Filtrage spécial pour les règles d'alerte
     rule_filter = {}
     zone_filter = {}
     
-    if hasattr(request, 'current_company') and request.current_company:
-        rule_filter['company'] = request.current_company
-        zone_filter['location__company'] = request.current_company
-    
-    rules = AlertRule.objects.filter(**rule_filter).select_related('zone', 'zone__location', 'created_by').order_by('-id')
+    if hasattr(request, 'current_subcompany') and request.current_subcompany:
+        subcompany = request.current_subcompany
+        company = subcompany.parent_company
+        
+        # Inclure les règles de la sous-entreprise ET les règles de l'entreprise sans sous-entreprise
+        from django.db.models import Q
+        rules = AlertRule.objects.filter(
+            Q(subcompany=subcompany) | 
+            Q(company=company, subcompany__isnull=True)
+        ).select_related('zone', 'zone__location', 'created_by').order_by('-id')
+        
+        print(f"🔥 DEBUG: Règles trouvées pour {subcompany.name}: {rules.count()}")
+        
+        # Filtrer les zones par sous-entreprise
+        zone_filter = {'location__subcompany': subcompany}
+        
+    elif hasattr(request, 'current_company') and request.current_company:
+        # Fallback : toutes les règles de l'entreprise
+        company = request.current_company
+        rules = AlertRule.objects.filter(company=company).select_related('zone', 'zone__location', 'created_by').order_by('-id')
+        zone_filter = {'location__company': company}
+    else:
+        # Aucun contexte : toutes les règles (pour les owners)
+        rules = AlertRule.objects.all().select_related('zone', 'zone__location', 'created_by').order_by('-id')
+        zone_filter = {}
     zones = Zone.objects.filter(is_active=True, **zone_filter).select_related('location')
     
     # Récupérer les types d'événements configurés pour cette entreprise
@@ -313,15 +347,22 @@ def create_rule(request):
     try:
         data = json.loads(request.body)
         
-        # Récupérer l'entreprise de l'utilisateur connecté
+        # Récupérer l'entreprise et sous-entreprise de l'utilisateur connecté
         company = None
-        if hasattr(request, 'current_company') and request.current_company:
+        subcompany = None
+        
+        if hasattr(request, 'current_subcompany') and request.current_subcompany:
+            subcompany = request.current_subcompany
+            company = subcompany.parent_company
+        elif hasattr(request, 'current_company') and request.current_company:
             company = request.current_company
+        
+        print(f"🔥 DEBUG: Création règle - Company: {company}, Subcompany: {subcompany}")
         
         rule = AlertRule.objects.create(
             name=data['name'],
             description=data.get('description', ''),
-            zone_id=data['zone_id'],
+            zone_id=data.get('zone_id') if data.get('zone_id') else None,
             trigger_type=data['trigger_type'],
             trigger_conditions=data.get('trigger_conditions', {}),
             is_active=data.get('is_active', True),
@@ -329,6 +370,7 @@ def create_rule(request):
             cooldown_minutes=data.get('cooldown_minutes', 5),
             created_by=request.user,
             company=company,
+            subcompany=subcompany,
         )
         
         messages.success(request, f"Règle '{rule.name}' créée avec succès")
@@ -609,23 +651,35 @@ def api_create_rule(request):
             print("❌ DEBUG: Nom manquant")
             return Response({'success': False, 'error': 'Le nom est requis'}, status=400)
         
-        if not data.get('zone_id'):
-            print("❌ DEBUG: Zone ID manquant")
-            return Response({'success': False, 'error': 'La zone est requise'}, status=400)
+        # Zone optionnelle - vérifier seulement si fournie
+        zone = None
+        if data.get('zone_id'):
+            print(f"🔍 DEBUG: Zone ID fournie: {data.get('zone_id')}")
+            zone_filter = {'id': data.get('zone_id')}
+            if hasattr(request, 'current_company') and request.current_company:
+                zone_filter['location__company'] = request.current_company
+                print(f"🔍 DEBUG: Filtrage par entreprise: {request.current_company.name}")
+            
+            print(f"🔍 DEBUG: Recherche zone avec filtre: {zone_filter}")
+            try:
+                zone = Zone.objects.get(**zone_filter)
+                print(f"✅ DEBUG: Zone trouvée: {zone.name} (ID: {zone.id})")
+            except Zone.DoesNotExist:
+                print("❌ DEBUG: Zone non trouvée")
+                return Response({'success': False, 'error': 'Zone non trouvée'}, status=400)
+        else:
+            print("🔍 DEBUG: Aucune zone spécifiée - règle globale")
         
-        # Vérifier que la zone existe et appartient à l'entreprise
-        zone_filter = {'id': data.get('zone_id')}
-        if hasattr(request, 'current_company') and request.current_company:
-            zone_filter['location__company'] = request.current_company
-            print(f"🔍 DEBUG: Filtrage par entreprise: {request.current_company.name}")
-        
-        print(f"🔍 DEBUG: Recherche zone avec filtre: {zone_filter}")
-        zone = get_object_or_404(Zone, **zone_filter)
-        print(f"✅ DEBUG: Zone trouvée: {zone.name} (ID: {zone.id})")
-        
-        # Récupérer l'entreprise de l'utilisateur connecté
+        # Récupérer l'entreprise et sous-entreprise de l'utilisateur connecté
         company = None
-        if hasattr(request, 'current_company') and request.current_company:
+        subcompany = None
+        
+        if hasattr(request, 'current_subcompany') and request.current_subcompany:
+            subcompany = request.current_subcompany
+            company = subcompany.parent_company
+            print(f"🔍 DEBUG: Sous-entreprise: {subcompany.name}")
+            print(f"🔍 DEBUG: Entreprise: {company.name}")
+        elif hasattr(request, 'current_company') and request.current_company:
             company = request.current_company
             print(f"🔍 DEBUG: Entreprise: {company.name}")
         
@@ -640,11 +694,12 @@ def api_create_rule(request):
             cooldown_minutes=data.get('cooldown_minutes', 5),
             is_active=data.get('is_active', True),
             created_by=request.user,
-            company=company
+            company=company,
+            subcompany=subcompany
         )
         
         print(f"✅ DEBUG: Règle créée avec succès: {rule.name} (ID: {rule.id})")
-        print(f"✅ DEBUG: Zone: {rule.zone.name}, Entreprise: {rule.company.name if rule.company else 'Aucune'}")
+        print(f"✅ DEBUG: Zone: {rule.zone.name if rule.zone else 'Toutes les zones'}, Entreprise: {rule.company.name if rule.company else 'Aucune'}")
         
         return Response({
             'success': True,
@@ -664,7 +719,30 @@ def api_create_rule(request):
 @permission_classes([IsAuthenticated])
 def api_rule_detail(request, rule_id):
     """API pour les détails des règles"""
-    rule = get_object_or_404(AlertRule, id=rule_id)
+    print(f"🔥 DEBUG: api_rule_detail appelée pour rule_id={rule_id}")
+    print(f"🔥 DEBUG: User: {request.user.username}")
+    print(f"🔥 DEBUG: Method: {request.method}")
+    
+    # Utiliser le même filtrage que rules_list pour s'assurer que la règle est accessible
+    if hasattr(request, 'current_subcompany') and request.current_subcompany:
+        subcompany = request.current_subcompany
+        company = subcompany.parent_company
+        
+        # Chercher la règle avec le même filtrage que rules_list
+        from django.db.models import Q
+        try:
+            rule = AlertRule.objects.get(
+                Q(id=rule_id) & (
+                    Q(subcompany=subcompany) | 
+                    Q(company=company, subcompany__isnull=True)
+                )
+            )
+            print(f"🔥 DEBUG: Règle trouvée: {rule.name}")
+        except AlertRule.DoesNotExist:
+            print(f"🔥 DEBUG: Règle {rule_id} non accessible pour {subcompany.name}")
+            return Response({'success': False, 'error': 'Règle non trouvée ou non accessible'}, status=404)
+    else:
+        rule = get_object_or_404(AlertRule, id=rule_id)
     
     if request.method == 'GET':
         return Response({
@@ -676,7 +754,7 @@ def api_rule_detail(request, rule_id):
             'priority': rule.priority,
             'cooldown_minutes': rule.cooldown_minutes,
             'is_active': rule.is_active,
-            'zone_id': rule.zone.id,
+            'zone_id': rule.zone.id if rule.zone else None,
         })
     
     elif request.method == 'PUT':

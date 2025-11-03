@@ -23,6 +23,7 @@ class AlertRule(models.Model):
     ]
     
     company = models.ForeignKey('companies.Company', on_delete=models.CASCADE, related_name='alert_rules', verbose_name="Entreprise", null=True, blank=True)
+    subcompany = models.ForeignKey('companies.SubCompany', on_delete=models.CASCADE, related_name='alert_rules', verbose_name="Sous-entreprise", null=True, blank=True)
     name = models.CharField(max_length=200, verbose_name="Nom de la règle")
     description = models.TextField(blank=True)
     zone = models.ForeignKey(Zone, on_delete=models.CASCADE, related_name='alert_rules', verbose_name="Zone", null=True, blank=True)
@@ -62,6 +63,7 @@ class Alert(models.Model):
     ]
     
     company = models.ForeignKey('companies.Company', on_delete=models.CASCADE, related_name='alerts', verbose_name="Entreprise", null=True, blank=True)
+    subcompany = models.ForeignKey('companies.SubCompany', on_delete=models.CASCADE, related_name='alerts', verbose_name="Sous-entreprise", null=True, blank=True)
     detection_event = models.ForeignKey(DetectionEvent, on_delete=models.CASCADE, related_name='alerts')
     alert_rule = models.ForeignKey(AlertRule, on_delete=models.CASCADE, related_name='alerts')
     title = models.CharField(max_length=200, verbose_name="Titre de l'alerte")

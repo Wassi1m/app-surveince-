@@ -1,0 +1,295 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Assistant Sous-entreprises - Étape 3: Managers{% endblock %}
+
+{% block extra_css %}
+<style>
+    .wizard-container {
+        max-width: 1200px;
+        margin: 2rem auto;
+    }
+    
+    .wizard-progress {
+        margin-bottom: 2rem;
+    }
+    
+    .progress-step {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        margin: 0 0.5rem;
+        border-radius: 25px;
+        background: #e9ecef;
+        color: #6c757d;
+    }
+    
+    .progress-step.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-weight: bold;
+    }
+    
+    .progress-step.completed {
+        background: #28a745;
+        color: white;
+    }
+    
+    .manager-form {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .manager-form:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    /* Fix pour la visibilité du texte dans les inputs */
+    .form-control,
+    input.form-control,
+    textarea.form-control,
+    select.form-control {
+        color: #212529 !important;
+        background-color: #ffffff !important;
+    }
+    
+    .form-control::placeholder {
+        color: #6c757d !important;
+        opacity: 0.7;
+    }
+    
+    .form-control:focus {
+        color: #212529 !important;
+        background-color: #ffffff !important;
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
+    }
+    
+    /* Labels aussi visibles */
+    .form-label,
+    label {
+        color: #212529 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wizard-container">
+    <!-- Progression -->
+    <div class="wizard-progress text-center">
+        <span class="progress-step completed">✓ Entreprise</span>
+        <span class="progress-step completed">✓ Sous-entreprises</span>
+        <span class="progress-step active">3. Managers</span>
+        <span class="progress-step">4. Assignation</span>
+        <span class="progress-step">5. Confirmation</span>
+    </div>
+    
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">
+                <i class="fas fa-user-tie me-2"></i>
+                Étape 3 : Créer les Managers
+            </h3>
+        </div>
+        
+        <div class="card-body">
+            <div class="alert alert-info mb-4">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Créez les comptes managers</strong> qui géreront les sous-entreprises. 
+                Vous pourrez les assigner aux sous-entreprises à l'étape suivante.
+            </div>
+            
+            {% if existing_managers %}
+            <div class="alert alert-success mb-4">
+                <h5><i class="fas fa-users me-2"></i>Managers existants</h5>
+                <ul class="mb-0">
+                    {% for manager in existing_managers %}
+                    <li>{{ manager.user.get_full_name|default:manager.user.username }} ({{ manager.user.email }})</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            <form method="post" id="managersForm">
+                {% csrf_token %}
+                
+                <div id="managersContainer">
+                    <!-- Manager par défaut -->
+                    <div class="manager-form">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-envelope me-1"></i>
+                                        Email <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="email" name="emails[]" class="form-control" 
+                                           placeholder="manager@entreprise.com" required>
+                                    <small class="text-muted">Servira de nom d'utilisateur</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-user me-1"></i>
+                                        Prénom
+                                    </label>
+                                    <input type="text" name="first_names[]" class="form-control" 
+                                           placeholder="Jean">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-user me-1"></i>
+                                        Nom
+                                    </label>
+                                    <input type="text" name="last_names[]" class="form-control" 
+                                           placeholder="Dupont">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-lock me-1"></i>
+                                        Mot de passe <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="password" name="passwords[]" class="form-control" 
+                                           placeholder="••••••••" required minlength="8">
+                                    <small class="text-muted">Minimum 8 caractères</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">
+                                        <i class="fas fa-key me-1"></i>
+                                        Nom d'utilisateur
+                                    </label>
+                                    <input type="text" name="usernames[]" class="form-control" 
+                                           placeholder="Généré automatiquement depuis l'email" readonly>
+                                    <small class="text-muted">Sera généré depuis l'email</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mb-4">
+                    <button type="button" class="btn btn-outline-primary" onclick="addManager()">
+                        <i class="fas fa-plus me-2"></i>
+                        Ajouter un autre manager
+                    </button>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <a href="?step=2" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Retour
+                    </a>
+                    <div>
+                        <button type="submit" name="skip" value="1" class="btn btn-outline-warning me-2">
+                            <i class="fas fa-forward me-2"></i>
+                            Passer cette étape
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-arrow-right me-2"></i>
+                            Étape suivante
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let managerCount = 1;
+
+function addManager() {
+    managerCount++;
+    const container = document.getElementById('managersContainer');
+    const newManager = document.createElement('div');
+    newManager.className = 'manager-form';
+    newManager.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Manager ${managerCount}</h5>
+            <button type="button" class="btn btn-sm btn-danger" onclick="this.closest('.manager-form').remove()">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-envelope me-1"></i>
+                        Email <span class="text-danger">*</span>
+                    </label>
+                    <input type="email" name="emails[]" class="form-control" 
+                           placeholder="manager@entreprise.com" required>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-user me-1"></i>
+                        Prénom
+                    </label>
+                    <input type="text" name="first_names[]" class="form-control" 
+                           placeholder="Jean">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-user me-1"></i>
+                        Nom
+                    </label>
+                    <input type="text" name="last_names[]" class="form-control" 
+                           placeholder="Dupont">
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-lock me-1"></i>
+                        Mot de passe <span class="text-danger">*</span>
+                    </label>
+                    <input type="password" name="passwords[]" class="form-control" 
+                           placeholder="••••••••" required minlength="8">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-key me-1"></i>
+                        Nom d'utilisateur
+                    </label>
+                    <input type="text" name="usernames[]" class="form-control" 
+                           placeholder="Généré depuis l'email" readonly>
+                </div>
+            </div>
+        </div>
+    `;
+    container.appendChild(newManager);
+}
+
+// Auto-générer le username depuis l'email
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('managersContainer').addEventListener('input', function(e) {
+        if (e.target.name === 'emails[]') {
+            const email = e.target.value;
+            const usernameField = e.target.closest('.manager-form').querySelector('[name="usernames[]"]');
+            if (usernameField && email) {
+                usernameField.value = email.split('@')[0];
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

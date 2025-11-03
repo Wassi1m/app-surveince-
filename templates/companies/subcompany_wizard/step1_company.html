@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Assistant de Configuration - Étape 1{% endblock %}
+
+{% block extra_css %}
+<style>
+    .wizard-container {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        padding: 2rem;
+        margin: 2rem auto;
+        max-width: 900px;
+    }
+    
+    .wizard-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        color: #2c3e50;
+    }
+    
+    .wizard-progress {
+        margin-bottom: 2rem;
+    }
+    
+    .step-indicator {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    
+    .step {
+        flex: 1;
+        text-align: center;
+        position: relative;
+    }
+    
+    .step-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #e9ecef;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 0.5rem;
+        font-weight: bold;
+        transition: all 0.3s ease;
+    }
+    
+    .step.active .step-number {
+        background: #007bff;
+        color: white;
+    }
+    
+    .step.completed .step-number {
+        background: #28a745;
+        color: white;
+    }
+    
+    .step-title {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    
+    .step.active .step-title {
+        color: #007bff;
+        font-weight: bold;
+    }
+    
+    .company-info {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: bold;
+        color: #495057;
+    }
+    
+    .info-value {
+        color: #6c757d;
+    }
+    
+    .wizard-actions {
+        text-align: center;
+        margin-top: 2rem;
+    }
+    
+    .btn-wizard {
+        padding: 0.75rem 2rem;
+        margin: 0 0.5rem;
+        border-radius: 25px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="wizard-container">
+        <div class="wizard-header">
+            <h2><i class="fas fa-magic me-2"></i>Assistant de Configuration d'Entreprise</h2>
+            <p class="text-muted">Configurez votre entreprise avec des sous-entreprises et des managers</p>
+        </div>
+        
+        <!-- Indicateur de progression -->
+        <div class="wizard-progress">
+            <div class="step-indicator">
+                <div class="step active">
+                    <div class="step-number">1</div>
+                    <div class="step-title">Entreprise</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-title">Sous-entreprises</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-title">Managers</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-title">Assignations</div>
+                </div>
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <div class="step-title">Confirmation</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Informations de l'entreprise -->
+        <div class="company-info">
+            <h4><i class="fas fa-building me-2 text-primary"></i>Informations de l'Entreprise</h4>
+            
+            <div class="info-item">
+                <span class="info-label">Nom :</span>
+                <span class="info-value">{{ company.name }}</span>
+            </div>
+            
+            <div class="info-item">
+                <span class="info-label">Référence :</span>
+                <span class="info-value">{{ company.reference }}</span>
+            </div>
+            
+            {% if company.description %}
+            <div class="info-item">
+                <span class="info-label">Description :</span>
+                <span class="info-value">{{ company.description }}</span>
+            </div>
+            {% endif %}
+            
+            {% if company.address %}
+            <div class="info-item">
+                <span class="info-label">Adresse :</span>
+                <span class="info-value">{{ company.address }}</span>
+            </div>
+            {% endif %}
+            
+            <div class="info-item">
+                <span class="info-label">Utilisateurs max :</span>
+                <span class="info-value">{{ company.max_users }}</span>
+            </div>
+            
+            <div class="info-item">
+                <span class="info-label">Caméras max :</span>
+                <span class="info-value">{{ company.max_cameras }}</span>
+            </div>
+            
+            <div class="info-item">
+                <span class="info-label">Localisations max :</span>
+                <span class="info-value">{{ company.max_locations }}</span>
+            </div>
+            
+            <div class="info-item">
+                <span class="info-label">Sous-entreprises existantes :</span>
+                <span class="info-value">{{ company.subcompany_count }}</span>
+            </div>
+        </div>
+        
+        <!-- Description de l'étape -->
+        <div class="alert alert-info">
+            <h5><i class="fas fa-info-circle me-2"></i>À propos de cette étape</h5>
+            <p class="mb-0">
+                Nous allons maintenant configurer votre entreprise <strong>{{ company.name }}</strong> 
+                avec un système de sous-entreprises. Cela vous permettra de :
+            </p>
+            <ul class="mt-2 mb-0">
+                <li>Organiser vos activités en sous-divisions</li>
+                <li>Assigner des managers spécifiques à chaque sous-entreprise</li>
+                <li>Contrôler l'accès aux données par sous-entreprise</li>
+                <li>Gérer les permissions de manière granulaire</li>
+            </ul>
+        </div>
+        
+        <!-- Actions -->
+        <div class="wizard-actions">
+            <a href="{% url 'companies:company_detail' company.pk %}" class="btn btn-secondary btn-wizard">
+                <i class="fas fa-arrow-left me-2"></i>Retour
+            </a>
+            <a href="?step=2" class="btn btn-primary btn-wizard">
+                Suivant <i class="fas fa-arrow-right ms-2"></i>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animation d'entrée
+    const container = document.querySelector('.wizard-container');
+    container.style.opacity = '0';
+    container.style.transform = 'translateY(20px)';
+    
+    setTimeout(() => {
+        container.style.transition = 'all 0.5s ease';
+        container.style.opacity = '1';
+        container.style.transform = 'translateY(0)';
+    }, 100);
+});
+</script>
+{% endblock %}

@@ -207,7 +207,20 @@ def company_login_view(request):
                 return redirect(next_url)
             
             if company_user.is_manager:
-                return redirect('companies:manager_dashboard')
+                # Vérifier si le manager a plusieurs sous-entreprises
+                accessible_subcompanies = company_user.get_accessible_subcompanies()
+                if accessible_subcompanies.count() > 1:
+                    # Toujours rediriger vers le sélecteur s'il y a plusieurs choix
+                    # Réinitialiser current_subcompany pour forcer la sélection
+                    company_user.current_subcompany = None
+                    company_user.save()
+                    return redirect('companies:subcompany_selector')
+                else:
+                    # Une seule sous-entreprise, la définir comme courante
+                    if accessible_subcompanies.exists():
+                        company_user.current_subcompany = accessible_subcompanies.first()
+                        company_user.save()
+                    return redirect('companies:manager_dashboard')
             else:
                 return redirect('dashboard')
             

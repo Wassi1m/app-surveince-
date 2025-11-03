@@ -431,18 +431,52 @@
             </div>
             
             <div class="actions-section">
-                <a href="{% url 'companies:company_detail' company.pk %}" class="btn btn-primary">
-                    <i class="fas fa-eye"></i>
-                    Voir l'entreprise
-                </a>
-                <a href="{% url 'companies:company_list' %}" class="btn btn-secondary">
-                    <i class="fas fa-list"></i>
-                    Liste des entreprises
-                </a>
-                <a href="{% url 'companies:company_create' %}" class="btn btn-success">
-                    <i class="fas fa-plus"></i>
-                    Créer une autre entreprise
-                </a>
+                <!-- Action principale recommandée -->
+                <div class="recommended-action mb-4">
+                    <div class="alert alert-info border-0 shadow-sm">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <i class="fas fa-magic fa-2x text-primary"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h5 class="mb-1">🚀 Prochaine étape recommandée</h5>
+                                <p class="mb-2 text-muted">Configurez maintenant les sous-entreprises et assignez des managers avec l'assistant intégré.</p>
+                                <a href="{% url 'companies:subcompany_wizard' company.pk %}" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-magic me-2"></i>
+                                    Lancer l'Assistant Sous-entreprises
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Actions alternatives -->
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <a href="{% url 'companies:company_detail' company.pk %}" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-eye me-2"></i>
+                            Voir l'entreprise
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{% url 'companies:subcompany_list' company.pk %}" class="btn btn-outline-info w-100">
+                            <i class="fas fa-sitemap me-2"></i>
+                            Gérer les sous-entreprises
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{% url 'companies:company_list' %}" class="btn btn-outline-secondary w-100">
+                            <i class="fas fa-list me-2"></i>
+                            Liste des entreprises
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{% url 'companies:company_create' %}" class="btn btn-outline-success w-100">
+                            <i class="fas fa-plus me-2"></i>
+                            Créer une autre entreprise
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

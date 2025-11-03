@@ -2,6 +2,48 @@
 
 {% block title %}Règles d'Alerte - Surveillance IA{% endblock %}
 
+{% block extra_css %}
+<style>
+/* Correction de la visibilité du texte dans les modals sombres */
+.modal-content.bg-dark .form-control,
+.modal-content.bg-dark .form-select,
+.modal-content.bg-dark input,
+.modal-content.bg-dark textarea,
+.modal-content.bg-dark select {
+    background-color: #495057 !important;
+    border: 1px solid #6c757d !important;
+    color: #ffffff !important;
+}
+
+.modal-content.bg-dark .form-control:focus,
+.modal-content.bg-dark .form-select:focus,
+.modal-content.bg-dark input:focus,
+.modal-content.bg-dark textarea:focus,
+.modal-content.bg-dark select:focus {
+    background-color: #495057 !important;
+    border-color: #667eea !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25) !important;
+}
+
+.modal-content.bg-dark .form-control::placeholder,
+.modal-content.bg-dark input::placeholder,
+.modal-content.bg-dark textarea::placeholder {
+    color: #adb5bd !important;
+    opacity: 0.8;
+}
+
+.modal-content.bg-dark .form-label,
+.modal-content.bg-dark label {
+    color: #f8f9fa !important;
+}
+
+.modal-content.bg-dark .form-text {
+    color: #adb5bd !important;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid py-4" style="margin-top: 70px;">
     
@@ -42,7 +84,12 @@
                 </div>
                 <div class="card-body">
                     <div class="mb-2">
-                        <strong>Zone:</strong> {{ rule.zone.name }} ({{ rule.zone.location.name }})
+                        <strong>Zone:</strong> 
+                        {% if rule.zone %}
+                            {{ rule.zone.name }} ({{ rule.zone.location.name }})
+                        {% else %}
+                            <span class="text-muted">Toutes les zones</span>
+                        {% endif %}
                     </div>
                     <div class="mb-2">
                         <strong>Type de déclencheur:</strong> {{ rule.get_trigger_type_display }}
@@ -192,17 +239,21 @@ function addNewRule() {
             <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
-                        <label class="form-label">Nom de la règle</label>
+                        <label class="form-label">Nom de la règle <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="name" placeholder="Ex: Intrusion nocturne" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Zone</label>
-                        <select class="form-select" name="zone_id" required>
-                            <option value="">Sélectionner une zone</option>
+                        <label class="form-label">Zone <span class="text-muted">(optionnel)</span></label>
+                        <select class="form-select" name="zone_id">
+                            <option value="">Sélectionner une zone (optionnel)</option>
                             {% for zone in zones %}
                             <option value="{{ zone.id }}">{{ zone.name }} ({{ zone.location.name }})</option>
                             {% endfor %}
                         </select>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle text-primary"></i>
+                            Laissez vide pour appliquer la règle à toutes les zones.
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Type de déclencheur</label>
@@ -214,8 +265,8 @@ function addNewRule() {
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Priorité</label>
-                        <select class="form-select" name="priority">
+                        <label class="form-label">Priorité <span class="text-danger">*</span></label>
+                        <select class="form-select" name="priority" required>
                             <option value="3">Faible (3)</option>
                             <option value="2" selected>Moyenne (2)</option>
                             <option value="1">Élevée (1)</option>
@@ -367,18 +418,43 @@ function editRule(ruleId) {
             // Remplir le formulaire avec les données existantes
             addNewRule(); // Créer le formulaire de base
             
-            // Remplir les champs
-            document.querySelector('[name="name"]').value = data.name || '';
-            document.querySelector('[name="description"]').value = data.description || '';
-            document.querySelector('[name="location_id"]').value = data.location_id || '';
-            document.querySelector('[name="trigger_type"]').value = data.trigger_type || 'detection';
-            document.querySelector('[name="priority"]').value = data.priority || 2;
-            document.querySelector('[name="cooldown_minutes"]').value = data.cooldown_minutes || 5;
-            document.querySelector('[name="is_active"]').checked = data.is_active || false;
-            document.querySelector('[name="rule_id"]').value = ruleId;
-            
-            // Mettre à jour les conditions
-            updateTriggerOptions(data.trigger_type || 'detection');
+            // Attendre que le formulaire soit créé dans le DOM
+            setTimeout(() => {
+                try {
+                    // Remplir les champs avec vérification d'existence
+                    const nameField = document.querySelector('[name="name"]');
+                    if (nameField) nameField.value = data.name || '';
+                    
+                    const descField = document.querySelector('[name="description"]');
+                    if (descField) descField.value = data.description || '';
+                    
+                    const zoneField = document.querySelector('[name="zone_id"]');
+                    if (zoneField) zoneField.value = data.zone_id || '';
+                    
+                    const triggerField = document.querySelector('[name="trigger_type"]');
+                    if (triggerField) triggerField.value = data.trigger_type || 'detection';
+                    
+                    const priorityField = document.querySelector('[name="priority"]');
+                    if (priorityField) priorityField.value = data.priority || 2;
+                    
+                    const cooldownField = document.querySelector('[name="cooldown_minutes"]');
+                    if (cooldownField) cooldownField.value = data.cooldown_minutes || 5;
+                    
+                    const activeField = document.querySelector('[name="is_active"]');
+                    if (activeField) activeField.checked = data.is_active || false;
+                    
+                    const ruleIdField = document.querySelector('[name="rule_id"]');
+                    if (ruleIdField) ruleIdField.value = ruleId;
+                    
+                    // Mettre à jour les conditions
+                    updateTriggerOptions(data.trigger_type || 'detection');
+                    
+                    console.log('✅ Règle chargée pour édition:', data.name);
+                } catch (error) {
+                    console.error('Erreur lors du remplissage du formulaire:', error);
+                    alert('Erreur lors du remplissage du formulaire');
+                }
+            }, 100); // Délai de 100ms pour laisser le temps au DOM de se mettre à jour
         })
         .catch(error => {
             console.error('Erreur chargement règle:', error);
@@ -407,10 +483,7 @@ function saveRuleConfig() {
         return;
     }
     
-    if (!zoneId) {
-        alert('La zone est requise');
-        return;
-    }
+    // Zone optionnelle - pas de validation requise
     
     if (!priority) {
         alert('La priorité est requise');

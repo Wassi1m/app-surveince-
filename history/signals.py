@@ -43,6 +43,11 @@ def should_track_model(model_class, company=None):
     if model_class._meta.app_label == 'history':
         return False
     
+    # Éviter de traquer pendant les migrations
+    import sys
+    if 'migrate' in sys.argv or 'makemigrations' in sys.argv:
+        return False
+    
     # Éviter de traquer certains modèles système
     excluded_models = [
         'contenttypes.contenttype',

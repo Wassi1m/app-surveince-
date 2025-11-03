@@ -7,6 +7,7 @@ import json
 class Location(models.Model):
     """Représente un lieu de surveillance (magasin, entrepôt, etc.)"""
     company = models.ForeignKey('companies.Company', on_delete=models.CASCADE, related_name='locations', verbose_name="Entreprise", null=True, blank=True)
+    subcompany = models.ForeignKey('companies.SubCompany', on_delete=models.CASCADE, related_name='locations', verbose_name="Sous-entreprise", null=True, blank=True)
     name = models.CharField(max_length=200, verbose_name="Nom du lieu")
     address = models.TextField(verbose_name="Adresse")
     description = models.TextField(blank=True, verbose_name="Description")

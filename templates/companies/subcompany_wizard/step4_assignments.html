@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Assistant Sous-entreprises - Étape 4: Assignation{% endblock %}
+
+{% block extra_css %}
+<style>
+    .wizard-container {
+        max-width: 1200px;
+        margin: 2rem auto;
+    }
+    
+    .wizard-progress {
+        margin-bottom: 2rem;
+    }
+    
+    .progress-step {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        margin: 0 0.5rem;
+        border-radius: 25px;
+        background: #e9ecef;
+        color: #6c757d;
+    }
+    
+    .progress-step.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-weight: bold;
+    }
+    
+    .progress-step.completed {
+        background: #28a745;
+        color: white;
+    }
+    
+    .manager-card {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .manager-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .subcompany-checkbox {
+        padding: 0.75rem;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        transition: all 0.3s;
+    }
+    
+    .subcompany-checkbox:hover {
+        background: #f8f9fa;
+    }
+    
+    .subcompany-checkbox input:checked + label {
+        font-weight: bold;
+        color: #667eea;
+    }
+    
+    .permission-section {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+    }
+    
+    /* Fix pour la visibilité du texte */
+    .form-control,
+    input,
+    textarea,
+    select {
+        color: #212529 !important;
+        background-color: #ffffff !important;
+    }
+    
+    label,
+    .form-label,
+    .form-check-label {
+        color: #212529 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wizard-container">
+    <!-- Progression -->
+    <div class="wizard-progress text-center">
+        <span class="progress-step completed">✓ Entreprise</span>
+        <span class="progress-step completed">✓ Sous-entreprises</span>
+        <span class="progress-step completed">✓ Managers</span>
+        <span class="progress-step active">4. Assignation</span>
+        <span class="progress-step">5. Confirmation</span>
+    </div>
+    
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">
+                <i class="fas fa-link me-2"></i>
+                Étape 4 : Assigner les Managers aux Sous-entreprises
+            </h3>
+        </div>
+        
+        <div class="card-body">
+            <div class="alert alert-info mb-4">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Assignez chaque manager</strong> à une ou plusieurs sous-entreprises et définissez leurs permissions.
+            </div>
+            
+            {% if not managers %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Aucun manager n'a été créé. <a href="?step=3" class="alert-link">Retour à l'étape 3</a> pour créer des managers.
+            </div>
+            {% else %}
+            
+            <form method="post">
+                {% csrf_token %}
+                
+                {% for manager in managers %}
+                <div class="manager-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="me-3">
+                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" 
+                                 style="width: 50px; height: 50px;">
+                                <i class="fas fa-user-tie fa-lg"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <h5 class="mb-0">{{ manager.user.get_full_name|default:manager.user.username }}</h5>
+                            <small class="text-muted">{{ manager.user.email }}</small>
+                        </div>
+                    </div>
+                    
+                    <h6 class="mb-3">
+                        <i class="fas fa-sitemap me-2"></i>
+                        Sous-entreprises accessibles :
+                    </h6>
+                    
+                    {% if not subcompanies %}
+                    <div class="alert alert-warning small">
+                        Aucune sous-entreprise disponible.
+                    </div>
+                    {% else %}
+                    <div class="row">
+                        {% for subcompany in subcompanies %}
+                        <div class="col-md-6">
+                            <div class="subcompany-checkbox">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                           name="manager_{{ manager.id }}_subcompanies" 
+                                           value="{{ subcompany.id }}"
+                                           id="m{{ manager.id }}_s{{ subcompany.id }}">
+                                    <label class="form-check-label" for="m{{ manager.id }}_s{{ subcompany.id }}">
+                                        <strong>{{ subcompany.name }}</strong>
+                                        <br>
+                                        <small class="text-muted">{{ subcompany.reference }}</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="permission-section">
+                        <div class="alert alert-success mb-0">
+                            <h6 class="mb-2">
+                                <i class="fas fa-crown me-2"></i>
+                                Permissions Manager (Automatiques)
+                            </h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <span>Gérer les utilisateurs</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <span>Surveillance (Caméras, Zones, Localisations)</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <span>Gérer les alertes</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <span>Règles d'alerte</span>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="fas fa-check-circle text-success me-2"></i>
+                                        <span>Voir les rapports</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Les managers ont automatiquement tous les droits sur leurs sous-entreprises assignées.
+                            </small>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                
+                <div class="d-flex justify-content-between">
+                    <a href="?step=3" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Retour
+                    </a>
+                    <div>
+                        <button type="submit" name="skip" value="1" class="btn btn-outline-warning me-2">
+                            <i class="fas fa-forward me-2"></i>
+                            Passer cette étape
+                        </button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-check me-2"></i>
+                            Finaliser la configuration
+                        </button>
+                    </div>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -2,25 +2,12 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
-from .models import Company, CompanyUser, CompanyInvitation
+from .models import Company, CompanyUser, CompanyInvitation, SubCompany, SubCompanyUser
 
 
 class CompanyForm(forms.ModelForm):
     """Formulaire pour créer/modifier une entreprise"""
-    manager_email = forms.EmailField(
-        label="Email du manager",
-        help_text="Un compte manager sera créé avec cet email"
-    )
-    manager_first_name = forms.CharField(
-        max_length=30,
-        label="Prénom du manager",
-        required=False
-    )
-    manager_last_name = forms.CharField(
-        max_length=30,
-        label="Nom du manager",
-        required=False
-    )
+    # Les champs manager sont maintenant gérés dans l'assistant sous-entreprises
     
     class Meta:
         model = Company
@@ -33,19 +20,7 @@ class CompanyForm(forms.ModelForm):
             'address': forms.Textarea(attrs={'rows': 3}),
         }
     
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Si on modifie une entreprise existante, on n'a pas besoin des champs manager
-        if self.instance and self.instance.pk:
-            del self.fields['manager_email']
-            del self.fields['manager_first_name']
-            del self.fields['manager_last_name']
-    
-    def clean_manager_email(self):
-        email = self.cleaned_data.get('manager_email')
-        if email and User.objects.filter(email=email).exists():
-            raise ValidationError("Un utilisateur avec cet email existe déjà.")
-        return email
+    # Plus besoin de validation manager - géré dans l'assistant
 
 
 class CompanyUserForm(forms.ModelForm):
@@ -55,8 +30,7 @@ class CompanyUserForm(forms.ModelForm):
         model = CompanyUser
         fields = [
             'role', 'employee_id', 'department', 'position', 'phone',
-            'is_active', 'can_manage_users', 'can_manage_cameras',
-            'can_manage_alerts', 'can_view_reports'
+            'is_active'
         ]
         widgets = {
             'role': forms.Select(attrs={'class': 'form-control'}),
@@ -137,23 +111,23 @@ class EmployeeCreationForm(UserCreationForm):
         label="Téléphone"
     )
     
-    # Permissions
-    can_manage_users = forms.BooleanField(
+    # Permissions (simplifiées)
+    can_manage_monitoring = forms.BooleanField(
         required=False,
-        label="Peut gérer les utilisateurs"
-    )
-    can_manage_cameras = forms.BooleanField(
-        required=False,
-        label="Peut gérer les caméras"
+        label="Surveillance (Caméras, Zones, Localisations)"
     )
     can_manage_alerts = forms.BooleanField(
         required=False,
-        label="Peut gérer les alertes"
+        label="Gérer les alertes"
+    )
+    can_manage_alert_rules = forms.BooleanField(
+        required=False,
+        label="Règles d'alerte"
     )
     can_view_reports = forms.BooleanField(
         initial=True,
         required=False,
-        label="Peut voir les rapports"
+        label="Voir les rapports"
     )
     
     class Meta:
@@ -206,8 +180,7 @@ class CompanyInvitationForm(forms.ModelForm):
     class Meta:
         model = CompanyInvitation
         fields = [
-            'email', 'role', 'can_manage_users', 'can_manage_cameras',
-            'can_manage_alerts', 'can_view_reports'
+            'email', 'role'
         ]
         widgets = {
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
@@ -319,3 +292,171 @@ class CompanySettingsForm(forms.Form):
         initial='Europe/Paris',
         label="Fuseau horaire"
     )
+
+
+class SubCompanyForm(forms.ModelForm):
+    """Formulaire pour créer/modifier une sous-entreprise"""
+    
+    class Meta:
+        model = SubCompany
+        fields = [
+            'name', 'description', 'max_users', 'max_cameras', 'max_locations'
+        ]
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'max_users': forms.NumberInput(attrs={'class': 'form-control'}),
+            'max_cameras': forms.NumberInput(attrs={'class': 'form-control'}),
+            'max_locations': forms.NumberInput(attrs={'class': 'form-control'}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        self.parent_company = kwargs.pop('parent_company', None)
+        super().__init__(*args, **kwargs)
+        
+        # Limiter les valeurs max selon l'entreprise parente
+        if self.parent_company:
+            self.fields['max_users'].widget.attrs['max'] = self.parent_company.max_users
+            self.fields['max_cameras'].widget.attrs['max'] = self.parent_company.max_cameras
+            self.fields['max_locations'].widget.attrs['max'] = self.parent_company.max_locations
+    
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        if self.parent_company:
+            # Vérifier l'unicité du nom dans l'entreprise parente
+            existing = SubCompany.objects.filter(
+                parent_company=self.parent_company,
+                name=name
+            )
+            if self.instance.pk:
+                existing = existing.exclude(pk=self.instance.pk)
+            
+            if existing.exists():
+                raise ValidationError("Une sous-entreprise avec ce nom existe déjà.")
+        
+        return name
+
+
+class SubCompanyUserForm(forms.ModelForm):
+    """Formulaire pour assigner un utilisateur à une sous-entreprise"""
+    
+    class Meta:
+        model = SubCompanyUser
+        fields = [
+            'can_manage_monitoring', 'can_manage_alerts', 'can_manage_alert_rules', 'can_view_reports'
+        ]
+        widgets = {
+            'can_manage_monitoring': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'can_manage_alerts': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'can_manage_alert_rules': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'can_view_reports': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class SubCompanySelectorForm(forms.Form):
+    """Formulaire pour sélectionner une sous-entreprise"""
+    
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        if user and hasattr(user, 'company_profile'):
+            company_user = user.company_profile
+            accessible_subcompanies = company_user.get_accessible_subcompanies()
+            
+            choices = [(sub.id, sub.full_name) for sub in accessible_subcompanies]
+            
+            self.fields['subcompany'] = forms.ChoiceField(
+                choices=choices,
+                widget=forms.Select(attrs={'class': 'form-select'}),
+                label="Sélectionner une sous-entreprise"
+            )
+            
+            # Sélectionner la sous-entreprise courante par défaut
+            if company_user.current_subcompany:
+                self.fields['subcompany'].initial = company_user.current_subcompany.id
+
+
+class ManagerCreationForm(UserCreationForm):
+    """Formulaire pour créer un manager avec assignation aux sous-entreprises"""
+    email = forms.EmailField(required=True, label="Email")
+    first_name = forms.CharField(max_length=30, required=True, label="Prénom")
+    last_name = forms.CharField(max_length=30, required=True, label="Nom")
+    
+    # Champs CompanyUser
+    employee_id = forms.CharField(
+        max_length=50,
+        required=False,
+        label="ID Employé"
+    )
+    department = forms.CharField(
+        max_length=100,
+        required=False,
+        label="Département"
+    )
+    position = forms.CharField(
+        max_length=100,
+        required=False,
+        label="Poste"
+    )
+    phone = forms.CharField(
+        max_length=20,
+        required=False,
+        label="Téléphone"
+    )
+    
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'first_name', 'last_name', 'password1', 'password2')
+    
+    def __init__(self, *args, **kwargs):
+        self.company = kwargs.pop('company', None)
+        super().__init__(*args, **kwargs)
+        
+        # Utiliser l'email comme nom d'utilisateur par défaut
+        self.fields['username'].help_text = "Laissez vide pour utiliser l'email comme nom d'utilisateur"
+        self.fields['username'].required = False
+        
+        # Ajouter les sous-entreprises disponibles
+        if self.company:
+            subcompanies = self.company.subcompanies.filter(is_active=True)
+            for subcompany in subcompanies:
+                field_name = f'subcompany_{subcompany.id}'
+                self.fields[field_name] = forms.BooleanField(
+                    required=False,
+                    label=f"Accès à {subcompany.name}",
+                    help_text=f"Donner accès à la sous-entreprise {subcompany.name}"
+                )
+    
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if User.objects.filter(email=email).exists():
+            raise ValidationError("Un utilisateur avec cet email existe déjà.")
+        return email
+    
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        email = self.cleaned_data.get('email')
+        
+        # Si pas de username fourni, utiliser l'email
+        if not username and email:
+            username = email
+        
+        if User.objects.filter(username=username).exists():
+            raise ValidationError("Ce nom d'utilisateur existe déjà.")
+        
+        return username
+    
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.email = self.cleaned_data['email']
+        user.first_name = self.cleaned_data['first_name']
+        user.last_name = self.cleaned_data['last_name']
+        
+        # Utiliser l'email comme username si pas fourni
+        if not user.username:
+            user.username = self.cleaned_data['email']
+        
+        if commit:
+            user.save()
+        return user

@@ -26,19 +26,15 @@ logger = logging.getLogger('monitoring')
 def dashboard(request):
     """Vue principale du tableau de bord"""
     try:
-        # Filtrer par entreprise si l'utilisateur n'est pas owner
-        camera_filter = {}
-        alert_filter = {}
-        detection_filter = {}
-        incident_filter = {}
-        zone_filter = {}
+        # Utiliser le système de filtrage par sous-entreprise
+        from companies.utils import get_user_data_filters
+        filters = get_user_data_filters(request)
         
-        if hasattr(request, 'current_company') and request.current_company:
-            camera_filter['location__company'] = request.current_company
-            alert_filter['company'] = request.current_company
-            detection_filter['camera__location__company'] = request.current_company
-            incident_filter['location__company'] = request.current_company
-            zone_filter['location__company'] = request.current_company
+        camera_filter = filters.get('camera_filter', {})
+        alert_filter = filters.get('alert_filter', {})
+        detection_filter = filters.get('detection_filter', {})
+        incident_filter = filters.get('incident_filter', {})
+        zone_filter = filters.get('zone_filter', {})
         
         # Statistiques globales
         total_cameras = Camera.objects.filter(**camera_filter).count()
@@ -124,13 +120,12 @@ def dashboard(request):
 @login_required
 def live_view(request):
     """Vue de surveillance en direct"""
-    # Filtrer par entreprise si l'utilisateur n'est pas owner
-    camera_filter = {}
-    location_filter = {}
+    # Utiliser le système de filtrage par sous-entreprise
+    from companies.utils import get_user_data_filters
+    filters = get_user_data_filters(request)
     
-    if hasattr(request, 'current_company') and request.current_company:
-        camera_filter['location__company'] = request.current_company
-        location_filter['company'] = request.current_company
+    camera_filter = filters.get('camera_filter', {})
+    location_filter = filters.get('location_filter', {})
     
     cameras = Camera.objects.filter(**camera_filter).select_related('location', 'zone').order_by('status')
     locations = Location.objects.filter(is_active=True, **location_filter)
@@ -146,15 +141,22 @@ def live_view(request):
 @login_required
 def camera_list(request):
     """Liste des caméras"""
-    # Filtrer par entreprise si l'utilisateur n'est pas owner
-    camera_filter = {}
-    location_filter = {}
-    zone_filter = {}
+    # Vérifier les permissions pour accéder aux caméras
+    from companies.utils import get_user_permissions_for_subcompany
+    if hasattr(request, 'current_subcompany') and request.current_subcompany:
+        permissions = get_user_permissions_for_subcompany(request.user, request.current_subcompany)
+        if not permissions.get('can_manage_monitoring', False):
+            from django.contrib import messages
+            messages.error(request, "Vous n'avez pas la permission d'accéder à la surveillance.")
+            return redirect('dashboard')
     
-    if hasattr(request, 'current_company') and request.current_company:
-        camera_filter['location__company'] = request.current_company
-        location_filter['company'] = request.current_company
-        zone_filter['location__company'] = request.current_company
+    # Utiliser le système de filtrage par sous-entreprise
+    from companies.utils import get_user_data_filters
+    filters = get_user_data_filters(request)
+    
+    camera_filter = filters.get('camera_filter', {})
+    location_filter = filters.get('location_filter', {})
+    zone_filter = filters.get('zone_filter', {})
     
     cameras = Camera.objects.filter(**camera_filter).select_related('location', 'zone').order_by('status')
     locations = Location.objects.filter(is_active=True, **location_filter)
@@ -690,12 +692,21 @@ def create_camera(request):
 @login_required
 def location_list(request):
     """Liste des localisations"""
-    # Filtrer par entreprise si l'utilisateur est associé à une entreprise
-    locations = Location.objects.all()
-    if hasattr(request, 'company_user') and request.company_user and request.company_user.company:
-        locations = locations.filter(company=request.company_user.company)
+    # Vérifier les permissions pour accéder aux locations
+    from companies.utils import get_user_permissions_for_subcompany
+    if hasattr(request, 'current_subcompany') and request.current_subcompany:
+        permissions = get_user_permissions_for_subcompany(request.user, request.current_subcompany)
+        if not permissions.get('can_manage_monitoring', False):
+            from django.contrib import messages
+            messages.error(request, "Vous n'avez pas la permission d'accéder à la surveillance.")
+            return redirect('dashboard')
     
-    locations = locations.order_by('-id')
+    # Utiliser le système de filtrage par sous-entreprise
+    from companies.utils import get_user_data_filters
+    filters = get_user_data_filters(request)
+    location_filter = filters.get('location_filter', {})
+    
+    locations = Location.objects.filter(**location_filter).order_by('-id')
     
     context = {
         'locations': locations,
@@ -838,13 +849,21 @@ def delete_location(request, location_id):
 @login_required
 def zone_list(request):
     """Liste des zones de surveillance"""
-    # Filtrer par entreprise si l'utilisateur n'est pas owner
-    zone_filter = {}
-    location_filter = {}
+    # Vérifier les permissions pour accéder aux zones
+    from companies.utils import get_user_permissions_for_subcompany
+    if hasattr(request, 'current_subcompany') and request.current_subcompany:
+        permissions = get_user_permissions_for_subcompany(request.user, request.current_subcompany)
+        if not permissions.get('can_manage_monitoring', False):
+            from django.contrib import messages
+            messages.error(request, "Vous n'avez pas la permission d'accéder à la surveillance.")
+            return redirect('dashboard')
     
-    if hasattr(request, 'current_company') and request.current_company:
-        zone_filter['location__company'] = request.current_company
-        location_filter['company'] = request.current_company
+    # Utiliser le système de filtrage par sous-entreprise
+    from companies.utils import get_user_data_filters
+    filters = get_user_data_filters(request)
+    
+    zone_filter = filters.get('zone_filter', {})
+    location_filter = filters.get('location_filter', {})
     
     zones = Zone.objects.filter(**zone_filter).select_related('location').order_by('-id')
     locations = Location.objects.filter(is_active=True, **location_filter)

@@ -22,15 +22,29 @@ logger = logging.getLogger('analytics')
 @login_required
 def reports_list(request):
     """Liste des rapports"""
+    # Vérifier les permissions pour accéder aux rapports
+    from companies.utils import get_user_permissions_for_subcompany
+    if hasattr(request, 'current_subcompany') and request.current_subcompany:
+        permissions = get_user_permissions_for_subcompany(request.user, request.current_subcompany)
+        if not permissions.get('can_view_reports', False):
+            from django.contrib import messages
+            messages.error(request, "Vous n'avez pas la permission d'accéder aux rapports.")
+            return redirect('dashboard')
+    
     # Filtres
     report_type = request.GET.get('type')
     location_id = request.GET.get('location')
     status_filter = request.GET.get('status')
     
-    # Filtrer par entreprise si l'utilisateur n'est pas owner
+    # Filtrer par entreprise (les rapports n'ont pas de champ subcompany)
     report_filter = {}
     location_filter = {}
-    if hasattr(request, 'current_company') and request.current_company:
+    
+    if hasattr(request, 'current_subcompany') and request.current_subcompany:
+        # Filtrer par l'entreprise parente de la sous-entreprise
+        report_filter['company'] = request.current_subcompany.parent_company
+        location_filter['subcompany'] = request.current_subcompany
+    elif hasattr(request, 'current_company') and request.current_company:
         report_filter['company'] = request.current_company
         location_filter['company'] = request.current_company
     

@@ -468,6 +468,14 @@
             <i class="fas fa-edit"></i>
             Modifier l'entreprise
         </a>
+        <a href="{% url 'companies:subcompany_wizard' company.pk %}" class="btn btn-success">
+            <i class="fas fa-magic"></i>
+            Assistant Sous-entreprises
+        </a>
+        <a href="{% url 'companies:subcompany_list' company.pk %}" class="btn btn-info">
+            <i class="fas fa-sitemap"></i>
+            Gérer les Sous-entreprises
+        </a>
         <a href="{% url 'companies:company_list' %}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i>
             Retour à la liste
