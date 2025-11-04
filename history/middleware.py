@@ -25,6 +25,21 @@ class HistoryMiddleware(MiddlewareMixin):
         """
         Nettoie les données du thread local après la requête
         """
-        # On pourrait nettoyer ici, mais on laisse les données disponibles
-        # au cas où d'autres processus en auraient besoin
+        # Nettoyage pour éviter les fuites de mémoire
+        from .signals import _thread_locals
+        if hasattr(_thread_locals, 'request'):
+            delattr(_thread_locals, 'request')
+        if hasattr(_thread_locals, 'user'):
+            delattr(_thread_locals, 'user')
+        
         return response
+    
+    def process_exception(self, request, exception):
+        """
+        Nettoie en cas d'exception
+        """
+        from .signals import _thread_locals
+        if hasattr(_thread_locals, 'request'):
+            delattr(_thread_locals, 'request')
+        if hasattr(_thread_locals, 'user'):
+            delattr(_thread_locals, 'user')

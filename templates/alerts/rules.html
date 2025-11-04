@@ -138,9 +138,13 @@
                         <button class="btn btn-sm btn-info" onclick="testRule({{ rule.id }})">
                             <i class="fas fa-play"></i> Tester
                         </button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteRule({{ rule.id }})">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                        <form action="{% url 'alerts:delete_rule' rule.id %}" method="post" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-danger" 
+                                    onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette règle ?')">
+                                <i class="fas fa-trash"></i> Supprimer
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -770,35 +774,6 @@ function testRule(ruleId) {
     }
 }
 
-function deleteRule(ruleId) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette règle ? Cette action est irréversible.')) {
-        fetch(`/api/alerts/rules/${ruleId}/`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRFToken': getCsrfToken()
-            }
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            return response.json();
-        })
-        .then(result => {
-            if (result.success) {
-                showToast(result.message || 'Règle supprimée', 'success');
-                location.reload();
-            } else {
-                console.error('Erreur API:', result);
-                alert('Erreur lors de la suppression: ' + (result.error || 'Erreur inconnue'));
-            }
-        })
-        .catch(error => {
-            console.error('Erreur suppression:', error);
-            alert('Erreur lors de la suppression: ' + error.message);
-        });
-    }
-}
 
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');

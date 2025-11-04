@@ -706,8 +706,7 @@ def location_list(request):
     filters = get_user_data_filters(request)
     location_filter = filters.get('location_filter', {})
     
-    locations = Location.objects.filter(**location_filter).order_by('-id')
-    
+    locations = Location.objects.filter(subcompany=request.current_subcompany).order_by('-id')
     context = {
         'locations': locations,
     }
@@ -731,9 +730,9 @@ def create_location(request):
             name=data['name'],
             address=data['address'],
             description=data.get('description', ''),
+            subcompany=request.current_subcompany,
             company=company,
         )
-        
         messages.success(request, f"Localisation '{location.name}' créée avec succès")
         return JsonResponse({'success': True, 'location_id': location.id})
         
@@ -801,7 +800,6 @@ def edit_location(request, location_id):
         location.description = data.get('description', location.description)
         location.is_active = data.get('is_active', location.is_active)
         location.save()
-        
         messages.success(request, f"Localisation '{location.name}' modifiée avec succès")
         return JsonResponse({'success': True})
         

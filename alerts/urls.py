@@ -15,6 +15,7 @@ urlpatterns = [
     path('rules/<int:rule_id>/', views.rule_detail, name='rule_detail'),
     path('rules/create/', views.create_rule, name='create_rule'),
     path('rules/<int:rule_id>/toggle/', views.toggle_rule, name='toggle_rule'),
+    path('rules/<int:rule_id>/delete/', views.delete_rule, name='delete_rule'),
     
     # Canaux de notification
     path('channels/', views.notification_channels, name='notification_channels'),

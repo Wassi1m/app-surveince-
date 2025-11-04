@@ -156,6 +156,30 @@ def alert_detail(request, alert_id):
     return render(request, 'alerts/alert_detail.html', context)
 
 
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
+
+@login_required
+@require_http_methods(["POST"])  # N'accepter que POST
+def delete_rule(request, rule_id):
+    """Supprimer une règle d'alerte"""
+    try:
+        rule = get_object_or_404(AlertRule, id=rule_id)
+        rule_name = rule.name
+        rule.delete()
+        
+        messages.success(request, f'Règle "{rule_name}" supprimée avec succès')
+        return redirect('alerts:rules')  # Rediriger vers la liste
+        
+    except Exception as e:
+        messages.error(request, f'Erreur lors de la suppression: {str(e)}')
+
+        return redirect('alerts:rules')
+
+
+
 @login_required
 @require_http_methods(["POST"])
 def acknowledge_alert(request, alert_id):
