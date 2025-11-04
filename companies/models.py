@@ -4,6 +4,10 @@ from django.utils import timezone
 import uuid
 import secrets
 import string
+import os
+from PIL import Image
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 
 
 class Company(models.Model):
@@ -479,3 +483,518 @@ class SubCompanyUser(models.Model):
         verbose_name_plural = "Assignations sous-entreprises"
         unique_together = ['company_user', 'subcompany']
         ordering = ['subcompany__name', 'company_user__user__username']
+
+
+def upload_employee_image(instance, filename):
+    """Fonction pour définir le chemin d'upload des images d'employés ciblés"""
+    # Créer un nom de fichier unique
+    ext = filename.split('.')[-1]
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    
+    # Organiser par entreprise et sous-entreprise
+    company_ref = instance.company.reference if instance.company else 'no-company'
+    subcompany_ref = instance.subcompany.reference if instance.subcompany else 'no-subcompany'
+    
+    return f'employees_cibles/{company_ref}/{subcompany_ref}/{filename}'
+
+
+class EmployeCible(models.Model):
+    """Modèle pour les employés ciblés avec reconnaissance d'images"""
+    
+    STATUS_CHOICES = [
+        ('pending', 'En attente de validation'),
+        ('validated', 'Validé'),
+        ('rejected', 'Rejeté'),
+        ('archived', 'Archivé'),
+    ]
+    
+    DETECTION_STATUS_CHOICES = [
+        ('not_processed', 'Non traité'),
+        ('processing', 'En cours de traitement'),
+        ('face_detected', 'Visage détecté'),
+        ('no_face_detected', 'Aucun visage détecté'),
+        ('multiple_faces', 'Plusieurs visages détectés'),
+        ('low_quality', 'Qualité insuffisante'),
+    ]
+    
+    # Relations
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name='employes_cibles',
+        verbose_name="Entreprise"
+    )
+    subcompany = models.ForeignKey(
+        SubCompany,
+        on_delete=models.CASCADE,
+        related_name='employes_cibles',
+        null=True,
+        blank=True,
+        verbose_name="Sous-entreprise"
+    )
+    
+    # Image et métadonnées
+    image_originale = models.ImageField(
+        upload_to=upload_employee_image,
+        verbose_name="Image originale",
+        help_text="Image importée par le système"
+    )
+    image_miniature = models.ImageField(
+        upload_to=upload_employee_image,
+        null=True,
+        blank=True,
+        verbose_name="Miniature",
+        help_text="Miniature générée automatiquement"
+    )
+    image_visage = models.ImageField(
+        upload_to=upload_employee_image,
+        null=True,
+        blank=True,
+        verbose_name="Visage extrait",
+        help_text="Visage extrait par l'IA"
+    )
+    
+    # Informations de l'employé (saisies par le manager)
+    prenom = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Prénom"
+    )
+    nom = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Nom"
+    )
+    employee_id = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="ID Employé",
+        help_text="Identifiant unique de l'employé"
+    )
+    poste = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Poste"
+    )
+    departement = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Département"
+    )
+    
+    # Métadonnées de traitement
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name="Statut"
+    )
+    detection_status = models.CharField(
+        max_length=20,
+        choices=DETECTION_STATUS_CHOICES,
+        default='not_processed',
+        verbose_name="Statut de détection"
+    )
+    
+    # Informations techniques de l'image
+    image_width = models.PositiveIntegerField(null=True, blank=True, verbose_name="Largeur image")
+    image_height = models.PositiveIntegerField(null=True, blank=True, verbose_name="Hauteur image")
+    image_size = models.PositiveIntegerField(null=True, blank=True, verbose_name="Taille fichier (bytes)")
+    image_format = models.CharField(max_length=10, blank=True, verbose_name="Format image")
+    
+    # Données de reconnaissance faciale (JSON)
+    face_encoding = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="Encodage facial",
+        help_text="Données d'encodage facial pour la reconnaissance"
+    )
+    face_landmarks = models.JSONField(
+        null=True,
+        blank=True,
+        verbose_name="Points faciaux",
+        help_text="Points de repère du visage détectés"
+    )
+    detection_confidence = models.FloatField(
+        null=True,
+        blank=True,
+        verbose_name="Confiance de détection",
+        help_text="Score de confiance de la détection faciale (0-1)"
+    )
+    
+    # Informations de gestion
+    importe_par = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='employes_cibles_importes',
+        verbose_name="Importé par"
+    )
+    valide_par = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='employes_cibles_valides',
+        verbose_name="Validé par"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Créé le")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Modifié le")
+    validated_at = models.DateTimeField(null=True, blank=True, verbose_name="Validé le")
+    
+    # Flags additionnels
+    is_active = models.BooleanField(default=True, verbose_name="Actif")
+    is_priority = models.BooleanField(default=False, verbose_name="Prioritaire")
+    notes = models.TextField(blank=True, verbose_name="Notes")
+    
+    def save(self, *args, **kwargs):
+        """Traitement automatique lors de la sauvegarde"""
+        if self.image_originale and not self.pk:
+            # Première sauvegarde - traiter l'image
+            self._process_image()
+        
+        super().save(*args, **kwargs)
+        
+        # Post-traitement après sauvegarde
+        if self.image_originale and self.detection_status == 'not_processed':
+            self._detect_face()
+    
+    def _process_image(self):
+        """Traite l'image originale pour extraire les métadonnées"""
+        try:
+            # Ouvrir l'image avec Pillow
+            with Image.open(self.image_originale) as img:
+                self.image_width = img.width
+                self.image_height = img.height
+                self.image_format = img.format
+                
+                # Calculer la taille du fichier
+                self.image_originale.seek(0, 2)  # Aller à la fin
+                self.image_size = self.image_originale.tell()
+                self.image_originale.seek(0)  # Revenir au début
+                
+                # Créer une miniature
+                self._create_thumbnail(img)
+                
+        except Exception as e:
+            print(f"Erreur lors du traitement de l'image: {e}")
+    
+    def _create_thumbnail(self, img):
+        """Crée une miniature de l'image"""
+        try:
+            # Créer une copie pour la miniature
+            thumbnail = img.copy()
+            
+            # Convertir PNG avec transparence en RGB pour JPEG
+            if img.format == 'PNG' and img.mode in ('RGBA', 'LA', 'P'):
+                # Créer un fond blanc pour les PNG transparents
+                background = Image.new('RGB', thumbnail.size, (255, 255, 255))
+                if thumbnail.mode == 'P':
+                    thumbnail = thumbnail.convert('RGBA')
+                background.paste(thumbnail, mask=thumbnail.split()[-1] if thumbnail.mode == 'RGBA' else None)
+                thumbnail = background
+            elif img.mode not in ('RGB', 'L'):
+                thumbnail = thumbnail.convert('RGB')
+            
+            thumbnail.thumbnail((300, 300), Image.Resampling.LANCZOS)
+            
+            # Sauvegarder la miniature
+            from io import BytesIO
+            thumb_io = BytesIO()
+            thumbnail.save(thumb_io, format='JPEG', quality=85)
+            thumb_io.seek(0)
+            
+            # Générer un nom de fichier pour la miniature
+            original_name = os.path.basename(self.image_originale.name)
+            name_without_ext = os.path.splitext(original_name)[0]
+            thumb_name = f"{name_without_ext}_thumb.jpg"
+            
+            self.image_miniature.save(
+                thumb_name,
+                ContentFile(thumb_io.read()),
+                save=False
+            )
+            
+        except Exception as e:
+            print(f"Erreur lors de la création de la miniature: {e}")
+    
+    def _detect_face(self):
+        """Détecte et extrait le visage de l'image (simulation)"""
+        try:
+            self.detection_status = 'processing'
+            self.save(update_fields=['detection_status'])
+            
+            # Ici, vous pourriez intégrer une vraie détection faciale
+            # Pour l'instant, on simule une détection réussie
+            import random
+            import time
+            
+            # Simuler un traitement
+            time.sleep(0.5)
+            
+            # Simuler différents résultats
+            outcomes = ['face_detected', 'no_face_detected', 'multiple_faces', 'low_quality']
+            weights = [0.7, 0.1, 0.1, 0.1]  # 70% de chance de succès
+            
+            result = random.choices(outcomes, weights=weights)[0]
+            self.detection_status = result
+            
+            if result == 'face_detected':
+                # Simuler des données de reconnaissance
+                self.detection_confidence = random.uniform(0.75, 0.95)
+                self.face_encoding = {
+                    'encoding': [random.uniform(-1, 1) for _ in range(128)],
+                    'version': '1.0'
+                }
+                self.face_landmarks = {
+                    'left_eye': [random.randint(50, 100), random.randint(50, 100)],
+                    'right_eye': [random.randint(150, 200), random.randint(50, 100)],
+                    'nose': [random.randint(100, 150), random.randint(100, 150)],
+                    'mouth': [random.randint(100, 150), random.randint(180, 220)]
+                }
+                
+                # Créer une image de visage simulée (copie de la miniature)
+                if self.image_miniature:
+                    self._create_face_image()
+            
+            self.save(update_fields=['detection_status', 'detection_confidence', 'face_encoding', 'face_landmarks'])
+            
+        except Exception as e:
+            print(f"Erreur lors de la détection faciale: {e}")
+            self.detection_status = 'low_quality'
+            self.save(update_fields=['detection_status'])
+    
+    def _create_face_image(self):
+        """Crée une image du visage extrait (simulation)"""
+        try:
+            if not self.image_miniature:
+                return
+            
+            # Pour la démo, on copie simplement la miniature
+            # Dans un vrai système, on extrairait le visage détecté
+            with default_storage.open(self.image_miniature.name, 'rb') as f:
+                face_content = f.read()
+            
+            # Générer un nom pour l'image de visage
+            original_name = os.path.basename(self.image_originale.name)
+            name_without_ext = os.path.splitext(original_name)[0]
+            face_name = f"{name_without_ext}_face.jpg"
+            
+            self.image_visage.save(
+                face_name,
+                ContentFile(face_content),
+                save=False
+            )
+            
+        except Exception as e:
+            print(f"Erreur lors de la création de l'image de visage: {e}")
+    
+    def validate(self, user):
+        """Valide l'employé ciblé"""
+        self.status = 'validated'
+        self.valide_par = user
+        self.validated_at = timezone.now()
+        self.save(update_fields=['status', 'valide_par', 'validated_at'])
+    
+    def reject(self, user):
+        """Rejette l'employé ciblé"""
+        self.status = 'rejected'
+        self.valide_par = user
+        self.validated_at = timezone.now()
+        self.save(update_fields=['status', 'valide_par', 'validated_at'])
+    
+    @property
+    def nom_complet(self):
+        """Retourne le nom complet de l'employé"""
+        if self.prenom and self.nom:
+            return f"{self.prenom} {self.nom}"
+        elif self.prenom:
+            return self.prenom
+        elif self.nom:
+            return self.nom
+        else:
+            return f"Employé #{self.pk}"
+    
+    @property
+    def has_face_data(self):
+        """Vérifie si des données faciales sont disponibles"""
+        return self.face_encoding is not None and self.detection_status == 'face_detected'
+    
+    @property
+    def is_ready_for_recognition(self):
+        """Vérifie si l'employé est prêt pour la reconnaissance"""
+        return (
+            self.status == 'validated' and
+            self.has_face_data and
+            self.prenom and
+            self.nom and
+            self.is_active
+        )
+    
+    @property
+    def detection_status_color(self):
+        """Retourne la couleur associée au statut de détection"""
+        colors = {
+            'not_processed': 'secondary',
+            'processing': 'warning',
+            'face_detected': 'success',
+            'no_face_detected': 'danger',
+            'multiple_faces': 'warning',
+            'low_quality': 'danger',
+        }
+        return colors.get(self.detection_status, 'secondary')
+    
+    @property
+    def status_color(self):
+        """Retourne la couleur associée au statut"""
+        colors = {
+            'pending': 'warning',
+            'validated': 'success',
+            'rejected': 'danger',
+            'archived': 'secondary',
+        }
+        return colors.get(self.status, 'secondary')
+    
+    def __str__(self):
+        return f"{self.nom_complet} - {self.company.name}"
+    
+    class Meta:
+        verbose_name = "Employé ciblé"
+        verbose_name_plural = "Employés ciblés"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['company', 'status']),
+            models.Index(fields=['subcompany', 'status']),
+            models.Index(fields=['detection_status']),
+            models.Index(fields=['created_at']),
+        ]
+
+
+class EmployeCibleImportBatch(models.Model):
+    """Modèle pour gérer les lots d'import d'employés ciblés"""
+    
+    STATUS_CHOICES = [
+        ('uploading', 'Upload en cours'),
+        ('processing', 'Traitement en cours'),
+        ('completed', 'Terminé'),
+        ('failed', 'Échec'),
+    ]
+    
+    # Relations
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name='import_batches',
+        verbose_name="Entreprise"
+    )
+    subcompany = models.ForeignKey(
+        SubCompany,
+        on_delete=models.CASCADE,
+        related_name='import_batches',
+        null=True,
+        blank=True,
+        verbose_name="Sous-entreprise"
+    )
+    
+    # Informations du lot
+    nom_lot = models.CharField(
+        max_length=200,
+        verbose_name="Nom du lot",
+        help_text="Nom descriptif pour ce lot d'import"
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name="Description"
+    )
+    
+    # Statistiques
+    total_images = models.PositiveIntegerField(default=0, verbose_name="Total d'images")
+    images_traitees = models.PositiveIntegerField(default=0, verbose_name="Images traitées")
+    images_reussies = models.PositiveIntegerField(default=0, verbose_name="Images réussies")
+    images_echouees = models.PositiveIntegerField(default=0, verbose_name="Images échouées")
+    
+    # Statut et métadonnées
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='uploading',
+        verbose_name="Statut"
+    )
+    
+    # Gestion
+    cree_par = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Créé par"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Créé le")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Modifié le")
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Terminé le")
+    
+    # Logs et erreurs
+    logs = models.JSONField(
+        default=list,
+        verbose_name="Logs de traitement",
+        help_text="Historique des opérations"
+    )
+    erreurs = models.JSONField(
+        default=list,
+        verbose_name="Erreurs rencontrées",
+        help_text="Liste des erreurs durant le traitement"
+    )
+    
+    @property
+    def progress_percentage(self):
+        """Calcule le pourcentage de progression"""
+        if self.total_images == 0:
+            return 0
+        return int((self.images_traitees / self.total_images) * 100)
+    
+    @property
+    def success_rate(self):
+        """Calcule le taux de réussite"""
+        if self.images_traitees == 0:
+            return 0
+        return int((self.images_reussies / self.images_traitees) * 100)
+    
+    def add_log(self, message, level='info'):
+        """Ajoute une entrée de log"""
+        log_entry = {
+            'timestamp': timezone.now().isoformat(),
+            'level': level,
+            'message': message
+        }
+        self.logs.append(log_entry)
+        self.save(update_fields=['logs'])
+    
+    def add_error(self, error_message, filename=None):
+        """Ajoute une erreur"""
+        error_entry = {
+            'timestamp': timezone.now().isoformat(),
+            'filename': filename,
+            'error': error_message
+        }
+        self.erreurs.append(error_entry)
+        self.images_echouees += 1
+        self.save(update_fields=['erreurs', 'images_echouees'])
+    
+    def mark_completed(self):
+        """Marque le lot comme terminé"""
+        self.status = 'completed'
+        self.completed_at = timezone.now()
+        self.save(update_fields=['status', 'completed_at'])
+    
+    def __str__(self):
+        return f"{self.nom_lot} - {self.company.name} ({self.get_status_display()})"
+    
+    class Meta:
+        verbose_name = "Lot d'import d'employés"
+        verbose_name_plural = "Lots d'import d'employés"
+        ordering = ['-created_at']

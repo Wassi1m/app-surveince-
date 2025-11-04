@@ -1,0 +1,715 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ employee.nom_complet }} - Détails Employé Ciblé{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Forcer le texte en blanc globalement */
+    .container-fluid h1, .container-fluid h2, .container-fluid h3, 
+    .container-fluid h4, .container-fluid h5, .container-fluid h6,
+    .container-fluid p, .container-fluid span, .container-fluid label,
+    .container-fluid small, .container-fluid div, .container-fluid li {
+        color: white !important;
+    }
+    
+    .employee-profile-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .employee-profile-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+        pointer-events: none;
+    }
+    
+    .employee-avatar {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        border: 5px solid rgba(255,255,255,0.3);
+        object-fit: cover;
+        transition: all 0.3s ease;
+    }
+    
+    .employee-avatar:hover {
+        transform: scale(1.05);
+        border-color: rgba(255,255,255,0.6);
+    }
+    
+    .info-card {
+        border-radius: 15px;
+        border: none;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        background: #2d3748 !important;
+        color: white !important;
+    }
+    
+    .info-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+    
+    .info-card .card-header {
+        background: #1a202c !important;
+        color: white !important;
+        border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+    }
+    
+    .info-card .card-body {
+        color: white !important;
+    }
+    
+    .info-card .text-muted {
+        color: rgba(255,255,255,0.7) !important;
+    }
+    
+    .info-card h5, .info-card h6, .info-card p, .info-card small, .info-card label {
+        color: white !important;
+    }
+    
+    .detection-visualization {
+        background: #2d3748;
+        border-radius: 15px;
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
+        color: white;
+    }
+    
+    .face-landmarks {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .landmark-point {
+        position: absolute;
+        width: 6px;
+        height: 6px;
+        background: #007bff;
+        border-radius: 50%;
+        border: 2px solid white;
+        box-shadow: 0 2px 8px rgba(0,123,255,0.4);
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.2); opacity: 0.7; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+    
+    .confidence-meter {
+        background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
+        height: 20px;
+        border-radius: 10px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .confidence-indicator {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: white;
+        border-radius: 2px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        transition: all 0.3s ease;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-left: 30px;
+        margin-bottom: 20px;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: 8px;
+        top: 0;
+        bottom: -20px;
+        width: 2px;
+        background: linear-gradient(to bottom, #007bff, transparent);
+    }
+    
+    .timeline-item::after {
+        content: '';
+        position: absolute;
+        left: 4px;
+        top: 8px;
+        width: 10px;
+        height: 10px;
+        background: #007bff;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 0 0 3px #007bff;
+    }
+    
+    .timeline-item:last-child::before {
+        display: none;
+    }
+    
+    .status-timeline .timeline-item.validated::after {
+        background: #28a745;
+        box-shadow: 0 0 0 3px #28a745;
+    }
+    
+    .status-timeline .timeline-item.rejected::after {
+        background: #dc3545;
+        box-shadow: 0 0 0 3px #dc3545;
+    }
+    
+    .image-comparison {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 20px;
+        margin-top: 20px;
+    }
+    
+    .image-item {
+        text-align: center;
+        background: white;
+        border-radius: 15px;
+        padding: 15px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .image-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+    
+    .image-item img {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        border-radius: 10px;
+        margin-bottom: 10px;
+    }
+    
+    .recognition-stats {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+    }
+    
+    .stat-circle {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 10px;
+        font-size: 24px;
+        font-weight: bold;
+    }
+    
+    .action-buttons {
+        position: sticky;
+        top: 20px;
+        z-index: 100;
+    }
+    
+    .floating-edit-btn {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        border: none;
+        color: white;
+        font-size: 20px;
+        box-shadow: 0 8px 25px rgba(0,123,255,0.4);
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+    
+    .floating-edit-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 12px 35px rgba(0,123,255,0.6);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header avec actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item">
+                                <a href="{% url 'companies:owner_import_employees_cibled' %}">Employés Ciblés</a>
+                            </li>
+                            <li class="breadcrumb-item">
+                                <a href="{% url 'companies:manage_employees_cibles' %}">Gestion</a>
+                            </li>
+                            <li class="breadcrumb-item active">{{ employee.nom_complet }}</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div class="action-buttons">
+                    <div class="btn-group">
+                        {% if employee.status == 'pending' %}
+                        <button class="btn btn-success" onclick="validateEmployee()">
+                            <i class="fas fa-check me-2"></i>Valider
+                        </button>
+                        <button class="btn btn-danger" onclick="rejectEmployee()">
+                            <i class="fas fa-times me-2"></i>Rejeter
+                        </button>
+                        {% endif %}
+                        <button class="btn btn-primary" onclick="editEmployee()">
+                            <i class="fas fa-edit me-2"></i>Modifier
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="window.history.back()">
+                            <i class="fas fa-arrow-left me-2"></i>Retour
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Profil principal -->
+        <div class="col-lg-4 mb-4">
+            <div class="employee-profile-card p-4 text-center">
+                <div class="mb-4">
+                    {% if employee.image_miniature %}
+                        <img src="{{ employee.image_miniature.url }}" alt="{{ employee.nom_complet }}" 
+                             class="employee-avatar">
+                    {% else %}
+                        <div class="employee-avatar bg-light d-flex align-items-center justify-content-center mx-auto">
+                            <i class="fas fa-user fa-3x text-muted"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <h2 class="mb-2">{{ employee.nom_complet }}</h2>
+                <p class="mb-3 opacity-75">{{ employee.poste|default:"Poste non défini" }}</p>
+                
+                <div class="row text-center mb-4">
+                    <div class="col-6">
+                        <div class="stat-circle">
+                            <i class="fas fa-calendar"></i>
+                        </div>
+                        <small class="opacity-75">Ajouté le</small>
+                        <div>{{ employee.created_at|date:"d/m/Y" }}</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="stat-circle">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                        <small class="opacity-75">Statut</small>
+                        <div>{{ employee.get_status_display }}</div>
+                    </div>
+                </div>
+                
+                {% if employee.is_ready_for_recognition %}
+                <div class="alert alert-success bg-white text-success border-0 rounded-3">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>Prêt pour la reconnaissance</strong>
+                </div>
+                {% else %}
+                <div class="alert alert-warning bg-white text-warning border-0 rounded-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong class="text-black">Configuration incomplète</strong>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Informations détaillées -->
+        <div class="col-lg-8">
+            <div class="row">
+                <!-- Informations personnelles -->
+                <div class="col-md-6 mb-4">
+                    <div class="info-card card h-100">
+                        <div class="card-header bg-white border-0">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-user text-primary me-2"></i>
+                                Informations personnelles
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">Prénom</label>
+                                    <div class="fw-bold">{{ employee.prenom|default:"Non renseigné" }}</div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">Nom</label>
+                                    <div class="fw-bold">{{ employee.nom|default:"Non renseigné" }}</div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">ID Employé</label>
+                                    <div class="fw-bold">{{ employee.employee_id|default:"Non renseigné" }}</div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small">Département</label>
+                                    <div class="fw-bold">{{ employee.departement|default:"Non renseigné" }}</div>
+                                </div>
+                                {% if employee.is_priority %}
+                                <div class="col-12">
+                                    <span class="badge bg-warning">
+                                        <i class="fas fa-star me-1"></i>Prioritaire
+                                    </span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statut et détection -->
+                <div class="col-md-6 mb-4">
+                    <div class="info-card card h-100">
+                        <div class="card-header bg-white border-0">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-robot text-primary me-2"></i>
+                                Détection faciale
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label text-muted small">Statut de détection</label>
+                                <div>
+                                    <span class="badge bg-{{ employee.detection_status_color }} fs-6">
+                                        {{ employee.get_detection_status_display }}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            {% if employee.detection_confidence %}
+                            <div class="mb-3">
+                                <label class="form-label text-muted small">Confiance de détection</label>
+                                <div class="confidence-meter position-relative">
+                                    <div class="confidence-indicator" 
+                                         style="left: {{ employee.detection_confidence|floatformat:0 }}%"></div>
+                                </div>
+                                <div class="text-center mt-2">
+                                    <strong>{{ employee.detection_confidence|floatformat:1 }}%</strong>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="mb-3">
+                                <label class="form-label text-muted small">Dimensions image</label>
+                                <div class="fw-bold">
+                                    {% if employee.image_width and employee.image_height %}
+                                        {{ employee.image_width }} × {{ employee.image_height }} px
+                                    {% else %}
+                                        Non disponible
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label text-muted small">Taille fichier</label>
+                                <div class="fw-bold">
+                                    {% if employee.image_size %}
+                                        {{ employee.image_size|filesizeformat }}
+                                    {% else %}
+                                        Non disponible
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Images de l'employé -->
+            <div class="info-card card mb-4">
+                <div class="card-header bg-white border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-images text-primary me-2"></i>
+                        Images et traitement
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="image-comparison">
+                        <!-- Image originale -->
+                        <div class="image-item">
+                            <h6 class="text-muted mb-3">Image originale</h6>
+                            {% if employee.image_originale %}
+                                <img src="{{ employee.image_originale.url }}" alt="Image originale" 
+                                     onclick="showImageModal(this.src, 'Image originale')">
+                                <small class="text-muted">{{ employee.image_format|upper }}</small>
+                            {% else %}
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center" 
+                                     style="height: 200px;">
+                                    <i class="fas fa-image fa-3x text-muted"></i>
+                                </div>
+                                <small class="text-muted">Non disponible</small>
+                            {% endif %}
+                        </div>
+
+                        <!-- Miniature -->
+                        <div class="image-item">
+                            <h6 class="text-muted mb-3">Miniature</h6>
+                            {% if employee.image_miniature %}
+                                <img src="{{ employee.image_miniature.url }}" alt="Miniature" 
+                                     onclick="showImageModal(this.src, 'Miniature')">
+                                <small class="text-muted">Générée automatiquement</small>
+                            {% else %}
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center" 
+                                     style="height: 200px;">
+                                    <i class="fas fa-compress fa-3x text-muted"></i>
+                                </div>
+                                <small class="text-muted">Non générée</small>
+                            {% endif %}
+                        </div>
+
+                        <!-- Visage extrait -->
+                        <div class="image-item">
+                            <h6 class="text-muted mb-3">Visage extrait</h6>
+                            {% if employee.image_visage %}
+                                <img src="{{ employee.image_visage.url }}" alt="Visage extrait" 
+                                     onclick="showImageModal(this.src, 'Visage extrait')">
+                                <small class="text-muted">Extrait par IA</small>
+                            {% else %}
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center" 
+                                     style="height: 200px;">
+                                    <i class="fas fa-user-circle fa-3x text-muted"></i>
+                                </div>
+                                <small class="text-muted">Non extrait</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historique et timeline -->
+            <div class="info-card card">
+                <div class="card-header bg-white border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history text-primary me-2"></i>
+                        Historique
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="status-timeline">
+                        <div class="timeline-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">Import de l'image</h6>
+                                    <p class="text-muted mb-0">
+                                        Image importée par {{ employee.importe_par.get_full_name|default:employee.importe_par.username }}
+                                    </p>
+                                </div>
+                                <small class="text-muted">{{ employee.created_at|date:"d/m/Y H:i" }}</small>
+                            </div>
+                        </div>
+                        
+                        {% if employee.detection_status != 'not_processed' %}
+                        <div class="timeline-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">Traitement IA</h6>
+                                    <p class="text-muted mb-0">
+                                        {{ employee.get_detection_status_display }}
+                                        {% if employee.detection_confidence %}
+                                        ({{ employee.detection_confidence|floatformat:1 }}% de confiance)
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <small class="text-muted">{{ employee.updated_at|date:"d/m/Y H:i" }}</small>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if employee.validated_at %}
+                        <div class="timeline-item {{ employee.status }}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">
+                                        {% if employee.status == 'validated' %}
+                                        Validation
+                                        {% else %}
+                                        Rejet
+                                        {% endif %}
+                                    </h6>
+                                    <p class="text-muted mb-0">
+                                        Par {{ employee.valide_par.get_full_name|default:employee.valide_par.username }}
+                                    </p>
+                                </div>
+                                <small class="text-muted">{{ employee.validated_at|date:"d/m/Y H:i" }}</small>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes si présentes -->
+    {% if employee.notes %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="info-card card">
+                <div class="card-header bg-white border-0">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-sticky-note text-primary me-2"></i>
+                        Notes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ employee.notes|linebreaks }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal pour afficher les images en grand -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="imageModalLabel">Image</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalImage" src="" alt="" class="img-fluid rounded">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bouton flottant d'édition -->
+<button class="floating-edit-btn" onclick="editEmployee()" title="Modifier l'employé">
+    <i class="fas fa-edit"></i>
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showImageModal(src, title) {
+    document.getElementById('modalImage').src = src;
+    document.getElementById('imageModalLabel').textContent = title;
+    const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+    modal.show();
+}
+
+function editEmployee() {
+    // Rediriger vers la page de gestion avec le modal d'édition
+    window.location.href = '{% url "companies:manage_employees_cibles" %}?edit={{ employee.id }}';
+}
+
+function validateEmployee() {
+    if (!confirm('Êtes-vous sûr de vouloir valider cet employé ?')) return;
+    
+    fetch('{% url "companies:validate_employee" employee.id %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(data.message, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showAlert(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        showAlert('Erreur lors de la validation', 'danger');
+    });
+}
+
+function rejectEmployee() {
+    if (!confirm('Êtes-vous sûr de vouloir rejeter cet employé ?')) return;
+    
+    fetch('{% url "companies:reject_employee" employee.id %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(data.message, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showAlert(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        showAlert('Erreur lors du rejet', 'danger');
+    });
+}
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value || 
+           document.querySelector('meta[name=csrf-token]').getAttribute('content');
+}
+
+function showAlert(message, type) {
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alert);
+    
+    setTimeout(() => {
+        alert.remove();
+    }, 5000);
+}
+
+// Animation des éléments au scroll
+const observerOptions = {
+    threshold: 0.1,
+    rootMargin: '0px 0px -50px 0px'
+};
+
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.style.opacity = '1';
+            entry.target.style.transform = 'translateY(0)';
+        }
+    });
+}, observerOptions);
+
+document.querySelectorAll('.info-card').forEach(card => {
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(30px)';
+    card.style.transition = 'all 0.6s ease';
+    observer.observe(card);
+});
+</script>
+{% endblock %}

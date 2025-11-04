@@ -1,0 +1,958 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Employés Ciblés - Import & Reconnaissance{% endblock %}
+
+{% block extra_css %}
+<style>
+    .employee-card {
+        transition: all 0.3s ease;
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    
+    .employee-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    
+    .upload-zone {
+        border: 3px dashed #007bff;
+        border-radius: 15px;
+        background: linear-gradient(135deg, #f8f9ff 0%, #e3f2fd 100%);
+        transition: all 0.3s ease;
+        min-height: 200px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .upload-zone.dragover {
+        border-color: #28a745;
+        background: linear-gradient(135deg, #f0fff4 0%, #d4edda 100%);
+        transform: scale(1.02);
+    }
+    
+    .upload-zone.files-selected {
+        border-color: #28a745;
+        background: linear-gradient(135deg, #f0fff4 0%, #e8f5e8 100%);
+    }
+    
+    .upload-zone.files-selected::before {
+        opacity: 1;
+        background: linear-gradient(45deg, transparent, rgba(40,167,69,0.1), transparent);
+    }
+    
+    .upload-zone::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+        transform: rotate(45deg);
+        transition: all 0.5s ease;
+        opacity: 0;
+    }
+    
+    .upload-zone:hover::before {
+        opacity: 1;
+        animation: shine 1.5s ease-in-out;
+    }
+    
+    @keyframes shine {
+        0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+        100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+    }
+    
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+        pointer-events: none;
+    }
+    
+    .progress-ring {
+        width: 120px;
+        height: 120px;
+        transform: rotate(-90deg);
+    }
+    
+    .progress-ring-circle {
+        stroke: currentColor;
+        stroke-width: 8;
+        stroke-linecap: round;
+        fill: transparent;
+        r: 52;
+        cx: 60;
+        cy: 60;
+        stroke-dasharray: 326.73;
+        stroke-dashoffset: 326.73;
+        transition: stroke-dashoffset 1s ease-in-out;
+    }
+    
+    .batch-item {
+        border-left: 4px solid #007bff;
+        transition: all 0.3s ease;
+    }
+    
+    .batch-item:hover {
+        border-left-color: #28a745;
+        background-color: #f8f9fa;
+    }
+    
+    .image-preview {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 2px solid #dee2e6;
+        transition: all 0.3s ease;
+    }
+    
+    .image-preview:hover {
+        transform: scale(1.1);
+        border-color: #007bff;
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 20px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .detection-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    
+    .floating-action-btn {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+        font-size: 24px;
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+    
+    .floating-action-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 12px 35px rgba(102, 126, 234, 0.6);
+    }
+    
+    /* Nouveaux styles pour les sections améliorées */
+    .timeline-container {
+        position: relative;
+    }
+    
+    .timeline-item {
+        padding-left: 30px;
+    }
+    
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: 12px;
+        top: 0;
+        bottom: -20px;
+        width: 2px;
+        background: linear-gradient(to bottom, rgba(255,255,255,0.3), transparent);
+    }
+    
+    .timeline-item:last-child::before {
+        display: none;
+    }
+    
+    .timeline-marker {
+        position: absolute;
+        left: 8px;
+        top: 15px;
+        width: 10px;
+        height: 10px;
+        background: white;
+        border-radius: 50%;
+        box-shadow: 0 0 0 3px rgba(255,255,255,0.3);
+        animation: pulse-marker 2s infinite;
+    }
+    
+    @keyframes pulse-marker {
+        0% { box-shadow: 0 0 0 3px rgba(255,255,255,0.3); }
+        50% { box-shadow: 0 0 0 6px rgba(255,255,255,0.1); }
+        100% { box-shadow: 0 0 0 3px rgba(255,255,255,0.3); }
+    }
+    
+    .timeline-content {
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+    
+    .timeline-content:hover {
+        transform: translateX(5px);
+        border-left-color: #007bff;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+    }
+    
+    .employee-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+    
+    .employee-card:hover {
+        transform: translateX(5px);
+        border-left-color: #28a745;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+    }
+    
+    .employee-card-bg {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 100px;
+        height: 100%;
+        background: linear-gradient(135deg, rgba(40,167,69,0.1) 0%, rgba(56,239,125,0.1) 100%);
+        border-radius: 0 12px 12px 0;
+        opacity: 0;
+        transition: all 0.3s ease;
+    }
+    
+    .employee-card:hover .employee-card-bg {
+        opacity: 1;
+        width: 120px;
+    }
+    
+    .detection-indicator-modern {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        animation: pulse-detection 2s infinite;
+        box-shadow: 0 0 0 2px rgba(255,255,255,0.8);
+    }
+    
+    @keyframes pulse-detection {
+        0% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.7; transform: scale(1.2); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+    
+    .action-buttons-mini .btn {
+        transition: all 0.3s ease;
+        font-size: 0.75rem;
+    }
+    
+    .action-buttons-mini .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,123,255,0.3);
+    }
+    
+    /* Animations d'apparition */
+    .timeline-item {
+        opacity: 0;
+        animation: fadeInUp 0.6s ease forwards;
+    }
+    
+    .timeline-item:nth-child(1) { animation-delay: 0.1s; }
+    .timeline-item:nth-child(2) { animation-delay: 0.2s; }
+    .timeline-item:nth-child(3) { animation-delay: 0.3s; }
+    .timeline-item:nth-child(4) { animation-delay: 0.4s; }
+    .timeline-item:nth-child(5) { animation-delay: 0.5s; }
+    
+    .employee-card {
+        opacity: 0;
+        animation: fadeInLeft 0.6s ease forwards;
+    }
+    
+    .employee-card:nth-child(1) { animation-delay: 0.1s; }
+    .employee-card:nth-child(2) { animation-delay: 0.2s; }
+    .employee-card:nth-child(3) { animation-delay: 0.3s; }
+    .employee-card:nth-child(4) { animation-delay: 0.4s; }
+    .employee-card:nth-child(5) { animation-delay: 0.5s; }
+    
+    @keyframes fadeInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    /* Effets de survol pour les cartes principales */
+    .card {
+        transition: all 0.4s ease;
+    }
+    
+    .card:hover {
+        transform: translateY(-10px);
+    }
+    
+    /* Amélioration des badges */
+    .badge {
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+    
+    .rounded-pill {
+        border-radius: 50rem !important;
+    }
+    
+    /* Responsive amélioré */
+    @media (max-width: 768px) {
+        .timeline-item {
+            padding-left: 20px;
+        }
+        
+        .timeline-marker {
+            left: 6px;
+        }
+        
+        .timeline-item::before {
+            left: 9px;
+        }
+        
+        .employee-card {
+            margin-bottom: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header avec statistiques -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-2">
+                        <i class="fas fa-users-cog text-primary me-2"></i>
+                        Employés Ciblés
+                    </h1>
+                    <p class="text-muted mb-0">Système de reconnaissance faciale et gestion d'employés</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'companies:manage_employees_cibles' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-list me-2"></i>Gérer les employés
+                    </a>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                        <i class="fas fa-cloud-upload-alt me-2"></i>Importer des images
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card p-4 h-100">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h3 class="mb-1">{{ total_employes }}</h3>
+                        <p class="mb-0 opacity-75">Total employés</p>
+                    </div>
+                    <div class="text-end">
+                        <i class="fas fa-users fa-2x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white;">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h3 class="mb-1">{{ employes_valides }}</h3>
+                            <p class="mb-0 opacity-75">Validés</p>
+                        </div>
+                        <div class="text-end">
+                            <i class="fas fa-check-circle fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); color: white;">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h3 class="mb-1">{{ employes_en_attente }}</h3>
+                            <p class="mb-0 opacity-75">En attente</p>
+                        </div>
+                        <div class="text-end">
+                            <i class="fas fa-clock fa-2x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%); color: white;">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h3 class="mb-1">{{ success_rate }}%</h3>
+                            <p class="mb-0 opacity-75">Taux de réussite</p>
+                        </div>
+                        <div class="text-end">
+                            <svg class="progress-ring" width="60" height="60">
+                                <circle class="progress-ring-circle" style="stroke-dashoffset: calc(326.73 - (326.73 * {{ success_rate }}) / 100);"></circle>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenu principal -->
+    <div class="row">
+        <!-- Lots d'import récents -->
+        <div class="col-lg-6 mb-4">
+            <div class="card border-0 shadow-lg" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 20px;">
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0 text-white">
+                            <i class="fas fa-cloud-download-alt me-2"></i>
+                            Imports récents
+                        </h5>
+                        <div class="badge bg-white text-primary px-3 py-2 rounded-pill">
+                            {{ recent_batches|length }} lot(s)
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if recent_batches %}
+                        <div class="timeline-container">
+                            {% for batch in recent_batches %}
+                            <div class="timeline-item mb-4 position-relative">
+                                <div class="timeline-marker"></div>
+                                <div class="timeline-content bg-white text-dark rounded-3 p-3 shadow-sm">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1 fw-bold text-primary">{{ batch.nom_lot }}</h6>
+                                            <p class="text-muted small mb-2">{{ batch.description|default:"Aucune description" }}</p>
+                                        </div>
+                                        <div class="text-end">
+                                            <small class="text-muted">{{ batch.created_at|date:"d/m H:i" }}</small>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-4">
+                                            <div class="text-center p-2 bg-light rounded">
+                                                <div class="h6 mb-0 text-primary">{{ batch.total_images }}</div>
+                                                <small class="text-muted">Total</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-center p-2 bg-success bg-opacity-10 rounded">
+                                                <div class="h6 mb-0 text-success">{{ batch.images_reussies }}</div>
+                                                <small class="text-muted">Réussies</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-center p-2 bg-danger bg-opacity-10 rounded">
+                                                <div class="h6 mb-0 text-danger">{{ batch.images_echouees }}</div>
+                                                <small class="text-muted">Échouées</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="badge bg-{{ batch.status|yesno:'success,warning,danger' }} px-3 py-2">
+                                            <i class="fas fa-{{ batch.status|yesno:'check,clock,times' }} me-1"></i>
+                                            {{ batch.get_status_display }}
+                                        </span>
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress me-2" style="width: 80px; height: 8px;">
+                                                <div class="progress-bar bg-gradient" 
+                                                     style="width: {{ batch.progress_percentage }}%; background: linear-gradient(90deg, #28a745, #20c997);"></div>
+                                            </div>
+                                            <small class="fw-bold">{{ batch.progress_percentage }}%</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <div class="mb-4">
+                                <i class="fas fa-cloud-upload-alt fa-4x opacity-50"></i>
+                            </div>
+                            <h6 class="text-white mb-2">Aucun import récent</h6>
+                            <p class="opacity-75 mb-3">Commencez par importer vos premiers employés</p>
+                            <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                                <i class="fas fa-plus me-2"></i>Premier import
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Employés récents -->
+        <div class="col-lg-6 mb-4">
+            <div class="card border-0 shadow-lg" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; border-radius: 20px;">
+                <div class="card-header bg-transparent border-0 pb-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0 text-white">
+                            <i class="fas fa-users me-2"></i>
+                            Employés récents
+                        </h5>
+                        <div class="badge bg-white text-success px-3 py-2 rounded-pill">
+                            {{ recent_employees|length }} employé(s)
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if recent_employees %}
+                        <div class="employee-list">
+                            {% for employee in recent_employees %}
+                            <div class="employee-card bg-white text-dark rounded-3 p-3 mb-3 shadow-sm position-relative overflow-hidden">
+                                <div class="employee-card-bg"></div>
+                                <div class="d-flex align-items-center position-relative">
+                                    <div class="me-3 position-relative">
+                                        {% if employee.image_miniature %}
+                                            <img src="{{ employee.image_miniature.url }}" alt="{{ employee.nom_complet }}" 
+                                                 class="rounded-circle border border-3 border-white shadow" 
+                                                 style="width: 60px; height: 60px; object-fit: cover;">
+                                        {% else %}
+                                            <div class="bg-gradient rounded-circle d-flex align-items-center justify-content-center border border-3 border-white shadow" 
+                                                 style="width: 60px; height: 60px; background: linear-gradient(135deg, #667eea, #764ba2);">
+                                                <i class="fas fa-user text-white"></i>
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <!-- Indicateur de statut -->
+                                        <div class="position-absolute bottom-0 end-0">
+                                            <span class="badge bg-{{ employee.status_color }} rounded-circle p-2">
+                                                <i class="fas fa-{{ employee.status|yesno:'check,clock,times' }} fa-xs"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div>
+                                                <h6 class="mb-1 fw-bold">
+                                                    {{ employee.nom_complet }}
+                                                    {% if employee.is_priority %}
+                                                    <i class="fas fa-star text-warning ms-1" title="Prioritaire"></i>
+                                                    {% endif %}
+                                                </h6>
+                                                <p class="text-muted small mb-0">{{ employee.poste|default:"Poste non défini" }}</p>
+                                            </div>
+                                            <small class="text-muted">{{ employee.created_at|date:"d/m H:i" }}</small>
+                                        </div>
+                                        
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="detection-indicator-modern bg-{{ employee.detection_status_color }}"></div>
+                                                <small class="text-muted">{{ employee.get_detection_status_display }}</small>
+                                                {% if employee.detection_confidence %}
+                                                <div class="badge bg-light text-dark px-2 py-1">
+                                                    {{ employee.detection_confidence|floatformat:0 }}%
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                            
+                                            <div class="action-buttons-mini">
+                                                <a href="{% url 'companies:employee_cible_detail' employee.id %}" 
+                                                   class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                                    <i class="fas fa-eye me-1"></i>Voir
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="text-center mt-3">
+                            <a href="{% url 'companies:manage_employees_cibles' %}" 
+                               class="btn btn-light btn-sm rounded-pill px-4">
+                                <i class="fas fa-list me-2"></i>Voir tous les employés
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <div class="mb-4">
+                                <i class="fas fa-user-friends fa-4x opacity-50"></i>
+                            </div>
+                            <h6 class="text-white mb-2">Aucun employé récent</h6>
+                            <p class="opacity-75 mb-3">Importez des images pour voir vos employés ici</p>
+                            <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                                <i class="fas fa-upload me-2"></i>Importer maintenant
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'upload -->
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="uploadModalLabel">
+                    <i class="fas fa-cloud-upload-alt text-primary me-2"></i>
+                    Importer des images d'employés
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="batch_name" class="form-label">Nom du lot</label>
+                            <input type="text" class="form-control" id="batch_name" name="batch_name" 
+                                   value="Import {{ 'now'|date:'d/m/Y H:i' }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="batch_description" class="form-label">Description (optionnel)</label>
+                            <input type="text" class="form-control" id="batch_description" name="batch_description" 
+                                   placeholder="Description du lot d'import">
+                        </div>
+                    </div>
+                    
+                    <div class="upload-zone text-center p-5" id="uploadZone">
+                        <div id="uploadZoneContent">
+                            <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                            <h5>Glissez-déposez vos images ici</h5>
+                            <p class="text-muted mb-3">ou cliquez pour sélectionner des fichiers</p>
+                            <input type="file" id="employee_images" name="employee_images" multiple accept="image/*,.png,.jpg,.jpeg,.gif,.webp,.bmp" class="d-none">
+                            <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('employee_images').click()">
+                                <i class="fas fa-folder-open me-2"></i>Sélectionner des images
+                            </button>
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    <strong>Formats supportés:</strong> PNG, JPG, JPEG, GIF, WebP, BMP • <strong>Taille max:</strong> 10MB par image
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <!-- Zone de confirmation après sélection -->
+                        <div id="uploadZoneSelected" class="d-none">
+                            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                            <h5 class="text-success">Images sélectionnées !</h5>
+                            <p class="text-muted mb-3">Vos images sont prêtes pour l'import</p>
+                            <button type="button" class="btn btn-outline-success" onclick="document.getElementById('employee_images').click()">
+                                <i class="fas fa-plus me-2"></i>Ajouter d'autres images
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="selectedFiles" class="mt-3"></div>
+                </form>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" id="uploadBtn" disabled>
+                    <i class="fas fa-upload me-2"></i>Commencer l'import
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bouton flottant -->
+<button class="floating-action-btn" data-bs-toggle="modal" data-bs-target="#uploadModal" title="Importer des images">
+    <i class="fas fa-plus"></i>
+</button>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('employee_images');
+    const selectedFiles = document.getElementById('selectedFiles');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadForm = document.getElementById('uploadForm');
+    
+    let files = [];
+    
+    // Drag and drop functionality
+    uploadZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+    });
+    
+    uploadZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+    });
+    
+    uploadZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        
+        const droppedFiles = Array.from(e.dataTransfer.files);
+        addFiles(droppedFiles);
+    });
+    
+    uploadZone.addEventListener('click', function(e) {
+        // Ne pas déclencher si on clique sur un bouton à l'intérieur
+        if (e.target.tagName !== 'BUTTON' && !e.target.closest('button')) {
+            fileInput.click();
+        }
+    });
+    
+    
+    function addFiles(newFiles) {
+        // Filter image files with extended support
+        const allowedTypes = [
+            'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 
+            'image/webp', 'image/bmp', 'image/tiff'
+        ];
+        const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff'];
+        
+        const imageFiles = newFiles.filter(file => {
+            const isValidType = file.type && allowedTypes.includes(file.type.toLowerCase());
+            const hasValidExtension = file.name && allowedExtensions.some(ext => 
+                file.name.toLowerCase().endsWith(ext)
+            );
+            return isValidType || hasValidExtension || file.type.startsWith('image/');
+        });
+        
+        // Afficher un message si des fichiers ont été rejetés
+        const rejectedCount = newFiles.length - imageFiles.length;
+        if (rejectedCount > 0) {
+            alert(`${rejectedCount} fichier(s) rejeté(s). Seules les images sont acceptées (PNG, JPG, GIF, etc.)`);
+        }
+        
+        files = [...files, ...imageFiles];
+        
+        updateFilesList();
+        updateUploadButton();
+    }
+    
+    function updateFilesList() {
+        selectedFiles.innerHTML = '';
+        
+        // Mettre à jour l'affichage de la zone d'upload
+        const uploadZoneContent = document.getElementById('uploadZoneContent');
+        const uploadZoneSelected = document.getElementById('uploadZoneSelected');
+        
+        if (files.length > 0) {
+            // Afficher la zone de confirmation
+            uploadZoneContent.classList.add('d-none');
+            uploadZoneSelected.classList.remove('d-none');
+            uploadZone.classList.add('files-selected');
+            
+            // Mettre à jour le texte de confirmation
+            const confirmText = uploadZoneSelected.querySelector('p');
+            confirmText.textContent = `${files.length} image(s) sélectionnée(s) et prête(s) pour l'import`;
+            
+            const filesContainer = document.createElement('div');
+            filesContainer.className = 'row g-2';
+            
+            files.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'col-md-4';
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    fileItem.innerHTML = `
+                        <div class="card border-success">
+                            <img src="${e.target.result}" class="card-img-top" style="height: 150px; object-fit: cover;">
+                            <div class="card-body p-2">
+                                <h6 class="card-title small mb-1 text-success">
+                                    <i class="fas fa-check-circle me-1"></i>${file.name}
+                                </h6>
+                                <small class="text-muted">${(file.size / 1024 / 1024).toFixed(2)} MB</small>
+                                <button type="button" class="btn btn-sm btn-outline-danger float-end" onclick="removeFile(${index})" title="Supprimer cette image">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                };
+                reader.readAsDataURL(file);
+                
+                filesContainer.appendChild(fileItem);
+            });
+            
+            selectedFiles.appendChild(filesContainer);
+        } else {
+            // Afficher la zone d'upload normale
+            uploadZoneContent.classList.remove('d-none');
+            uploadZoneSelected.classList.add('d-none');
+            uploadZone.classList.remove('files-selected');
+        }
+    }
+    
+    window.removeFile = function(index) {
+        files.splice(index, 1);
+        updateFilesList();
+        updateUploadButton();
+    };
+    
+    function updateUploadButton() {
+        uploadBtn.disabled = files.length === 0;
+        uploadBtn.innerHTML = files.length > 0 
+            ? `<i class="fas fa-upload me-2"></i>Importer ${files.length} image(s)`
+            : `<i class="fas fa-upload me-2"></i>Commencer l'import`;
+    }
+    
+    // Améliorer la gestion de la sélection de fichiers
+    function handleFileSelection() {
+        // Vérifier si des fichiers ont été sélectionnés
+        if (fileInput.files.length > 0) {
+            const selectedFiles = Array.from(fileInput.files);
+            addFiles(selectedFiles);
+            
+            // Afficher un message de confirmation
+            const fileCount = selectedFiles.length;
+            const validFiles = selectedFiles.filter(file => {
+                const allowedTypes = [
+                    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 
+                    'image/webp', 'image/bmp', 'image/tiff'
+                ];
+                const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff'];
+                const isValidType = file.type && allowedTypes.includes(file.type.toLowerCase());
+                const hasValidExtension = file.name && allowedExtensions.some(ext => 
+                    file.name.toLowerCase().endsWith(ext)
+                );
+                return isValidType || hasValidExtension || file.type.startsWith('image/');
+            });
+            
+            if (validFiles.length > 0) {
+                showTemporaryMessage(`${validFiles.length} image(s) sélectionnée(s) avec succès !`, 'success');
+            }
+            
+            if (validFiles.length !== fileCount) {
+                const rejectedCount = fileCount - validFiles.length;
+                showTemporaryMessage(`${rejectedCount} fichier(s) rejeté(s) (format non supporté)`, 'warning');
+            }
+        }
+    }
+    
+    // Fonction pour afficher des messages temporaires
+    function showTemporaryMessage(message, type = 'info') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show mt-3`;
+        alertDiv.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Insérer le message dans le modal
+        const modalBody = document.querySelector('#uploadModal .modal-body');
+        modalBody.appendChild(alertDiv);
+        
+        // Supprimer automatiquement après 3 secondes
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 3000);
+    }
+    
+    // Écouter les changements de fichiers
+    fileInput.addEventListener('change', handleFileSelection);
+    
+    // Upload functionality
+    uploadBtn.addEventListener('click', function() {
+        if (files.length === 0) {
+            showTemporaryMessage('Veuillez sélectionner au moins une image avant de commencer l\'import.', 'warning');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        formData.append('batch_name', document.getElementById('batch_name').value);
+        formData.append('batch_description', document.getElementById('batch_description').value);
+        
+        files.forEach(file => {
+            formData.append('employee_images', file);
+        });
+        
+        // Show loading state
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Upload en cours...';
+        
+        // Afficher un message de progression
+        showTemporaryMessage(`Début de l'upload de ${files.length} image(s)...`, 'info');
+        
+        fetch('{% url "companies:upload_employee_images" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                showTemporaryMessage(data.message, 'success');
+                
+                // Close modal after a short delay
+                setTimeout(() => {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('uploadModal'));
+                    modal.hide();
+                    
+                    // Refresh page
+                    window.location.href = data.redirect_url || window.location.href;
+                }, 2000);
+            } else {
+                throw new Error(data.message);
+            }
+        })
+        .catch(error => {
+            showTemporaryMessage(`Erreur: ${error.message}`, 'danger');
+        })
+        .finally(() => {
+            // Reset button state
+            uploadBtn.disabled = false;
+            updateUploadButton();
+        });
+    });
+});
+</script>
+{% endblock %}

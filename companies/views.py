@@ -12,6 +12,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.core.mail import send_mail
 from django.conf import settings
 from django.db import models
+from django.urls import reverse
 import secrets
 import string
 import json
@@ -22,6 +23,23 @@ logger = logging.getLogger('companies')
 
 from .models import Company, CompanyUser, CompanyInvitation, CompanySettings
 from .forms import CompanyForm, CompanyUserForm, ManagerLoginForm, EmployeeCreationForm
+
+
+def get_user_company(request):
+    """Retourne l'entreprise appropriée selon le rôle de l'utilisateur"""
+    if request.company_user.is_owner:
+        # Pour les owners, prioriser l'entreprise qui a des employés ciblés
+        from .models import EmployeCible
+        companies_with_employees = Company.objects.filter(
+            id__in=EmployeCible.objects.values_list('company_id', flat=True).distinct()
+        )
+        if companies_with_employees.exists():
+            return companies_with_employees.first()
+        # Sinon, prendre la première entreprise
+        return Company.objects.first()
+    else:
+        # Les managers voient leur entreprise
+        return request.company_user.company
 
 
 def owner_required(view_func):
@@ -918,6 +936,505 @@ def owner_event_types(request):
     }
     
     return render(request, 'companies/owner_event_types.html', context)
+
+
+@login_required
+@manager_required
+def owner_import_employees_cibled(request):
+    """Importer des employés ciblés"""
+    from .models import EmployeCible, EmployeCibleImportBatch
+    from django.core.paginator import Paginator
+    
+    # Déterminer l'entreprise selon le rôle
+    if request.company_user.is_owner:
+        # Les owners peuvent voir toutes les entreprises, mais pour cette vue on prend la première
+        company = Company.objects.first()
+    else:
+        # Les managers voient leur entreprise
+        company = request.company_user.company
+    
+    if not company:
+        messages.error(request, "Aucune entreprise trouvée.")
+        return redirect('dashboard')
+    
+    # Récupérer les statistiques
+    total_employes = EmployeCible.objects.filter(company=company).count()
+    employes_valides = EmployeCible.objects.filter(
+        company=company,
+        status='validated'
+    ).count()
+    employes_en_attente = EmployeCible.objects.filter(
+        company=company,
+        status='pending'
+    ).count()
+    
+    # Récupérer les lots d'import récents
+    recent_batches = EmployeCibleImportBatch.objects.filter(
+        company=company
+    ).order_by('-created_at')[:5]
+    
+    # Récupérer les employés récents
+    recent_employees = EmployeCible.objects.filter(
+        company=company
+    ).order_by('-created_at')[:10]
+    
+    context = {
+        'total_employes': total_employes,
+        'employes_valides': employes_valides,
+        'employes_en_attente': employes_en_attente,
+        'recent_batches': recent_batches,
+        'recent_employees': recent_employees,
+        'success_rate': int((employes_valides / total_employes * 100)) if total_employes > 0 else 0,
+    }
+    
+    return render(request, 'companies/owner_import_employees.html', context)
+
+
+@login_required
+@manager_required
+@require_http_methods(["POST"])
+def upload_employee_images(request):
+    """Upload multiple employee images"""
+    from .models import EmployeCible, EmployeCibleImportBatch
+    import uuid
+    from django.core.files.storage import default_storage
+    
+    try:
+        # Créer un nouveau lot d'import
+        batch_name = request.POST.get('batch_name', f'Import {timezone.now().strftime("%Y-%m-%d %H:%M")}')
+        batch_description = request.POST.get('batch_description', '')
+        
+        # Déterminer l'entreprise selon le rôle
+        if request.company_user.is_owner:
+            company = Company.objects.first()
+            subcompany = company.subcompanies.first() if company and company.subcompanies.exists() else None
+        else:
+            company = request.company_user.company
+            subcompany = request.company_user.current_subcompany
+        
+        batch = EmployeCibleImportBatch.objects.create(
+            company=company,
+            subcompany=subcompany,
+            nom_lot=batch_name,
+            description=batch_description,
+            cree_par=request.user,
+            status='uploading'
+        )
+        
+        uploaded_files = request.FILES.getlist('employee_images')
+        batch.total_images = len(uploaded_files)
+        batch.save()
+        
+        batch.add_log(f"Début de l'upload de {len(uploaded_files)} images")
+        
+        success_count = 0
+        error_count = 0
+        
+        for uploaded_file in uploaded_files:
+            try:
+                # Vérifier le type de fichier - Support étendu pour PNG
+                allowed_types = [
+                    'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 
+                    'image/webp', 'image/bmp', 'image/tiff'
+                ]
+                allowed_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff']
+                
+                file_extension = uploaded_file.name.lower().split('.')[-1] if '.' in uploaded_file.name else ''
+                
+                # Double vérification : type MIME ET extension
+                is_valid_type = (
+                    uploaded_file.content_type in allowed_types or 
+                    uploaded_file.content_type.startswith('image/') or
+                    f'.{file_extension}' in allowed_extensions
+                )
+                
+                if not is_valid_type:
+                    batch.add_error(f"Type de fichier non supporté: {uploaded_file.content_type} (.{file_extension})", uploaded_file.name)
+                    continue
+                
+                # Vérifier la taille (max 10MB)
+                if uploaded_file.size > 10 * 1024 * 1024:
+                    batch.add_error("Fichier trop volumineux (max 10MB)", uploaded_file.name)
+                    continue
+                
+                # Vérification supplémentaire avec Pillow pour PNG
+                try:
+                    from PIL import Image
+                    # Tenter d'ouvrir l'image pour vérifier qu'elle est valide
+                    uploaded_file.seek(0)  # Remettre le curseur au début
+                    test_image = Image.open(uploaded_file)
+                    test_image.verify()  # Vérifier l'intégrité
+                    uploaded_file.seek(0)  # Remettre le curseur au début pour l'utilisation
+                    
+                    batch.add_log(f"Image {uploaded_file.name} validée: {test_image.format} {test_image.size}")
+                    
+                except Exception as img_error:
+                    batch.add_error(f"Image corrompue ou invalide: {str(img_error)}", uploaded_file.name)
+                    continue
+                
+                # Créer l'employé ciblé
+                employe = EmployeCible.objects.create(
+                    company=company,
+                    subcompany=subcompany,
+                    image_originale=uploaded_file,
+                    importe_par=request.user,
+                    status='pending'
+                )
+                
+                batch.add_log(f"Image {uploaded_file.name} importée avec succès (ID: {employe.id})")
+                success_count += 1
+                
+            except Exception as e:
+                batch.add_error(f"Erreur lors de l'import: {str(e)}", uploaded_file.name)
+                error_count += 1
+            
+            # Mettre à jour le progress
+            batch.images_traitees += 1
+            batch.images_reussies = success_count
+            batch.images_echouees = error_count
+            batch.save()
+        
+        # Finaliser le lot
+        batch.status = 'completed' if error_count == 0 else 'completed'
+        batch.completed_at = timezone.now()
+        batch.save()
+        
+        batch.add_log(f"Import terminé: {success_count} réussies, {error_count} échouées")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Import terminé: {success_count} images importées avec succès',
+            'batch_id': batch.id,
+            'success_count': success_count,
+            'error_count': error_count,
+            'redirect_url': reverse('companies:manage_employees_cibles')
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors de l\'import: {str(e)}'
+        })
+
+
+@login_required
+@manager_required
+def manage_employees_cibles(request):
+    """Gérer les employés ciblés"""
+    from .models import EmployeCible
+    from django.core.paginator import Paginator
+    from django.db.models import Q
+    
+    # Filtres
+    search_query = request.GET.get('search', '')
+    status_filter = request.GET.get('status', '')
+    detection_filter = request.GET.get('detection', '')
+    
+    # Déterminer l'entreprise selon le rôle
+    company = get_user_company(request)
+    
+    if not company:
+        messages.error(request, "Aucune entreprise trouvée.")
+        return redirect('dashboard')
+    
+    # Base queryset
+    queryset = EmployeCible.objects.filter(
+        company=company
+    ).order_by('-created_at')
+    
+    # Appliquer les filtres
+    if search_query:
+        queryset = queryset.filter(
+            Q(prenom__icontains=search_query) |
+            Q(nom__icontains=search_query) |
+            Q(employee_id__icontains=search_query) |
+            Q(poste__icontains=search_query)
+        )
+    
+    if status_filter:
+        queryset = queryset.filter(status=status_filter)
+    
+    if detection_filter:
+        queryset = queryset.filter(detection_status=detection_filter)
+    
+    # Pagination
+    paginator = Paginator(queryset, 20)
+    page_number = request.GET.get('page')
+    employees = paginator.get_page(page_number)
+    
+    # Statistiques pour les filtres
+    stats = {
+        'total': EmployeCible.objects.filter(company=company).count(),
+        'pending': EmployeCible.objects.filter(company=company, status='pending').count(),
+        'validated': EmployeCible.objects.filter(company=company, status='validated').count(),
+        'rejected': EmployeCible.objects.filter(company=company, status='rejected').count(),
+        'face_detected': EmployeCible.objects.filter(company=company, detection_status='face_detected').count(),
+        'no_face': EmployeCible.objects.filter(company=company, detection_status='no_face_detected').count(),
+    }
+    
+    
+    context = {
+        'employees': employees,
+        'search_query': search_query,
+        'status_filter': status_filter,
+        'detection_filter': detection_filter,
+        'stats': stats,
+        'status_choices': EmployeCible.STATUS_CHOICES,
+        'detection_choices': EmployeCible.DETECTION_STATUS_CHOICES,
+    }
+    
+    return render(request, 'companies/manage_employees_cibles.html', context)
+
+
+@login_required
+@manager_required
+@require_http_methods(["POST"])
+def update_employee_info(request, employee_id):
+    """Mettre à jour les informations d'un employé ciblé"""
+    from .models import EmployeCible
+    
+    try:
+        company = get_user_company(request)
+        employee = get_object_or_404(
+            EmployeCible,
+            id=employee_id,
+            company=company
+        )
+        
+        data = json.loads(request.body)
+        
+        # Mettre à jour les champs
+        employee.prenom = data.get('prenom', '').strip()
+        employee.nom = data.get('nom', '').strip()
+        employee.employee_id = data.get('employee_id', '').strip()
+        employee.poste = data.get('poste', '').strip()
+        employee.departement = data.get('departement', '').strip()
+        employee.notes = data.get('notes', '').strip()
+        employee.is_priority = data.get('is_priority', False)
+        
+        employee.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Informations mises à jour avec succès',
+            'employee': {
+                'id': employee.id,
+                'nom_complet': employee.nom_complet,
+                'prenom': employee.prenom,
+                'nom': employee.nom,
+                'employee_id': employee.employee_id,
+                'poste': employee.poste,
+                'departement': employee.departement,
+                'notes': employee.notes,
+                'is_priority': employee.is_priority,
+                'is_ready_for_recognition': employee.is_ready_for_recognition,
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors de la mise à jour: {str(e)}'
+        })
+
+
+@login_required
+@manager_required
+@require_http_methods(["POST"])
+def validate_employee(request, employee_id):
+    """Valider un employé ciblé"""
+    from .models import EmployeCible
+    
+    try:
+        company = get_user_company(request)
+        employee = get_object_or_404(
+            EmployeCible,
+            id=employee_id,
+            company=company
+        )
+        
+        employee.validate(request.user)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Employé {employee.nom_complet} validé avec succès',
+            'status': employee.status,
+            'status_color': employee.status_color
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors de la validation: {str(e)}'
+        })
+
+
+@login_required
+@manager_required
+@require_http_methods(["POST"])
+def reject_employee(request, employee_id):
+    """Rejeter un employé ciblé"""
+    from .models import EmployeCible
+    
+    try:
+        company = get_user_company(request)
+        employee = get_object_or_404(
+            EmployeCible,
+            id=employee_id,
+            company=company
+        )
+        
+        employee.reject(request.user)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Employé {employee.nom_complet} rejeté',
+            'status': employee.status,
+            'status_color': employee.status_color
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors du rejet: {str(e)}'
+        })
+
+
+@login_required
+@manager_required
+@require_http_methods(["DELETE"])
+def delete_employee(request, employee_id):
+    """Supprimer un employé ciblé"""
+    from .models import EmployeCible
+    
+    try:
+        company = get_user_company(request)
+        employee = get_object_or_404(
+            EmployeCible,
+            id=employee_id,
+            company=company
+        )
+        
+        employee_name = employee.nom_complet
+        employee.delete()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Employé {employee_name} supprimé avec succès'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors de la suppression: {str(e)}'
+        })
+
+
+@login_required
+@manager_required
+def employee_cible_detail(request, employee_id):
+    """Détails d'un employé ciblé"""
+    from .models import EmployeCible
+    
+    company = get_user_company(request)
+    employee = get_object_or_404(
+        EmployeCible,
+        id=employee_id,
+        company=company
+    )
+    
+    # Si requête AJAX, retourner JSON
+    if request.headers.get('Accept') == 'application/json':
+        return JsonResponse({
+            'id': employee.id,
+            'prenom': employee.prenom or '',
+            'nom': employee.nom or '',
+            'employee_id': employee.employee_id or '',
+            'poste': employee.poste or '',
+            'departement': employee.departement or '',
+            'notes': employee.notes or '',
+            'is_priority': employee.is_priority,
+            'status': employee.status,
+            'status_display': employee.get_status_display(),
+            'status_color': employee.status_color,
+            'detection_status': employee.detection_status,
+            'detection_status_display': employee.get_detection_status_display(),
+            'detection_status_color': employee.detection_status_color,
+            'detection_confidence': float(employee.detection_confidence) if employee.detection_confidence else None,
+            'image_originale': employee.image_originale.url if employee.image_originale else None,
+            'image_miniature': employee.image_miniature.url if employee.image_miniature else None,
+            'created_at': employee.created_at.strftime('%Y-%m-%d %H:%M:%S') if employee.created_at else None,
+        })
+    
+    # Sinon, afficher la page HTML
+    context = {
+        'employee': employee,
+    }
+    
+    return render(request, 'companies/employee_cible_detail.html', context)
+
+
+@login_required
+@manager_required
+@require_http_methods(["POST"])
+def batch_action_employees(request):
+    """Actions en lot sur les employés ciblés"""
+    from .models import EmployeCible
+    
+    try:
+        data = json.loads(request.body)
+        action = data.get('action')
+        employee_ids = data.get('employee_ids', [])
+        
+        if not employee_ids:
+            return JsonResponse({
+                'success': False,
+                'message': 'Aucun employé sélectionné'
+            })
+        
+        company = get_user_company(request)
+        employees = EmployeCible.objects.filter(
+            id__in=employee_ids,
+            company=company
+        )
+        
+        count = employees.count()
+        
+        if action == 'validate':
+            for employee in employees:
+                employee.validate(request.user)
+            message = f'{count} employé(s) validé(s) avec succès'
+            
+        elif action == 'reject':
+            for employee in employees:
+                employee.reject(request.user)
+            message = f'{count} employé(s) rejeté(s) avec succès'
+            
+        elif action == 'delete':
+            employees.delete()
+            message = f'{count} employé(s) supprimé(s) avec succès'
+            
+        elif action == 'archive':
+            employees.update(status='archived')
+            message = f'{count} employé(s) archivé(s) avec succès'
+            
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': 'Action non reconnue'
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'message': message,
+            'count': count
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors de l\'action en lot: {str(e)}'
+        })
 
 
 @login_required

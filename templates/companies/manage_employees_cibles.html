@@ -1,0 +1,1274 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Gestion des Employés Ciblés{% endblock %}
+
+<!-- Token CSRF pour JavaScript -->
+{% csrf_token %}
+
+{% block extra_css %}
+<style>
+    /* Forcer le texte en blanc sur fond sombre */
+    .card-body h5, .card-body h6, .card-body p, .card-body small,
+    .employee-grid-item h5, .employee-grid-item h6, .employee-grid-item p, .employee-grid-item small {
+        color: white !important;
+    }
+    
+    .employee-grid-item .card-body {
+        background: #2d3748 !important;
+        color: white !important;
+    }
+    
+    .employee-grid-item .text-muted {
+        color: rgba(255,255,255,0.7) !important;
+    }
+    
+    .employee-grid-item {
+        transition: all 0.3s ease;
+        border-radius: 15px;
+        overflow: hidden;
+        position: relative;
+        background: #2d3748;
+    }
+    
+    .employee-grid-item:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+    }
+    
+    .employee-image {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        transition: all 0.3s ease;
+    }
+    
+    .employee-grid-item:hover .employee-image {
+        transform: scale(1.05);
+    }
+    
+    .employee-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.8) 100%);
+        opacity: 0;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: flex-end;
+        padding: 20px;
+    }
+    
+    .employee-grid-item:hover .employee-overlay {
+        opacity: 1;
+    }
+    
+    .employee-actions {
+        display: flex;
+        gap: 8px;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.3s ease;
+    }
+    
+    .employee-grid-item:hover .employee-actions {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    
+    .status-indicator {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    
+    .detection-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    .filter-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 15px;
+        border: none;
+    }
+    
+    .stats-mini {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+    }
+    
+    .stats-mini:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+    
+    .edit-modal .modal-content {
+        border-radius: 20px;
+        border: none;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+    
+    .form-floating {
+        position: relative;
+    }
+    
+    .form-floating > .form-control {
+        border-radius: 12px;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+    
+    .form-floating > .form-control:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+    }
+    
+    .batch-actions {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%) translateY(100px);
+        background: white;
+        border-radius: 50px;
+        padding: 10px 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+        z-index: 1000;
+    }
+    
+    .batch-actions.show {
+        transform: translateX(-50%) translateY(0);
+    }
+    
+    .selection-counter {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 5px 15px;
+        font-weight: 600;
+        margin-right: 15px;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .employee-grid-item {
+        animation: fadeInUp 0.6s ease forwards;
+    }
+    
+    .employee-grid-item:nth-child(even) {
+        animation-delay: 0.1s;
+    }
+    
+    .employee-grid-item:nth-child(3n) {
+        animation-delay: 0.2s;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="h3 mb-2">
+                        <i class="fas fa-users-cog text-primary me-2"></i>
+                        Gestion des Employés Ciblés
+                    </h1>
+                    <p class="text-muted mb-0">{{ stats.total }} employé(s) • {{ stats.validated }} validé(s) • {{ stats.pending }} en attente</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'companies:owner_import_employees_cibled' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left me-2"></i>Retour à l'import
+                    </a>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques rapides -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="stats-mini">
+                <h4 class="text-black mb-1">{{ stats.total }}</h4>
+                <small class="text-black">Total</small>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stats-mini">
+                <h4 class="text-black mb-1">{{ stats.validated }}</h4>
+                <small class="text-black">Validés</small>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stats-mini">
+                <h4 class="text-black mb-1">{{ stats.pending }}</h4>
+                <small class="text-black">En attente</small>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stats-mini">
+                <h4 class="text-black mb-1">{{ stats.rejected }}</h4>
+                <small class="text-black">Rejetés</small>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stats-mini">
+                <h4 class="text-black mb-1">{{ stats.face_detected }}</h4>
+                <small class="text-black">Visage détecté</small>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="stats-mini">
+                <h4 class="text-black mb-1">{{ stats.no_face }}</h4>
+                <small class="text-black">Sans visage</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="filter-card p-4">
+                <form method="get" class="row g-3">
+                    <div class="col-md-4">
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="search" name="search" 
+                                   value="{{ search_query }}" placeholder="Rechercher...">
+                            <label for="search">
+                                <i class="fas fa-search me-2"></i>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-floating">
+                            <select class="form-select" id="status" name="status">
+                                <option value="">Tous les statuts</option>
+                                {% for value, label in status_choices %}
+                                <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <label for="status"></label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-floating">
+                            <select class="form-select" id="detection" name="detection">
+                                <option value=""></option>
+                                {% for value, label in detection_choices %}
+                                <option value="{{ value }}" {% if detection_filter == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <label for="detection">Détection faciale</label>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary h-100 w-100">
+                            <i class="fas fa-filter me-2"></i>Filtrer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grille des employés -->
+    <div class="row">
+        {% for employee in employees %}
+        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+            <div class="employee-grid-item card border-0 shadow-lg h-100" data-employee-id="{{ employee.id }}">
+                <!-- Checkbox de sélection en haut à gauche -->
+                <div class="position-absolute" style="top: 10px; left: 10px; z-index: 10;">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input employee-checkbox shadow-sm" 
+                               id="employee-{{ employee.id }}" value="{{ employee.id }}" 
+                               onchange="updateBatchActions()" style="transform: scale(1.2);">
+                        <label class="form-check-label visually-hidden" for="employee-{{ employee.id }}">
+                            Sélectionner {{ employee.nom_complet }}
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Image avec overlay amélioré -->
+                <div class="position-relative employee-image-container">
+                    {% if employee.image_miniature %}
+                        <img src="{{ employee.image_miniature.url }}" alt="{{ employee.nom_complet }}" 
+                             class="employee-image w-100" style="height: 250px; object-fit: cover;">
+                    {% else %}
+                        <div class="employee-image bg-gradient d-flex align-items-center justify-content-center w-100" 
+                             style="height: 250px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <i class="fas fa-user fa-4x text-white opacity-75"></i>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Status indicator amélioré -->
+                    <div class="position-absolute" style="top: 10px; right: 10px;">
+                        <span class="badge bg-{{ employee.status_color }} px-3 py-2 rounded-pill shadow">
+                            <i class="fas fa-{{ employee.status|yesno:'check,clock,times' }} me-1"></i>
+                            {{ employee.get_status_display }}
+                        </span>
+                    </div>
+                    
+                    <!-- Detection badge amélioré -->
+                    <div class="position-absolute" style="bottom: 10px; left: 10px;">
+                        <span class="badge bg-{{ employee.detection_status_color }} px-3 py-2 rounded-pill shadow">
+                            <i class="fas fa-robot me-1"></i>
+                            {{ employee.get_detection_status_display }}
+                        </span>
+                    </div>
+                    
+                    <!-- Indicateur de priorité -->
+                    {% if employee.is_priority %}
+                    <div class="position-absolute" style="top: 50px; right: 10px;">
+                        <span class="badge bg-warning px-2 py-2 rounded-circle shadow">
+                            <i class="fas fa-star"></i>
+                        </span>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Overlay avec actions au survol -->
+                    <div class="employee-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center">
+                        <div class="employee-actions d-flex gap-2">
+                            <button class="btn btn-light btn-sm rounded-circle shadow" 
+                                    onclick="editEmployee({{ employee.id }})" title="Modifier">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            {% if employee.status == 'pending' %}
+                            <button class="btn btn-success btn-sm rounded-circle shadow" 
+                                    onclick="validateEmployee({{ employee.id }})" title="Valider">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button class="btn btn-danger btn-sm rounded-circle shadow" 
+                                    onclick="rejectEmployee({{ employee.id }})" title="Rejeter">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            {% endif %}
+                            <button class="btn btn-info btn-sm rounded-circle shadow" 
+                                    onclick="viewDetails({{ employee.id }})" title="Voir détails">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Card body amélioré -->
+                <div class="card-body p-4">
+                    <div class="text-center mb-3">
+                        <h5 class="card-title mb-1 fw-bold">
+                            {{ employee.nom_complet|default:"Sans nom" }}
+                        </h5>
+                        <p class="text-muted mb-0">{{ employee.poste|default:"Poste non défini" }}</p>
+                        <small class="text-muted">{{ employee.departement|default:"Département non défini" }}</small>
+                    </div>
+                    
+                    {% if employee.employee_id %}
+                    <div class="text-center mb-3">
+                        <span class="badge bg-light text-dark px-3 py-2">
+                            <i class="fas fa-id-badge me-1"></i>
+                            ID: {{ employee.employee_id }}
+                        </span>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Barre de confiance -->
+                    {% if employee.detection_confidence %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small class="text-muted">Confiance IA</small>
+                            <small class="fw-bold {% if employee.detection_confidence >= 80 %}text-success{% else %}text-warning{% endif %}">
+                                {{ employee.detection_confidence|floatformat:0 }}%
+                            </small>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar {% if employee.detection_confidence >= 80 %}bg-success{% else %}bg-warning{% endif %} progress-bar-striped progress-bar-animated" 
+                                 style="width: {{ employee.detection_confidence|floatformat:0 }}%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Footer avec date -->
+                    <div class="text-center">
+                        <small class="text-muted">
+                            <i class="fas fa-calendar me-1"></i>
+                            Ajouté le {{ employee.created_at|date:"d/m/Y" }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="empty-state-container text-center py-5">
+                <div class="empty-state-animation mb-4">
+                    <div class="empty-state-icon">
+                        <i class="fas fa-users fa-4x text-muted"></i>
+                        <div class="empty-state-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <h3 class="text-muted mb-3">Aucun employé ciblé trouvé</h3>
+                
+                {% if search_query or status_filter or detection_filter %}
+                    <p class="text-muted mb-4">
+                        <i class="fas fa-filter me-2"></i>
+                        Aucun résultat ne correspond à vos critères de recherche.
+                    </p>
+                    <div class="d-flex justify-content-center gap-3">
+                        <a href="{% url 'companies:manage_employees_cibles' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-2"></i>Effacer les filtres
+                        </a>
+                        <a href="{% url 'companies:owner_import_employees_cibled' %}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Importer des employés
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="empty-state-content">
+                        <p class="text-muted mb-4">
+                            Commencez par importer des images d'employés pour créer votre base de données de reconnaissance faciale.
+                        </p>
+                        
+                        <div class="empty-state-features mb-4">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="feature-card p-3 bg-light rounded">
+                                        <i class="fas fa-upload text-primary mb-2"></i>
+                                        <h6>Import Multiple</h6>
+                                        <small class="text-muted">Glissez-déposez plusieurs images</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="feature-card p-3 bg-light rounded">
+                                        <i class="fas fa-robot text-success mb-2"></i>
+                                        <h6>IA Intégrée</h6>
+                                        <small class="text-muted">Détection automatique des visages</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="feature-card p-3 bg-light rounded">
+                                        <i class="fas fa-edit text-info mb-2"></i>
+                                        <h6>Gestion Facile</h6>
+                                        <small class="text-muted">Ajoutez noms et informations</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-3 justify-content-center">
+                            <a href="{% url 'companies:owner_import_employees_cibled' %}" class="btn btn-primary btn-lg px-5">
+                                <i class="fas fa-cloud-upload-alt me-2"></i>Commencer l'import
+                            </a>
+                            <button onclick="createTestEmployees()" class="btn btn-outline-secondary btn-lg px-4">
+                                <i class="fas fa-magic me-2"></i>Données de test
+                            </button>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Formats supportés: PNG, JPG, JPEG, GIF, WebP • Taille max: 10MB par image
+                            </small>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if employees.has_other_pages %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <nav aria-label="Navigation des employés">
+                <ul class="pagination justify-content-center">
+                    {% if employees.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ employees.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if detection_filter %}&detection={{ detection_filter }}{% endif %}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in employees.paginator.page_range %}
+                    {% if num == employees.number %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if detection_filter %}&detection={{ detection_filter }}{% endif %}">
+                            {{ num }}
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                    
+                    {% if employees.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ employees.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if detection_filter %}&detection={{ detection_filter }}{% endif %}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Actions en lot améliorées -->
+<div class="batch-actions-container position-fixed bottom-0 start-50 translate-middle-x" 
+     id="batchActions" style="z-index: 1050; display: none;">
+    <div class="batch-actions-card bg-white shadow-lg rounded-pill px-4 py-3 border">
+        <div class="d-flex align-items-center gap-3">
+            <!-- Compteur de sélection -->
+            <div class="selection-info d-flex align-items-center">
+                <div class="selection-badge bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" 
+                     style="width: 32px; height: 32px; font-size: 14px; font-weight: bold;" id="selectionBadge">0</div>
+                <span class="selection-text fw-medium" id="selectionCounter">employé(s) sélectionné(s)</span>
+            </div>
+            
+            <!-- Séparateur -->
+            <div class="vr"></div>
+            
+            <!-- Actions -->
+            <div class="batch-actions-buttons d-flex gap-2">
+                <button class="btn btn-success btn-sm rounded-pill px-3 shadow-sm" 
+                        onclick="batchAction('validate')" title="Valider les employés sélectionnés">
+                    <i class="fas fa-check me-1"></i>Valider
+                </button>
+                <button class="btn btn-warning btn-sm rounded-pill px-3 shadow-sm" 
+                        onclick="batchAction('reject')" title="Rejeter les employés sélectionnés">
+                    <i class="fas fa-times me-1"></i>Rejeter
+                </button>
+                <button class="btn btn-secondary btn-sm rounded-pill px-3 shadow-sm" 
+                        onclick="batchAction('archive')" title="Archiver les employés sélectionnés">
+                    <i class="fas fa-archive me-1"></i>Archiver
+                </button>
+                <button class="btn btn-danger btn-sm rounded-pill px-3 shadow-sm" 
+                        onclick="batchAction('delete')" title="Supprimer les employés sélectionnés">
+                    <i class="fas fa-trash me-1"></i>Supprimer
+                </button>
+            </div>
+            
+            <!-- Bouton fermer -->
+            <button class="btn btn-outline-secondary btn-sm rounded-circle ms-2" 
+                    onclick="clearSelection()" title="Désélectionner tout">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'édition -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg edit-modal">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="editModalLabel">
+                    <i class="fas fa-user-edit text-primary me-2"></i>
+                    Modifier les informations
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm">
+                    <div class="row">
+                        <div class="col-md-4 text-center mb-4">
+                            <img id="editEmployeeImage" src="" alt="Photo employé" 
+                                 class="img-fluid rounded-3 mb-3" style="max-height: 200px;">
+                            <div id="editEmployeeStatus"></div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="editPrenom" name="prenom">
+                                        <label for="editPrenom">Prénom</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="editNom" name="nom">
+                                        <label for="editNom">Nom</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="editEmployeeId" name="employee_id">
+                                        <label for="editEmployeeId">ID Employé</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="editPoste" name="poste">
+                                        <label for="editPoste">Poste</label>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="editDepartement" name="departement">
+                                        <label for="editDepartement">Département</label>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-floating">
+                                        <textarea class="form-control" id="editNotes" name="notes" style="height: 100px;"></textarea>
+                                        <label for="editNotes">Notes</label>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="editIsPriority" name="is_priority">
+                                        <label class="form-check-label" for="editIsPriority">
+                                            <i class="fas fa-star text-warning me-2"></i>Marquer comme prioritaire
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" id="saveEmployeeBtn">
+                    <i class="fas fa-save me-2"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentEmployeeId = null;
+
+function updateBatchActions() {
+    const checkboxes = document.querySelectorAll('.employee-checkbox:checked');
+    const batchActions = document.getElementById('batchActions');
+    const counter = document.getElementById('selectionCounter');
+    const badge = document.getElementById('selectionBadge');
+    
+    const count = checkboxes.length;
+    
+    // Mettre à jour le texte et le badge
+    counter.textContent = `employé${count > 1 ? 's' : ''} sélectionné${count > 1 ? 's' : ''}`;
+    badge.textContent = count;
+    
+    // Afficher/masquer la barre d'actions avec animation
+    if (count > 0) {
+        batchActions.style.display = 'block';
+        // Petit délai pour l'animation
+        setTimeout(() => {
+            batchActions.style.opacity = '1';
+            batchActions.style.transform = 'translateX(-50%) translateY(0)';
+        }, 10);
+    } else {
+        batchActions.style.opacity = '0';
+        batchActions.style.transform = 'translateX(-50%) translateY(20px)';
+        setTimeout(() => {
+            batchActions.style.display = 'none';
+        }, 300);
+    }
+}
+
+// Fonction pour désélectionner tout
+function clearSelection() {
+    const checkboxes = document.querySelectorAll('.employee-checkbox:checked');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    updateBatchActions();
+}
+
+function editEmployee(employeeId) {
+    currentEmployeeId = employeeId;
+    
+    // Récupérer les données de l'employé via AJAX
+    fetch(`/companies/owner/employees-cibles/${employeeId}/`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            return response.json();
+        } else {
+            throw new Error("La réponse n'est pas du JSON");
+        }
+    })
+    .then(data => {
+        // Remplir le formulaire
+        document.getElementById('editPrenom').value = data.prenom || '';
+        document.getElementById('editNom').value = data.nom || '';
+        document.getElementById('editEmployeeId').value = data.employee_id || '';
+        document.getElementById('editPoste').value = data.poste || '';
+        document.getElementById('editDepartement').value = data.departement || '';
+        document.getElementById('editNotes').value = data.notes || '';
+        document.getElementById('editIsPriority').checked = data.is_priority || false;
+        
+        // Afficher l'image
+        const img = document.getElementById('editEmployeeImage');
+        if (data.image_miniature) {
+            img.src = data.image_miniature;
+            img.style.display = 'block';
+        } else {
+            img.style.display = 'none';
+        }
+        
+        // Afficher le statut
+        document.getElementById('editEmployeeStatus').innerHTML = `
+            <span class="badge bg-${data.status_color} mb-2">${data.status_display}</span><br>
+            <small class="text-muted">${data.detection_status_display}</small>
+        `;
+        
+        // Ouvrir le modal
+        const modal = new bootstrap.Modal(document.getElementById('editModal'));
+        modal.show();
+    })
+    .catch(error => {
+        console.error('Erreur lors du chargement des données:', error);
+        showAlert('Erreur lors du chargement des données de l\'employé', 'danger');
+    });
+}
+
+function validateEmployee(employeeId) {
+    if (!confirm('Êtes-vous sûr de vouloir valider cet employé ?')) return;
+    
+    fetch(`/companies/owner/employees-cibles/${employeeId}/validate/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(data.message, 'success');
+            location.reload();
+        } else {
+            showAlert(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        showAlert('Erreur lors de la validation', 'danger');
+    });
+}
+
+function rejectEmployee(employeeId) {
+    if (!confirm('Êtes-vous sûr de vouloir rejeter cet employé ?')) return;
+    
+    fetch(`/companies/owner/employees-cibles/${employeeId}/reject/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(data.message, 'success');
+            location.reload();
+        } else {
+            showAlert(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        showAlert('Erreur lors du rejet', 'danger');
+    });
+}
+
+function viewDetails(employeeId) {
+    window.open(`/companies/owner/employees-cibles/${employeeId}/`, '_blank');
+}
+
+function batchAction(action) {
+    const checkboxes = document.querySelectorAll('.employee-checkbox:checked');
+    const employeeIds = Array.from(checkboxes).map(cb => cb.value);
+    
+    if (employeeIds.length === 0) return;
+    
+    const actionNames = {
+        'validate': 'valider',
+        'reject': 'rejeter',
+        'archive': 'archiver',
+        'delete': 'supprimer'
+    };
+    
+    if (!confirm(`Êtes-vous sûr de vouloir ${actionNames[action]} ${employeeIds.length} employé(s) ?`)) return;
+    
+    fetch('/companies/owner/employees-cibles/batch-action/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: action,
+            employee_ids: employeeIds
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(data.message, 'success');
+            location.reload();
+        } else {
+            showAlert(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        showAlert('Erreur lors de l\'action en lot', 'danger');
+    });
+}
+
+// Sauvegarde des modifications
+document.getElementById('saveEmployeeBtn').addEventListener('click', function() {
+    if (!currentEmployeeId) return;
+    
+    const formData = {
+        prenom: document.getElementById('editPrenom').value,
+        nom: document.getElementById('editNom').value,
+        employee_id: document.getElementById('editEmployeeId').value,
+        poste: document.getElementById('editPoste').value,
+        departement: document.getElementById('editDepartement').value,
+        notes: document.getElementById('editNotes').value,
+        is_priority: document.getElementById('editIsPriority').checked
+    };
+    
+    fetch(`/companies/owner/employees-cibles/${currentEmployeeId}/update/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(data.message, 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
+            modal.hide();
+            location.reload();
+        } else {
+            showAlert(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        showAlert('Erreur lors de la sauvegarde', 'danger');
+    });
+});
+
+function getCsrfToken() {
+    const token = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (token) {
+        return token.value;
+    }
+    // Fallback: chercher dans les cookies
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'csrftoken') {
+            return value;
+        }
+    }
+    console.error('Token CSRF non trouvé');
+    return '';
+}
+
+function showAlert(message, type) {
+    // Supprimer les alertes existantes
+    const existingAlerts = document.querySelectorAll('.alert-custom');
+    existingAlerts.forEach(alert => alert.remove());
+    
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show alert-custom position-fixed`;
+    alert.style.cssText = `
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        min-width: 300px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
+    alert.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'danger' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+    `;
+    
+    // Ajouter au body
+    document.body.appendChild(alert);
+    
+    // Animation d'entrée
+    setTimeout(() => {
+        alert.style.transform = 'translateX(0)';
+        alert.style.opacity = '1';
+    }, 10);
+    
+    // Suppression automatique
+    setTimeout(() => {
+        alert.style.opacity = '0';
+        alert.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.remove();
+            }
+        }, 300);
+    }, 4000);
+}
+
+// Auto-submit des filtres
+document.getElementById('search').addEventListener('input', function() {
+    clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+        this.form.submit();
+    }, 500);
+});
+
+document.getElementById('status').addEventListener('change', function() {
+    this.form.submit();
+});
+
+document.getElementById('detection').addEventListener('change', function() {
+    this.form.submit();
+});
+
+// Fonction pour créer des employés de test
+function createTestEmployees() {
+    if (confirm('Voulez-vous créer des employés de test pour votre entreprise ?')) {
+        const button = event.target;
+        const originalText = button.innerHTML;
+        
+        // Afficher le loading
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Création...';
+        button.disabled = true;
+        
+        // Simuler la création (vous pouvez remplacer par un appel AJAX réel)
+        setTimeout(() => {
+            showAlert('4 employés de test créés avec succès !', 'success');
+            // Recharger la page après 2 secondes
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        }, 2000);
+    }
+}
+</script>
+
+<style>
+    .employee-grid-item {
+        transition: all 0.3s ease;
+        cursor: pointer;
+        border-radius: 20px;
+        overflow: hidden;
+    }
+    
+    .employee-grid-item:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.2) !important;
+    }
+    
+    .employee-image-container {
+        overflow: hidden;
+        border-radius: 20px 20px 0 0;
+    }
+    
+    .employee-image {
+        transition: transform 0.3s ease;
+    }
+    
+    .employee-grid-item:hover .employee-image {
+        transform: scale(1.05);
+    }
+    
+    .employee-overlay {
+        background: rgba(0,0,0,0.7);
+        backdrop-filter: blur(5px);
+        opacity: 0;
+        transition: all 0.3s ease;
+        border-radius: 20px 20px 0 0;
+    }
+    
+    .employee-grid-item:hover .employee-overlay {
+        opacity: 1;
+    }
+    
+    .employee-actions button {
+        width: 40px;
+        height: 40px;
+        transition: all 0.2s ease;
+    }
+    
+    .employee-actions button:hover {
+        transform: scale(1.1);
+    }
+    
+    /* Checkbox amélioré */
+    .employee-checkbox {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #fff;
+        background: rgba(255,255,255,0.9);
+        backdrop-filter: blur(10px);
+    }
+    
+    .employee-checkbox:checked {
+        background: #28a745;
+        border-color: #28a745;
+    }
+    
+    /* Actions en lot améliorées */
+    .batch-actions-container {
+        transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        margin-bottom: 20px;
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+    
+    .batch-actions-card {
+        backdrop-filter: blur(10px);
+        background: rgba(255, 255, 255, 0.95) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .selection-badge {
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.1);
+        }
+    }
+    
+    /* Badges et indicateurs */
+    .badge {
+        font-weight: 500;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Progress bar animée */
+    .progress-bar-animated {
+        animation: progress-bar-stripes 1s linear infinite;
+    }
+    
+    /* Stats mini */
+    .stats-mini {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 25px;
+        border-radius: 20px;
+        text-align: center;
+        transition: transform 0.3s ease;
+    }
+    
+    .stats-mini:hover {
+        transform: translateY(-3px);
+    }
+    
+    /* Filter card */
+    .filter-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 20px;
+        border: none;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    }
+    
+    /* Page header */
+    .page-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 40px 0;
+        margin-bottom: 40px;
+        border-radius: 0 0 30px 30px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+    
+    /* État vide amélioré */
+    .empty-state-container {
+        min-height: 400px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .empty-state-animation {
+        position: relative;
+    }
+    
+    .empty-state-icon {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .empty-state-dots {
+        position: absolute;
+        bottom: -20px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 5px;
+    }
+    
+    .empty-state-dots span {
+        width: 8px;
+        height: 8px;
+        background: #6c757d;
+        border-radius: 50%;
+        animation: dotPulse 1.5s infinite ease-in-out;
+    }
+    
+    .empty-state-dots span:nth-child(1) { animation-delay: 0s; }
+    .empty-state-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .empty-state-dots span:nth-child(3) { animation-delay: 0.4s; }
+    
+    @keyframes dotPulse {
+        0%, 60%, 100% {
+            transform: scale(1);
+            opacity: 0.4;
+        }
+        30% {
+            transform: scale(1.2);
+            opacity: 1;
+        }
+    }
+    
+    .feature-card {
+        transition: all 0.3s ease;
+        border: 1px solid transparent;
+    }
+    
+    .feature-card:hover {
+        transform: translateY(-3px);
+        border-color: #dee2e6;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .feature-card i {
+        font-size: 1.5rem;
+        display: block;
+    }
+    
+    /* Alertes personnalisées */
+    .alert-custom {
+        transform: translateX(100%);
+        opacity: 0;
+        transition: all 0.3s ease;
+        border-radius: 10px;
+        border: none;
+    }
+    
+    .alert-custom.alert-success {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+    }
+    
+    .alert-custom.alert-danger {
+        background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+        color: white;
+    }
+    
+    .alert-custom.alert-warning {
+        background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+        color: white;
+    }
+    
+    .alert-custom.alert-info {
+        background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+        color: white;
+    }
+    
+    .alert-custom .btn-close {
+        filter: brightness(0) invert(1);
+    }
+    
+    /* Responsive improvements */
+    @media (max-width: 768px) {
+        .batch-actions-card {
+            flex-direction: column;
+            gap: 15px;
+            padding: 20px;
+            border-radius: 20px;
+        }
+        
+        .batch-actions-buttons {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .employee-grid-item {
+            margin-bottom: 20px;
+        }
+        
+        .empty-state-features .col-md-4 {
+            margin-bottom: 15px;
+        }
+        
+        .alert-custom {
+            top: 10px !important;
+            right: 10px !important;
+            left: 10px !important;
+            min-width: auto !important;
+        }
+    }
+</style>
+{% endblock %}

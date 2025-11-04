@@ -24,6 +24,17 @@ urlpatterns = [
     path('owner/event-types/<int:event_type_id>/update/', views.update_event_type, name='update_event_type'),
     path('owner/companies/<int:company_id>/event-types/', views.manage_company_event_types, name='manage_company_event_types'),
     
+    # Employés ciblés Owner
+    path('owner/employees-cibles/', views.owner_import_employees_cibled, name='owner_import_employees_cibled'),
+    path('owner/employees-cibles/upload/', views.upload_employee_images, name='upload_employee_images'),
+    path('owner/employees-cibles/manage/', views.manage_employees_cibles, name='manage_employees_cibles'),
+    path('owner/employees-cibles/<int:employee_id>/', views.employee_cible_detail, name='employee_cible_detail'),
+    path('owner/employees-cibles/<int:employee_id>/update/', views.update_employee_info, name='update_employee_info'),
+    path('owner/employees-cibles/<int:employee_id>/validate/', views.validate_employee, name='validate_employee'),
+    path('owner/employees-cibles/<int:employee_id>/reject/', views.reject_employee, name='reject_employee'),
+    path('owner/employees-cibles/<int:employee_id>/delete/', views.delete_employee, name='delete_employee_cible'),
+    path('owner/employees-cibles/batch-action/', views.batch_action_employees, name='batch_action_employees'),
+    
     # Dashboard Manager
     path('manager/', views.manager_dashboard, name='manager_dashboard'),
     path('manager/subcompany-selector/', views.subcompany_selector, name='subcompany_selector'),
