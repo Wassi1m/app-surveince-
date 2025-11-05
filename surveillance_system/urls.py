@@ -38,7 +38,8 @@ urlpatterns = [
     path('login/', company_login_view, name='login'),
     
     path('logout/', auth_views.LogoutView.as_view(
-        next_page='login'
+        next_page='login',
+        template_name='auth/logout.html'
     ), name='logout'),
     
     path('password_change/', auth_views.PasswordChangeView.as_view(

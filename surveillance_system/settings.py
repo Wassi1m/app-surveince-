@@ -15,6 +15,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['51.75.253.11', 'localhost', '127.0.0.1', '*']
 
+# Désactiver Cross-Origin-Opener-Policy pour éviter les avertissements HTTP
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',

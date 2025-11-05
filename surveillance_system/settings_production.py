@@ -128,7 +128,8 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
 # Cross-Origin-Opener-Policy pour éviter les avertissements
-SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
+# Désactivé pour HTTP, géré par le middleware pour HTTPS uniquement
+# SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin-allow-popups'
 
 # Session security
 SESSION_COOKIE_SECURE = False  # False pour HTTP, True pour HTTPS

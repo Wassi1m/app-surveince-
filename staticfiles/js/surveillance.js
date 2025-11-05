@@ -5,15 +5,13 @@
 
 class SurveillanceSystem {
     constructor() {
-        this.websockets = {};
         this.isInitialized = false;
+        this.websockets = {}; // Initialiser les websockets comme objet vide
         this.config = {
-            reconnectInterval: 5000,
-            maxReconnectAttempts: 5,
             alertSoundEnabled: true,
-            notificationTimeout: 5000
+            notificationTimeout: 5000,
+            pollingInterval: 30000 // Intervalle de polling API REST
         };
-        this.reconnectAttempts = {};
         
         // Initialiser après le chargement du DOM
         if (document.readyState === 'loading') {
@@ -71,91 +69,23 @@ class SurveillanceSystem {
     }
 
     /**
-     * Initialisation des connexions WebSocket
+     * Initialisation des APIs REST (WebSockets supprimés définitivement)
      */
     initializeWebSockets() {
         const userId = this.getCurrentUserId();
-        const locationId = this.getCurrentLocationId();
-
-        // WebSocket pour les notifications utilisateur
-        if (userId) {
-            this.connectWebSocket('notifications', `/ws/notifications/${userId}/`, {
-                onMessage: (data) => this.handleNotification(data),
-                onError: (error) => console.error('Erreur WebSocket notifications:', error)
-            });
-        }
-
-        // WebSocket pour les alertes de localisation
-        if (locationId) {
-            this.connectWebSocket('alerts', `/ws/alerts/${locationId}/`, {
-                onMessage: (data) => this.handleAlert(data),
-                onError: (error) => console.error('Erreur WebSocket alertes:', error)
-            });
-        }
-
-        // WebSocket pour le tableau de bord
-        this.connectWebSocket('dashboard', '/ws/monitoring/dashboard/', {
-            onMessage: (data) => this.handleDashboardUpdate(data),
-            onError: (error) => console.error('Erreur WebSocket dashboard:', error)
-        });
-    }
-
-    /**
-     * Connexion WebSocket générique avec reconnexion automatique
-     */
-    connectWebSocket(name, path, handlers = {}) {
-        const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}${path}`;
         
-        const ws = new WebSocket(wsUrl);
-        this.websockets[name] = ws;
-        this.reconnectAttempts[name] = 0;
-
-        ws.onopen = () => {
-            console.log(`✅ WebSocket ${name} connecté`);
-            this.reconnectAttempts[name] = 0;
-            this.updateConnectionStatus(name, 'connected');
-            
-            if (handlers.onOpen) {
-                handlers.onOpen();
-            }
-        };
-
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (handlers.onMessage) {
-                    handlers.onMessage(data);
-                }
-            } catch (error) {
-                console.error(`Erreur parsing message WebSocket ${name}:`, error);
-            }
-        };
-
-        ws.onerror = (error) => {
-            console.error(`❌ Erreur WebSocket ${name}:`, error);
-            this.updateConnectionStatus(name, 'error');
-            
-            if (handlers.onError) {
-                handlers.onError(error);
-            }
-        };
-
-        ws.onclose = (event) => {
-            console.log(`🔌 WebSocket ${name} fermé:`, event.code, event.reason);
-            this.updateConnectionStatus(name, 'disconnected');
-            
-            // Tentative de reconnexion automatique
-            if (this.reconnectAttempts[name] < this.config.maxReconnectAttempts) {
-                setTimeout(() => {
-                    this.reconnectAttempts[name]++;
-                    console.log(`🔄 Tentative de reconnexion ${name} (${this.reconnectAttempts[name]}/${this.config.maxReconnectAttempts})`);
-                    this.connectWebSocket(name, path, handlers);
-                }, this.config.reconnectInterval);
-            }
-        };
-
-        return ws;
+        console.log('WebSockets supprimés - utilisation d\'API REST uniquement');
+        
+        // Polling pour les notifications
+        if (userId) {
+            this.startNotificationPolling(userId);
+        }
+        
+        // Polling pour le dashboard
+        this.startDashboardPolling();
     }
+
+    // WebSocket supprimé - utilisation d'API REST uniquement
 
     /**
      * Gestion des notifications
@@ -662,12 +592,14 @@ class SurveillanceSystem {
     cleanup() {
         console.log('🧹 Nettoyage du système de surveillance');
         
-        // Fermer toutes les connexions WebSocket
-        Object.values(this.websockets).forEach(ws => {
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.close();
-            }
-        });
+        // Fermer toutes les connexions WebSocket (vérifier que websockets existe)
+        if (this.websockets && typeof this.websockets === 'object') {
+            Object.values(this.websockets).forEach(ws => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.close();
+                }
+            });
+        }
         
         // Arrêter les timers
         if (this.updateInterval) {
@@ -736,15 +668,54 @@ class SurveillanceSystem {
     }
 
     /**
+     * Obtenir le token CSRF depuis les cookies ou meta tag
+     */
+    getCsrfToken() {
+        // Essayer d'abord la meta tag
+        const metaToken = document.querySelector('meta[name="csrf-token"]');
+        if (metaToken) {
+            return metaToken.getAttribute('content');
+        }
+        
+        // Sinon, utiliser les cookies
+        const name = 'csrftoken';
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    /**
+     * Obtenir les headers par défaut pour les requêtes API
+     */
+    getApiHeaders() {
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        
+        const csrfToken = this.getCsrfToken();
+        if (csrfToken) {
+            headers['X-CSRFToken'] = csrfToken;
+        }
+        
+        return headers;
+    }
+
+    /**
      * Signaler une erreur au serveur
      */
     reportError(error) {
         fetch('/api/system/error-report/', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': this.getCsrfToken()
-            },
+            headers: this.getApiHeaders(),
             body: JSON.stringify({
                 error: error.toString(),
                 stack: error.stack,
@@ -761,7 +732,7 @@ class SurveillanceSystem {
         this.updateInterval = setInterval(() => {
             if (!document.hidden) {
                 this.updateRelativeTimes();
-                this.checkConnectionHealth();
+                // checkConnectionHealth supprimé - WebSockets non utilisés
             }
         }, 30000); // Toutes les 30 secondes
     }
@@ -774,26 +745,12 @@ class SurveillanceSystem {
         });
     }
 
-    checkConnectionHealth() {
-        Object.entries(this.websockets).forEach(([name, ws]) => {
-            if (ws.readyState !== WebSocket.OPEN) {
-                console.warn(`⚠️ WebSocket ${name} déconnecté, tentative de reconnexion...`);
-                // La reconnexion se fait automatiquement dans connectWebSocket
-            }
-        });
-    }
+    // Fonction checkConnectionHealth supprimée - WebSockets non utilisés
 
     /**
      * Gestion de l'état de connection
      */
-    updateConnectionStatus(name, status) {
-        const statusElement = document.getElementById(`${name}-connection-status`);
-        if (statusElement) {
-            statusElement.className = `connection-status ${status}`;
-            statusElement.textContent = status === 'connected' ? 'Connecté' : 
-                                     status === 'error' ? 'Erreur' : 'Déconnecté';
-        }
-    }
+    // Méthode updateConnectionStatus supprimée - WebSockets non utilisés
 
     /**
      * Chargement des préférences utilisateur
@@ -815,6 +772,84 @@ class SurveillanceSystem {
      */
     saveUserPreferences() {
         localStorage.setItem('surveillance-preferences', JSON.stringify(this.config));
+    }
+
+    /**
+     * Démarrage du polling API pour le dashboard (alternative aux WebSockets)
+     */
+    startDashboardPolling() {
+        // Polling toutes les 30 secondes pour les statistiques du dashboard
+        setInterval(() => {
+            this.pollDashboardStats();
+        }, 30000);
+        
+        // Première mise à jour immédiate
+        this.pollDashboardStats();
+    }
+
+    /**
+     * Récupération des statistiques via API REST
+     */
+    pollDashboardStats() {
+        fetch('/api/dashboard/stats/')
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                }
+                throw new Error('Erreur API dashboard');
+            })
+            .then(data => {
+                if (data.stats) {
+                    this.handleDashboardUpdate({
+                        type: 'dashboard_stats',
+                        stats: data.stats
+                    });
+                }
+            })
+            .catch(error => {
+                // Erreur silencieuse pour éviter le spam dans la console
+                console.debug('Polling dashboard:', error.message);
+            });
+    }
+
+    /**
+     * Démarrage du polling pour les notifications (alternative aux WebSockets)
+     */
+    startNotificationPolling(userId) {
+        // Polling toutes les minutes pour les notifications
+        setInterval(() => {
+            this.pollNotifications(userId);
+        }, 60000);
+        
+        // Première vérification immédiate
+        this.pollNotifications(userId);
+    }
+
+    /**
+     * Récupération des notifications via API REST
+     */
+    pollNotifications(userId) {
+        fetch('/api/alerts/notifications/unread/')
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                }
+                throw new Error('Erreur API notifications');
+            })
+            .then(data => {
+                if (data.notifications && data.notifications.length > 0) {
+                    data.notifications.forEach(notification => {
+                        this.handleNotification({
+                            type: 'new_notification',
+                            notification: notification
+                        });
+                    });
+                }
+            })
+            .catch(error => {
+                // Erreur silencieuse pour éviter le spam dans la console
+                console.debug('Polling notifications:', error.message);
+            });
     }
 }
 

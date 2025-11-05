@@ -37,6 +37,11 @@ class SecurityHeadersMiddleware:
         response['X-Frame-Options'] = 'DENY'
         response['X-XSS-Protection'] = '1; mode=block'
         response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-        response['Cross-Origin-Opener-Policy'] = 'same-origin-allow-popups'
+        
+        # Cross-Origin-Opener-Policy plus permissive pour HTTP
+        # Ne pas définir COOP pour éviter les avertissements avec HTTP
+        # Désactivé temporairement pour résoudre les problèmes de déconnexion
+        # if request.is_secure():  # Seulement pour HTTPS
+        #     response['Cross-Origin-Opener-Policy'] = 'same-origin-allow-popups'
         
         return response
