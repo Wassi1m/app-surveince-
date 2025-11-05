@@ -496,19 +496,26 @@ def notifications_center(request):
 @login_required
 def notification_history(request):
     """Historique des notifications"""
-    # Filtrer par entreprise si l'utilisateur n'est pas owner
-    if hasattr(request, 'current_company') and request.current_company:
-        # Inclure les notifications d'alertes de l'entreprise ET les notifications owner
+    # Vérifier si l'utilisateur est owner
+    is_owner = False
+    if hasattr(request.user, 'company_profile') and request.user.company_profile:
+        is_owner = request.user.company_profile.is_owner
+    
+    if is_owner:
+        # Pour les owners, afficher toutes les notifications
+        notifications = Notification.objects.all().select_related(
+            'alert', 'alert__detection_event'
+        ).order_by('-sent_at')[:100]
+    elif hasattr(request, 'current_company') and request.current_company:
+        # Pour les utilisateurs d'entreprise : notifications de leur entreprise + notifications owner ciblées
         notifications = Notification.objects.filter(
             Q(alert__company=request.current_company) |  # Notifications d'alertes de l'entreprise
             Q(alert__isnull=True, metadata__created_by_owner=True) |  # Notifications owner générales
             Q(alert__isnull=True, metadata__target_company_id=request.current_company.id)  # Notifications owner ciblées
         ).select_related('alert', 'alert__detection_event').order_by('-sent_at')[:100]
     else:
-        # Pour les owners, afficher toutes les notifications
-        notifications = Notification.objects.all().select_related(
-            'alert', 'alert__detection_event'
-        ).order_by('-sent_at')[:100]
+        # Aucune notification si pas d'entreprise associée
+        notifications = Notification.objects.none()
     
     # Statistiques
     now = timezone.now()
@@ -965,13 +972,19 @@ def api_unread_notifications(request):
         from datetime import datetime, timedelta
         from django.utils import timezone
         
+        # Vérifier si l'utilisateur est owner
+        is_owner = False
+        if hasattr(request.user, 'company_profile') and request.user.company_profile:
+            is_owner = request.user.company_profile.is_owner
+        
         # Récupérer les alertes récentes non résolues comme "notifications"
-        # Filtrer par entreprise si l'utilisateur n'est pas owner
         alert_filter = {
             'status__in': ['pending', 'sent'],
             'created_at__gte': timezone.now() - timedelta(hours=24)
         }
-        if hasattr(request, 'current_company') and request.current_company:
+        
+        # Filtrer par entreprise si l'utilisateur n'est pas owner
+        if not is_owner and hasattr(request, 'current_company') and request.current_company:
             alert_filter['company'] = request.current_company
         
         recent_alerts = Alert.objects.filter(**alert_filter).order_by('-created_at')[:10]

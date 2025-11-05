@@ -460,7 +460,10 @@ class NotificationCenter {
             this.updateStats(data);
 
             // Masquer le loading
-            document.querySelector('.loading-state').style.display = 'none';
+            const loadingElement = document.querySelector('.loading-state');
+            if (loadingElement) {
+                loadingElement.style.display = 'none';
+            }
 
         } catch (error) {
             console.error('Erreur chargement notifications:', error);
