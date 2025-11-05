@@ -50,10 +50,22 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# WhiteNoise
-MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
-# Middlewares personnalisés réactivés
-MIDDLEWARE.insert(-1, 'surveillance_system.middleware.SecurityHeadersMiddleware')
+# Redéfinition complète du MIDDLEWARE pour corriger l'ordre
+MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',  # AVANT les middlewares personnalisés
+    'companies.middleware.CompanyMiddleware',
+    'companies.subcompany_middleware.SubCompanyMiddleware',
+    'history.middleware.HistoryMiddleware',
+    'surveillance_system.middleware.SecurityHeadersMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
 
 # CORS pour production
 CORS_ALLOWED_ORIGINS = [
