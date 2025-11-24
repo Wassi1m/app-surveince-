@@ -281,8 +281,8 @@
     <div class="subcompany-form" data-index="__INDEX__">
         <div class="row">
             <div class="col-md-6">
-                <label class="form-label">Nom de la sous-entreprise *</label>
-                <input type="text" class="form-control" name="subcompany_names[]" required 
+                <label class="form-label">Nom de la sous-entreprise</label>
+                <input type="text" class="form-control" name="subcompany_names[]"
                        placeholder="Ex: Direction Générale, RH, Informatique...">
             </div>
             <div class="col-md-5">
@@ -375,12 +375,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        if (!hasValidName) {
-            e.preventDefault();
-            // Utiliser une alerte plus stylée si disponible, sinon alert basique
-            alert('Veuillez ajouter au moins une sous-entreprise avec un nom.');
-            return false;
-        }
     });
 
     // Forcer la couleur du texte dans tous les champs de formulaire
