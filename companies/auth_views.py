@@ -129,7 +129,10 @@ def company_login_view(request):
 
         # Authentifier l'utilisateur
         from django.contrib.auth.models import User
-        username=User.objects.get(email=email)
+        if "@" in email:
+            username=User.objects.get(email=email)
+        else:
+            username=email
         user = authenticate(request, username=username, password=password)
         if user is None:
             messages.error(request, "Nom d'utilisateur ou mot de passe incorrect.")
