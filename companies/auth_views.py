@@ -117,17 +117,19 @@ def company_login_view(request):
         return redirect('dashboard')
 
     if request.method == "POST":
-        username = request.POST.get("username", "").strip()
+        email = request.POST.get("username", "").strip()
         password = request.POST.get("password", "")
 
         # Champs requis
-        if not all([username, password]):
+        if not all([email, password]):
             messages.error(request, "Tous les champs sont requis.")
             return render(request, "auth/login.html", {
-                "username": username
+                "username": email
             })
 
         # Authentifier l'utilisateur
+        from django.contrib.auth.models import User
+        username=User.objects.get(email=email)
         user = authenticate(request, username=username, password=password)
         if user is None:
             messages.error(request, "Nom d'utilisateur ou mot de passe incorrect.")
