@@ -112,135 +112,120 @@ class CompanyLoginView(LoginView):
 @csrf_protect
 @never_cache
 def company_login_view(request):
-    """Vue de connexion avec gestion des entreprises (fonction)"""
+    """Vue de connexion sans utilisation de la référence d'entreprise"""
     if request.user.is_authenticated:
         return redirect('dashboard')
-    
-    if request.method == 'POST':
-        company_reference = request.POST.get('company_reference', '').strip().upper()
-        username = request.POST.get('username', '').strip()
-        password = request.POST.get('password', '')
-        
-        if not all([company_reference, username, password]):
+
+    if request.method == "POST":
+        username = request.POST.get("username", "").strip()
+        password = request.POST.get("password", "")
+
+        # Champs requis
+        if not all([username, password]):
             messages.error(request, "Tous les champs sont requis.")
-            return render(request, 'auth/login.html', {
-                'company_reference': company_reference,
-                'username': username
+            return render(request, "auth/login.html", {
+                "username": username
             })
-        
+
         # Authentifier l'utilisateur
         user = authenticate(request, username=username, password=password)
-        
         if user is None:
             messages.error(request, "Nom d'utilisateur ou mot de passe incorrect.")
-            return render(request, 'auth/login.html', {
-                'company_reference': company_reference,
-                'username': username
+            return render(request, "auth/login.html", {
+                "username": username
             })
-        
+
         if not user.is_active:
             messages.error(request, "Ce compte est désactivé.")
-            return render(request, 'auth/login.html', {
-                'company_reference': company_reference,
-                'username': username
+            return render(request, "auth/login.html", {
+                "username": username
             })
-        
-        # Vérifier le profil d'entreprise
+
+        # Gestion du profil d'entreprise
         try:
             company_user = user.company_profile
-            
-            # Si c'est un owner, la référence d'entreprise est ignorée
+
+            # Owner = accès global
             if company_user.is_owner:
                 login(request, user)
                 messages.success(request, f"Bienvenue {user.get_full_name() or user.username} !")
-                
-                next_url = request.GET.get('next') or request.POST.get('next')
+
+                next_url = request.GET.get("next") or request.POST.get("next")
                 if next_url:
                     return redirect(next_url)
-                return redirect('companies:owner_dashboard')
-            
-            # Pour les autres utilisateurs, vérifier l'entreprise
+
+                return redirect("companies:owner_dashboard")
+
+            # Autres utilisateurs → doivent avoir une entreprise
             if not company_user.company:
                 messages.error(request, "Votre compte n'est associé à aucune entreprise.")
-                return render(request, 'auth/login.html', {
-                    'company_reference': company_reference,
-                    'username': username
+                return render(request, "auth/login.html", {
+                    "username": username
                 })
-            
-            # Vérifier la référence d'entreprise
-            if company_user.company.reference != company_reference:
-                messages.error(request, "Référence d'entreprise incorrecte.")
-                return render(request, 'auth/login.html', {
-                    'company_reference': company_reference,
-                    'username': username
-                })
-            
+
             # Vérifier que l'entreprise est active
             if not company_user.company.is_active:
                 messages.error(request, "Votre entreprise n'est pas active. Contactez l'administrateur.")
-                return render(request, 'auth/login.html', {
-                    'company_reference': company_reference,
-                    'username': username
+                return render(request, "auth/login.html", {
+                    "username": username
                 })
-            
-            # Vérifier que l'utilisateur est actif dans l'entreprise
+
+            # Vérifier l'état du compte dans l'entreprise
             if not company_user.is_active:
-                messages.error(request, "Votre compte est désactivé. Contactez votre manager.")
-                return render(request, 'auth/login.html', {
-                    'company_reference': company_reference,
-                    'username': username
+                messages.error(request, "Votre compte est désactivé dans l'entreprise. Contactez votre manager.")
+                return render(request, "auth/login.html", {
+                    "username": username
                 })
-            
+
             # Connexion réussie
             login(request, user)
             company_user.last_login_company = timezone.now()
             company_user.save()
-            
-            messages.success(
-                request, 
-                f"Bienvenue {user.get_full_name() or user.username} chez {company_user.company.name} !"
-            )
-            
-            # Redirection selon le rôle
-            next_url = request.GET.get('next') or request.POST.get('next')
+
+            messages.success(request, f"Bienvenue {user.get_full_name() or user.username} !")
+
+            # Redirection par rôle
+            next_url = request.GET.get("next") or request.POST.get("next")
             if next_url:
                 return redirect(next_url)
-            
+
+            # Manager
             if company_user.is_manager:
-                # Vérifier si le manager a plusieurs sous-entreprises
                 accessible_subcompanies = company_user.get_accessible_subcompanies()
+
                 if accessible_subcompanies.count() > 1:
-                    # Toujours rediriger vers le sélecteur s'il y a plusieurs choix
-                    # Réinitialiser current_subcompany pour forcer la sélection
                     company_user.current_subcompany = None
                     company_user.save()
-                    return redirect('companies:subcompany_selector')
-                else:
-                    # Une seule sous-entreprise, la définir comme courante
-                    if accessible_subcompanies.exists():
-                        company_user.current_subcompany = accessible_subcompanies.first()
-                        company_user.save()
-                    return redirect('companies:manager_dashboard')
-            else:
-                return redirect('dashboard')
-            
+                    return redirect("companies:subcompany_selector")
+
+                if accessible_subcompanies.exists():
+                    company_user.current_subcompany = accessible_subcompanies.first()
+                    company_user.save()
+
+                return redirect("companies:manager_dashboard")
+
+            # Simple utilisateur
+            return redirect("dashboard")
+
         except CompanyUser.DoesNotExist:
-            print(f"DEBUG: Aucun profil d'entreprise trouvé pour {user.username}")
-            messages.error(request, "Votre compte n'est pas configuré pour une entreprise. Contactez l'administrateur.")
-            return render(request, 'auth/login.html', {
-                'company_reference': company_reference,
-                'username': username
+            messages.error(
+                request,
+                "Votre compte n'est pas configuré pour une entreprise. Contactez l'administrateur."
+            )
+            return render(request, "auth/login.html", {
+                "username": username
             })
+
         except Exception as e:
-            print(f"DEBUG: Erreur inattendue lors de l'accès au profil: {e}")
+            print(f"DEBUG: Erreur inattendue lors de la connexion : {e}")
             messages.error(request, "Erreur lors de la connexion. Contactez l'administrateur.")
-            return render(request, 'auth/login.html', {
-                'company_reference': company_reference,
-                'username': username
+            return render(request, "auth/login.html", {
+                "username": username
             })
-    
-    # GET request
-    return render(request, 'auth/login.html', {
-        'company_reference': request.GET.get('company_reference', ''),
-        'next': request.GET.get('next', '')
+
+    # GET
+    return render(request, "auth/login.html", {
+        "username": request.GET.get("username", ""),
+        "next": request.GET.get("next", "")
     })
+
