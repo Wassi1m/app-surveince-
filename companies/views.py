@@ -1173,9 +1173,13 @@ def manage_employees_cibles(request):
         messages.error(request, "Aucune entreprise trouvée.")
         return redirect('dashboard')
     
-    # Base queryset
+    # Base queryset - Afficher seulement les employés principaux (ceux qui n'ont pas de employee_group)
+    from django.db.models import F, Count
     queryset = EmployeCible.objects.filter(
-        company=company
+        company=company,
+        employee_group__isnull=True  # Seulement les employés principaux (sans groupe)
+    ).annotate(
+        total_images=Count('additional_images') + 1  # +1 pour l'image principale
     ).order_by('-created_at')
     
     # Appliquer les filtres
@@ -1271,6 +1275,107 @@ def update_employee_info(request, employee_id):
         return JsonResponse({
             'success': False,
             'message': f'Erreur lors de la mise à jour: {str(e)}'
+        })
+
+
+@login_required
+@manager_required
+@require_http_methods(["POST"])
+def upload_additional_employee_images(request, employee_id):
+    """Uploader plusieurs images supplémentaires pour un employé existant"""
+    from .models import EmployeCible
+    from PIL import Image
+    import uuid
+    
+    try:
+        company = get_user_company(request)
+        employee = get_object_or_404(
+            EmployeCible,
+            id=employee_id,
+            company=company
+        )
+        
+        uploaded_files = request.FILES.getlist('images')
+        
+        if not uploaded_files:
+            return JsonResponse({
+                'success': False,
+                'message': 'Aucune image sélectionnée'
+            })
+        
+        # Vérifier les types de fichiers
+        allowed_types = [
+            'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 
+            'image/webp', 'image/bmp', 'image/tiff'
+        ]
+        allowed_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff']
+        
+        success_count = 0
+        error_count = 0
+        
+        for uploaded_file in uploaded_files:
+            try:
+                # Vérifier le type de fichier
+                file_extension = uploaded_file.name.lower().split('.')[-1] if '.' in uploaded_file.name else ''
+                is_valid_type = (
+                    uploaded_file.content_type in allowed_types or 
+                    uploaded_file.content_type.startswith('image/') or
+                    f'.{file_extension}' in allowed_extensions
+                )
+                
+                if not is_valid_type:
+                    error_count += 1
+                    continue
+                
+                # Vérifier la taille (max 10MB)
+                if uploaded_file.size > 10 * 1024 * 1024:
+                    error_count += 1
+                    continue
+                
+                # Vérifier l'image avec Pillow
+                uploaded_file.seek(0)
+                test_image = Image.open(uploaded_file)
+                test_image.verify()
+                uploaded_file.seek(0)
+                
+                # Déterminer le groupe d'employé (le premier enregistrement)
+                employee_group = employee.employee_group if employee.employee_group else employee
+                
+                # Créer un nouvel EmployeCible avec les mêmes informations mais une nouvelle image
+                # et l'associer au même groupe d'employé
+                new_employee = EmployeCible.objects.create(
+                    company=employee.company,
+                    subcompany=employee.subcompany,
+                    image_originale=uploaded_file,
+                    prenom=employee.prenom,
+                    nom=employee.nom,
+                    employee_id=employee.employee_id,
+                    poste=employee.poste,
+                    departement=employee.departement,
+                    notes=employee.notes,
+                    status=employee.status,
+                    importe_par=request.user,
+                    employee_group=employee_group  # Associer au même groupe
+                )
+                
+                success_count += 1
+                
+            except Exception as e:
+                error_count += 1
+                continue
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'{success_count} image(s) ajoutée(s) avec succès',
+            'count': success_count,
+            'errors': error_count
+        })
+        
+    except Exception as e:
+        import traceback
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors de l\'upload: {str(e)}'
         })
 
 
@@ -1402,9 +1507,23 @@ def employee_cible_detail(request, employee_id):
             'created_at': employee.created_at.strftime('%Y-%m-%d %H:%M:%S') if employee.created_at else None,
         })
     
+    # Récupérer toutes les images de cet employé (groupe)
+    if employee.employee_group:
+        # Si cet employé fait partie d'un groupe, récupérer toutes les images du groupe
+        employee_group = employee.employee_group
+        all_images = EmployeCible.objects.filter(
+            models.Q(id=employee_group.id) | models.Q(employee_group=employee_group)
+        ).order_by('-created_at')
+    else:
+        # Si c'est le groupe principal, récupérer toutes les images du groupe
+        all_images = EmployeCible.objects.filter(
+            models.Q(id=employee.id) | models.Q(employee_group=employee)
+        ).order_by('-created_at')
+    
     # Sinon, afficher la page HTML
     context = {
         'employee': employee,
+        'all_images': all_images,
     }
     
     return render(request, 'companies/employee_cible_detail.html', context)

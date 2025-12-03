@@ -328,6 +328,13 @@
                     {% if employee.image_miniature %}
                         <img src="{{ employee.image_miniature.url }}" alt="{{ employee.nom_complet }}" 
                              class="employee-image w-100" style="height: 250px; object-fit: cover;">
+                        {% if employee.total_images > 1 %}
+                        <div class="position-absolute top-0 start-0 m-2">
+                            <span class="badge bg-info">
+                                <i class="fas fa-images me-1"></i>{{ employee.total_images }} image{{ employee.total_images|pluralize }}
+                            </span>
+                        </div>
+                        {% endif %}
                     {% else %}
                         <div class="employee-image bg-gradient d-flex align-items-center justify-content-center w-100" 
                              style="height: 250px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
@@ -617,6 +624,20 @@
                             <img id="editEmployeeImage" src="" alt="Photo employé" 
                                  class="img-fluid rounded-3 mb-3" style="max-height: 200px;">
                             <div id="editEmployeeStatus"></div>
+                            
+                            <!-- Section d'upload d'images supplémentaires -->
+                            <div class="mt-3">
+                                <label class="form-label">
+                                    <i class="fas fa-images me-2"></i>
+                                    Ajouter des images supplémentaires
+                                </label>
+                                <input type="file" id="additionalImages" name="additional_images" 
+                                       multiple accept="image/*" class="form-control form-control-sm">
+                                <small class="text-muted d-block mt-1">
+                                    Vous pouvez sélectionner plusieurs images
+                                </small>
+                                <div id="imagePreviewContainer" class="mt-2"></div>
+                            </div>
                         </div>
                         <div class="col-md-8">
                             <div class="row g-3">
@@ -724,6 +745,11 @@ function clearSelection() {
 
 function editEmployee(employeeId) {
     currentEmployeeId = employeeId;
+    
+    // Réinitialiser les images supplémentaires
+    additionalImagesFiles = [];
+    document.getElementById('additionalImages').value = '';
+    document.getElementById('imagePreviewContainer').innerHTML = '';
     
     // Récupérer les données de l'employé via AJAX
     fetch(`/companies/owner/employees-cibles/${employeeId}/`, {
@@ -875,44 +901,149 @@ function batchAction(action) {
     });
 }
 
+// Gestion de l'upload d'images supplémentaires
+let additionalImagesFiles = [];
+
+document.getElementById('additionalImages').addEventListener('change', function(e) {
+    const files = Array.from(e.target.files);
+    additionalImagesFiles = files;
+    const previewContainer = document.getElementById('imagePreviewContainer');
+    previewContainer.innerHTML = '';
+    
+    if (files.length > 0) {
+        files.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const previewDiv = document.createElement('div');
+                previewDiv.className = 'd-inline-block me-2 mb-2 position-relative';
+                previewDiv.innerHTML = `
+                    <img src="${e.target.result}" alt="Preview" 
+                         class="img-thumbnail" style="width: 80px; height: 80px; object-fit: cover;">
+                    <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" 
+                            onclick="removeImagePreview(${index})" style="padding: 2px 6px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                previewContainer.appendChild(previewDiv);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+});
+
+window.removeImagePreview = function(index) {
+    additionalImagesFiles.splice(index, 1);
+    const input = document.getElementById('additionalImages');
+    const dt = new DataTransfer();
+    additionalImagesFiles.forEach(file => dt.items.add(file));
+    input.files = dt.files;
+    // Recharger les previews
+    document.getElementById('additionalImages').dispatchEvent(new Event('change'));
+};
+
 // Sauvegarde des modifications
 document.getElementById('saveEmployeeBtn').addEventListener('click', function() {
     if (!currentEmployeeId) return;
     
-    const formData = {
-        prenom: document.getElementById('editPrenom').value,
-        nom: document.getElementById('editNom').value,
-        employee_id: document.getElementById('editEmployeeId').value,
-        poste: document.getElementById('editPoste').value,
-        departement: document.getElementById('editDepartement').value,
-        notes: document.getElementById('editNotes').value,
-        is_priority: document.getElementById('editIsPriority').checked
-    };
+    const saveBtn = this;
+    const originalText = saveBtn.innerHTML;
     
-    fetch(`/companies/owner/employees-cibles/${currentEmployeeId}/update/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCsrfToken(),
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert(data.message, 'success');
-            const modal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
-            modal.hide();
-            location.reload();
-        } else {
-            showAlert(data.message, 'danger');
-        }
-    })
-    .catch(error => {
-        console.error('Erreur:', error);
-        showAlert('Erreur lors de la sauvegarde', 'danger');
-    });
+    // Désactiver le bouton
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Enregistrement...';
+    
+    // Si des images supplémentaires sont sélectionnées, les uploader d'abord
+    if (additionalImagesFiles.length > 0) {
+        uploadAdditionalImages(currentEmployeeId).then(() => {
+            // Ensuite sauvegarder les informations
+            saveEmployeeInfo();
+        }).catch(error => {
+            console.error('Erreur upload images:', error);
+            showAlert('Erreur lors de l\'upload des images', 'danger');
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        });
+    } else {
+        // Sauvegarder directement les informations
+        saveEmployeeInfo();
+    }
+    
+    function saveEmployeeInfo() {
+        const formData = {
+            prenom: document.getElementById('editPrenom').value,
+            nom: document.getElementById('editNom').value,
+            employee_id: document.getElementById('editEmployeeId').value,
+            poste: document.getElementById('editPoste').value,
+            departement: document.getElementById('editDepartement').value,
+            notes: document.getElementById('editNotes').value,
+            is_priority: document.getElementById('editIsPriority').checked
+        };
+        
+        fetch(`/companies/owner/employees-cibles/${currentEmployeeId}/update/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken(),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
+                modal.hide();
+                location.reload();
+            } else {
+                showAlert(data.message, 'danger');
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            showAlert('Erreur lors de la sauvegarde', 'danger');
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        });
+    }
 });
+
+function uploadAdditionalImages(employeeId) {
+    return new Promise((resolve, reject) => {
+        if (additionalImagesFiles.length === 0) {
+            resolve();
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', getCsrfToken());
+        
+        additionalImagesFiles.forEach(file => {
+            formData.append('images', file);
+        });
+        
+        fetch(`/companies/owner/employees-cibles/${employeeId}/upload-images/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(`${data.count} image(s) ajoutée(s) avec succès`, 'success');
+                resolve();
+            } else {
+                reject(new Error(data.message || 'Erreur lors de l\'upload'));
+            }
+        })
+        .catch(error => {
+            reject(error);
+        });
+    });
+}
 
 function getCsrfToken() {
     const token = document.querySelector('[name=csrfmiddlewaretoken]');

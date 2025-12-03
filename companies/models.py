@@ -647,6 +647,22 @@ class EmployeCible(models.Model):
     
     # Flags additionnels
     is_active = models.BooleanField(default=True, verbose_name="Actif")
+    
+    # Relation pour regrouper les images du même employé
+    employee_group = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='additional_images',
+        verbose_name="Groupe d'employé",
+        help_text="Premier enregistrement du groupe pour regrouper les images du même employé"
+    )
+    
+    class Meta:
+        verbose_name = "Employé ciblé"
+        verbose_name_plural = "Employés ciblés"
+        ordering = ['-created_at']
     is_priority = models.BooleanField(default=False, verbose_name="Prioritaire")
     notes = models.TextField(blank=True, verbose_name="Notes")
     
@@ -805,6 +821,32 @@ class EmployeCible(models.Model):
         self.valide_par = user
         self.validated_at = timezone.now()
         self.save(update_fields=['status', 'valide_par', 'validated_at'])
+    
+    @property
+    def images_count(self):
+        """Retourne le nombre total d'images pour cet employé"""
+        if self.employee_group:
+            # Si cet employé fait partie d'un groupe, compter toutes les images du groupe
+            return EmployeCible.objects.filter(
+                models.Q(id=self.employee_group.id) | models.Q(employee_group=self.employee_group)
+            ).count()
+        else:
+            # Si c'est le groupe principal, compter toutes les images du groupe
+            return EmployeCible.objects.filter(
+                models.Q(id=self.id) | models.Q(employee_group=self)
+            ).count()
+    
+    @property
+    def all_images(self):
+        """Retourne toutes les images de cet employé"""
+        if self.employee_group:
+            return EmployeCible.objects.filter(
+                models.Q(id=self.employee_group.id) | models.Q(employee_group=self.employee_group)
+            )
+        else:
+            return EmployeCible.objects.filter(
+                models.Q(id=self.id) | models.Q(employee_group=self)
+            )
     
     @property
     def nom_complet(self):

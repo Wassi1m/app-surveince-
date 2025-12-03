@@ -30,6 +30,7 @@ urlpatterns = [
     path('owner/employees-cibles/manage/', views.manage_employees_cibles, name='manage_employees_cibles'),
     path('owner/employees-cibles/<int:employee_id>/', views.employee_cible_detail, name='employee_cible_detail'),
     path('owner/employees-cibles/<int:employee_id>/update/', views.update_employee_info, name='update_employee_info'),
+    path('owner/employees-cibles/<int:employee_id>/upload-images/', views.upload_additional_employee_images, name='upload_additional_employee_images'),
     path('owner/employees-cibles/<int:employee_id>/validate/', views.validate_employee, name='validate_employee'),
     path('owner/employees-cibles/<int:employee_id>/reject/', views.reject_employee, name='reject_employee'),
     path('owner/employees-cibles/<int:employee_id>/delete/', views.delete_employee, name='delete_employee_cible'),
