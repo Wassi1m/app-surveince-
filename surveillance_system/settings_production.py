@@ -143,6 +143,11 @@ SESSION_COOKIE_AGE = 7200  # 2 heures en secondes (2 * 60 * 60)
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_SAVE_EVERY_REQUEST = True  # Renouveler à chaque requête
 
+# Upload file size limits - Permettre des images jusqu'à 10MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB pour les données POST en mémoire
+FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB pour les fichiers en mémoire
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000  # Augmenter le nombre de champs pour les uploads multiples
+
 # Token expiration pour REST Framework
 
 # REST Framework settings avec expiration des tokens

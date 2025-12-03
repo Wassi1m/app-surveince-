@@ -15,6 +15,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['51.75.253.11', 'localhost', '127.0.0.1', '*']
 
+
 # Désactiver Cross-Origin-Opener-Policy pour éviter les avertissements HTTP
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 
@@ -153,6 +154,11 @@ REST_FRAMEWORK = {
 SESSION_COOKIE_AGE = 7200  # 2 heures en secondes
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_SAVE_EVERY_REQUEST = True
+
+# Upload file size limits - Permettre des images jusqu'à 10MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB pour les données POST en mémoire
+FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB pour les fichiers en mémoire
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000  # Augmenter le nombre de champs pour les uploads multiples
 
 # Video streaming settings
 VIDEO_STREAM_FPS = 30

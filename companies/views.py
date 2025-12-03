@@ -998,8 +998,21 @@ def upload_employee_images(request):
     from .models import EmployeCible, EmployeCibleImportBatch
     import uuid
     from django.core.files.storage import default_storage
+    import os
+    from django.conf import settings
     
     try:
+        # Vérifier et créer le dossier media s'il n'existe pas
+        media_root = settings.MEDIA_ROOT
+        if not os.path.exists(media_root):
+            os.makedirs(media_root, mode=0o755, exist_ok=True)
+        
+        # Vérifier les permissions d'écriture
+        if not os.access(media_root, os.W_OK):
+            return JsonResponse({
+                'success': False,
+                'message': 'Erreur de permissions: le dossier media n\'est pas accessible en écriture. Contactez l\'administrateur.'
+            }, status=500)
         # Créer un nouveau lot d'import
         batch_name = request.POST.get('batch_name', f'Import {timezone.now().strftime("%Y-%m-%d %H:%M")}')
         batch_description = request.POST.get('batch_description', '')
@@ -1111,10 +1124,33 @@ def upload_employee_images(request):
         })
         
     except Exception as e:
+        import traceback
+        error_details = str(e)
+        error_traceback = traceback.format_exc()
+        
+        # Logger l'erreur pour le débogage
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Erreur lors de l\'upload d\'images: {error_details}')
+        logger.error(f'Traceback: {error_traceback}')
+        
+        # Messages d'erreur plus explicites
+        if 'Request Entity Too Large' in error_details or '413' in error_details:
+            error_message = 'Les fichiers sont trop volumineux. Taille maximale: 10MB par image.'
+        elif 'timeout' in error_details.lower():
+            error_message = 'L\'upload a pris trop de temps. Veuillez réessayer avec moins de fichiers.'
+        elif 'Permission denied' in error_details.lower() or 'PermissionError' in error_details:
+            error_message = 'Erreur de permissions sur le serveur. Contactez l\'administrateur.'
+        elif 'No space left' in error_details.lower():
+            error_message = 'Espace disque insuffisant sur le serveur. Contactez l\'administrateur.'
+        else:
+            error_message = f'Erreur lors de l\'import: {error_details}'
+        
         return JsonResponse({
             'success': False,
-            'message': f'Erreur lors de l\'import: {str(e)}'
-        })
+            'message': error_message,
+            'error_type': type(e).__name__
+        }, status=500)
 
 
 @login_required

@@ -924,9 +924,29 @@ document.addEventListener('DOMContentLoaded', function() {
             body: formData,
             headers: {
                 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            }
+            },
+            // Ne pas définir Content-Type pour FormData, le navigateur le fait automatiquement
         })
-        .then(response => response.json())
+        .then(response => {
+            // Vérifier le statut HTTP avant de parser le JSON
+            if (!response.ok) {
+                // Essayer de lire le message d'erreur
+                return response.text().then(text => {
+                    let errorMessage = `Erreur HTTP ${response.status}: ${response.statusText}`;
+                    try {
+                        const jsonError = JSON.parse(text);
+                        errorMessage = jsonError.message || jsonError.error || errorMessage;
+                    } catch (e) {
+                        // Si ce n'est pas du JSON, utiliser le texte brut
+                        if (text) {
+                            errorMessage = text.substring(0, 200);
+                        }
+                    }
+                    throw new Error(errorMessage);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 // Show success message
@@ -941,11 +961,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.location.href = data.redirect_url || window.location.href;
                 }, 2000);
             } else {
-                throw new Error(data.message);
+                throw new Error(data.message || 'Erreur inconnue lors de l\'upload');
             }
         })
         .catch(error => {
-            showTemporaryMessage(`Erreur: ${error.message}`, 'danger');
+            console.error('Erreur détaillée:', error);
+            let errorMessage = error.message || 'Erreur lors de l\'upload';
+            
+            // Messages d'erreur plus explicites selon le type d'erreur
+            if (error.message.includes('413') || error.message.includes('Request Entity Too Large')) {
+                errorMessage = 'Les fichiers sont trop volumineux. Taille max: 10MB par image.';
+            } else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+                errorMessage = 'L\'upload a pris trop de temps. Veuillez réessayer avec moins de fichiers.';
+            } else if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+                errorMessage = 'Erreur de connexion. Vérifiez votre connexion internet et réessayez.';
+            } else if (error.message.includes('CSRF')) {
+                errorMessage = 'Erreur de sécurité. Veuillez rafraîchir la page et réessayer.';
+            }
+            
+            showTemporaryMessage(`Erreur: ${errorMessage}`, 'danger');
         })
         .finally(() => {
             // Reset button state
