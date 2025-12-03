@@ -17,6 +17,7 @@ import secrets
 import string
 import json
 import logging
+import os
 
 # Configuration du logger pour les entreprises
 logger = logging.getLogger('companies')
@@ -1003,16 +1004,35 @@ def upload_employee_images(request):
     
     try:
         # Vérifier et créer le dossier media s'il n'existe pas
-        media_root = settings.MEDIA_ROOT
-        if not os.path.exists(media_root):
-            os.makedirs(media_root, mode=0o755, exist_ok=True)
+        media_root = str(settings.MEDIA_ROOT)  # Convertir Path en string
         
-        # Vérifier les permissions d'écriture
-        if not os.access(media_root, os.W_OK):
+        # Créer le dossier avec les permissions appropriées
+        try:
+            if not os.path.exists(media_root):
+                os.makedirs(media_root, mode=0o775, exist_ok=True)
+            
+            # Créer les sous-dossiers nécessaires
+            employees_cibles_dir = os.path.join(media_root, 'employees_cibles')
+            if not os.path.exists(employees_cibles_dir):
+                os.makedirs(employees_cibles_dir, mode=0o775, exist_ok=True)
+            
+            # Vérifier les permissions d'écriture en essayant d'écrire un fichier test dans employees_cibles
+            test_file_path = os.path.join(employees_cibles_dir, '.test_write_permissions')
+            try:
+                with open(test_file_path, 'w') as f:
+                    f.write('test')
+                os.remove(test_file_path)
+            except (PermissionError, OSError) as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Erreur de permissions: le dossier media ({media_root}) n\'est pas accessible en écriture. Erreur: {str(e)}. Veuillez exécuter: sudo chmod -R 775 {media_root} et sudo chown -R webadmin:webadmin {media_root}'
+                }, status=500)
+        except Exception as e:
             return JsonResponse({
                 'success': False,
-                'message': 'Erreur de permissions: le dossier media n\'est pas accessible en écriture. Contactez l\'administrateur.'
-            }, status=500)
+                'message': f'Erreur lors de la vérification du dossier media: {str(e)}'
+                }, status=500)
+        
         # Créer un nouveau lot d'import
         batch_name = request.POST.get('batch_name', f'Import {timezone.now().strftime("%Y-%m-%d %H:%M")}')
         batch_description = request.POST.get('batch_description', '')
@@ -1024,6 +1044,30 @@ def upload_employee_images(request):
         else:
             company = request.company_user.company
             subcompany = request.company_user.current_subcompany
+        
+        # Créer les sous-dossiers pour l'entreprise et sous-entreprise si nécessaire
+        if company:
+            company_ref = company.reference if company else 'no-company'
+            subcompany_ref = subcompany.reference if subcompany else 'no-subcompany'
+            company_dir = os.path.join(employees_cibles_dir, company_ref)
+            subcompany_dir = os.path.join(company_dir, subcompany_ref)
+            
+            if not os.path.exists(company_dir):
+                os.makedirs(company_dir, mode=0o775, exist_ok=True)
+            if not os.path.exists(subcompany_dir):
+                os.makedirs(subcompany_dir, mode=0o775, exist_ok=True)
+            
+            # Vérifier aussi les permissions dans le sous-dossier final
+            try:
+                test_file_path = os.path.join(subcompany_dir, '.test_write_permissions')
+                with open(test_file_path, 'w') as f:
+                    f.write('test')
+                os.remove(test_file_path)
+            except (PermissionError, OSError) as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Erreur de permissions dans le sous-dossier ({subcompany_dir}): {str(e)}. Veuillez exécuter: sudo chmod -R 775 {media_root} et sudo chown -R webadmin:webadmin {media_root}'
+                }, status=500)
         
         batch = EmployeCibleImportBatch.objects.create(
             company=company,
@@ -1288,12 +1332,53 @@ def upload_additional_employee_images(request, employee_id):
     import uuid
     
     try:
+        # Vérifier et créer le dossier media s'il n'existe pas
+        media_root = str(settings.MEDIA_ROOT)
+        
+        try:
+            if not os.path.exists(media_root):
+                os.makedirs(media_root, mode=0o775, exist_ok=True)
+            
+            # Créer les sous-dossiers nécessaires
+            employees_cibles_dir = os.path.join(media_root, 'employees_cibles')
+            if not os.path.exists(employees_cibles_dir):
+                os.makedirs(employees_cibles_dir, mode=0o775, exist_ok=True)
+            
+            # Vérifier les permissions d'écriture en essayant d'écrire un fichier test dans employees_cibles
+            test_file_path = os.path.join(employees_cibles_dir, '.test_write_permissions')
+            try:
+                with open(test_file_path, 'w') as f:
+                    f.write('test')
+                os.remove(test_file_path)
+            except (PermissionError, OSError) as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Erreur de permissions: le dossier media ({media_root}) n\'est pas accessible en écriture. Erreur: {str(e)}. Veuillez exécuter: sudo chmod -R 775 {media_root} et sudo chown -R webadmin:webadmin {media_root}'
+                }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Erreur lors de la vérification du dossier media: {str(e)}'
+            }, status=500)
+        
         company = get_user_company(request)
         employee = get_object_or_404(
             EmployeCible,
             id=employee_id,
             company=company
         )
+        
+        # Créer les sous-dossiers pour l'entreprise et sous-entreprise si nécessaire
+        if company:
+            company_ref = company.reference if company else 'no-company'
+            subcompany_ref = employee.subcompany.reference if employee.subcompany else 'no-subcompany'
+            company_dir = os.path.join(employees_cibles_dir, company_ref)
+            subcompany_dir = os.path.join(company_dir, subcompany_ref)
+            
+            if not os.path.exists(company_dir):
+                os.makedirs(company_dir, mode=0o775, exist_ok=True)
+            if not os.path.exists(subcompany_dir):
+                os.makedirs(subcompany_dir, mode=0o775, exist_ok=True)
         
         uploaded_files = request.FILES.getlist('images')
         
