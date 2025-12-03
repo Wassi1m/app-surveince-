@@ -33,6 +33,27 @@
         position: relative;
     }
     
+    .step-link {
+        text-decoration: none;
+        color: inherit;
+        display: block;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .step-link:hover {
+        transform: translateY(-3px);
+    }
+    
+    .step-link:hover .step-number {
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+    }
+    
+    .step.completed .step-link:hover .step-number {
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+    
     .step-number {
         width: 40px;
         height: 40px;
@@ -198,24 +219,34 @@
         <!-- Indicateur de progression -->
         <div class="step-indicator">
             <div class="step completed">
-                <div class="step-number"><i class="fas fa-check"></i></div>
-                <div class="step-title">Entreprise</div>
+                <a href="?step=1" class="step-link">
+                    <div class="step-number"><i class="fas fa-check"></i></div>
+                    <div class="step-title">Entreprise</div>
+                </a>
             </div>
             <div class="step active">
-                <div class="step-number">2</div>
-                <div class="step-title">Sous-entreprises</div>
+                <a href="?step=2" class="step-link">
+                    <div class="step-number">2</div>
+                    <div class="step-title">Sous-entreprises</div>
+                </a>
             </div>
             <div class="step">
-                <div class="step-number">3</div>
-                <div class="step-title">Managers</div>
+                <a href="?step=3" class="step-link">
+                    <div class="step-number">3</div>
+                    <div class="step-title">Managers</div>
+                </a>
             </div>
             <div class="step">
-                <div class="step-number">4</div>
-                <div class="step-title">Assignations</div>
+                <a href="?step=4" class="step-link">
+                    <div class="step-number">4</div>
+                    <div class="step-title">Assignations</div>
+                </a>
             </div>
             <div class="step">
-                <div class="step-number">5</div>
-                <div class="step-title">Confirmation</div>
+                <a href="?step=5" class="step-link">
+                    <div class="step-number">5</div>
+                    <div class="step-title">Confirmation</div>
+                </a>
             </div>
         </div>
         

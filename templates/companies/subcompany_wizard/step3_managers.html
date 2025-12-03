@@ -21,6 +21,14 @@
         border-radius: 25px;
         background: #e9ecef;
         color: #6c757d;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .progress-step:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
     }
     
     .progress-step.active {
@@ -32,6 +40,11 @@
     .progress-step.completed {
         background: #28a745;
         color: white;
+    }
+    
+    .progress-step.completed:hover {
+        background: #218838;
+        box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
     }
     
     .manager-form {
@@ -79,11 +92,11 @@
 <div class="wizard-container">
     <!-- Progression -->
     <div class="wizard-progress text-center">
-        <span class="progress-step completed">✓ Entreprise</span>
-        <span class="progress-step completed">✓ Sous-entreprises</span>
-        <span class="progress-step active">3. Managers</span>
-        <span class="progress-step">4. Assignation</span>
-        <span class="progress-step">5. Confirmation</span>
+        <a href="?step=1" class="progress-step completed">✓ Entreprise</a>
+        <a href="?step=2" class="progress-step completed">✓ Sous-entreprises</a>
+        <a href="?step=3" class="progress-step active">3. Managers</a>
+        <a href="?step=4" class="progress-step">4. Assignation</a>
+        <a href="?step=5" class="progress-step">5. Confirmation</a>
     </div>
     
     <div class="card shadow-sm">
