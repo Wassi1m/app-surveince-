@@ -1040,3 +1040,10 @@ class EmployeCibleImportBatch(models.Model):
         verbose_name = "Lot d'import d'employés"
         verbose_name_plural = "Lots d'import d'employés"
         ordering = ['-created_at']
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
+    profile_image = models.ImageField(upload_to="profile_images/", blank=True, null=True)
+    def __str__(self):
+        return f"Profil de {self.user.username}"

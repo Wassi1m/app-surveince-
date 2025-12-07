@@ -372,6 +372,9 @@
                     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
                         <i class="fas fa-cloud-upload-alt me-2"></i>Importer des images
                     </button>
+                    <a href="{% url 'companies:import_employees_from_file' %}" class="btn btn-success">
+                        <i class="fas fa-file-csv me-2"></i>Importer via fichier (CSV/XLSX)
+                    </a>
                 </div>
             </div>
         </div>

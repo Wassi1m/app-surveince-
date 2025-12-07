@@ -26,6 +26,7 @@ urlpatterns = [
     
     # Employés ciblés Owner
     path('owner/employees-cibles/', views.owner_import_employees_cibled, name='owner_import_employees_cibled'),
+    path('owner/employees-cibles/import-file/', views.import_employees_from_file, name='import_employees_from_file'),
     path('owner/employees-cibles/upload/', views.upload_employee_images, name='upload_employee_images'),
     path('owner/employees-cibles/manage/', views.manage_employees_cibles, name='manage_employees_cibles'),
     path('owner/employees-cibles/<int:employee_id>/', views.employee_cible_detail, name='employee_cible_detail'),

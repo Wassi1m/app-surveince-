@@ -348,6 +348,7 @@ def manager_dashboard(request):
         'company': company,
         'stats': stats,
         'recent_users': recent_users,
+        'profile_image': company_user.profile.profile_image,
     }
     return render(request, 'companies/manager_dashboard.html', context)
 
@@ -560,10 +561,14 @@ def employee_detail(request, pk):
         'is_active': employee.is_active,
     }
     
+    # Récupérer le profil utilisateur pour inclure l'image principale
+    user_profile = employee.user.profile if hasattr(employee.user, 'profile') else None
+
     context = {
         'employee': employee,
         'company': company,
         'stats': stats,
+        'user_profile': user_profile,
     }
     
     return render(request, 'companies/employee_detail.html', context)
@@ -1877,3 +1882,159 @@ def manage_company_event_types(request, company_id):
     }
     
     return render(request, 'companies/manage_company_event_types.html', context)
+
+
+@login_required
+@manager_required
+def import_employees_from_file(request):
+    """Importer des employés depuis un fichier CSV ou Excel."""
+    import csv
+    import io
+    from django.utils import timezone
+    from .models import EmployeCible
+
+    if request.method == 'GET':
+        return render(request, 'companies/import_employees_file.html')
+
+    # Vérifier fichier
+    uploaded_file = request.FILES.get('file')
+    if not uploaded_file:
+        return JsonResponse({'success': False, 'message': 'Aucun fichier fourni'}, status=400)
+
+    filename = uploaded_file.name
+    ext = filename.split('.')[-1].lower()
+
+    allowed = ('csv', 'xlsx', 'xls')
+    if ext not in allowed:
+        return JsonResponse({'success': False, 'message': f"Format non supporté: .{ext}"}, status=400)
+
+    # Trouver la company associée
+    try:
+        company = get_user_company(request)
+    except Exception:
+        company = getattr(request.company_user, 'company', None)
+
+    if not company:
+        return JsonResponse({'success': False, 'message': "Aucune entreprise associée à cet utilisateur"}, status=400)
+
+    # Mappage colonnes possibles
+    column_mapping = {
+        'nom': ['nom', 'name', 'last_name', 'lastname'],
+        'prenom': ['prenom', 'prénom', 'firstname', 'first_name'],
+        'poste': ['poste', 'position', 'job_title'],
+        'departement': ['departement', 'département', 'department'],
+        'notes': ['notes', 'commentaires', 'comments', 'description']
+    }
+
+    rows = []
+    errors = []
+    imported = 0
+
+    # === LECTURE CSV ===
+    if ext == 'csv':
+        try:
+            data = uploaded_file.read().decode('utf-8', errors='replace')
+
+            # Détection automatique du séparateur
+            try:
+                dialect = csv.Sniffer().sniff(data.splitlines()[0])
+            except:
+                dialect = csv.excel  # fallback
+
+            f = io.StringIO(data)
+            reader = csv.DictReader(f, dialect=dialect)
+
+            for i, row in enumerate(reader, start=2):
+                cleaned = {k.strip().lower(): (v.strip() if v else '') for k, v in row.items()}
+                rows.append((i, cleaned))
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': f"Erreur CSV: {e}"}, status=400)
+
+    # === LECTURE EXCEL ===
+    else:
+        try:
+            import openpyxl
+        except:
+            return JsonResponse({'success': False, 'message': "openpyxl est requis pour lire les fichiers .xlsx"}, status=500)
+
+        try:
+            wb = openpyxl.load_workbook(uploaded_file, read_only=True, data_only=True)
+            ws = wb.active
+
+            # Lire en-tête
+            header = [
+                (str(cell.value).strip().lower() if cell.value else '')
+                for cell in next(ws.rows)
+            ]
+
+            # Lire données
+            for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+                row_dict = {
+                    header[idx]: (str(cell).strip() if cell else '')
+                    for idx, cell in enumerate(row)
+                    if idx < len(header)
+                }
+                rows.append((i, row_dict))
+
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': f"Erreur Excel: {e}"}, status=400)
+
+    # === MAPPING DES COLONNES DÉTECTÉES ===
+    found_headers = set(rows[0][1].keys()) if rows else set()
+
+    mapped = {}
+    for field, variants in column_mapping.items():
+        for v in variants:
+            if v in found_headers:
+                mapped[field] = v
+                break
+
+    # Vérification colonnes obligatoires
+    if 'nom' not in mapped or 'prenom' not in mapped:
+        return JsonResponse({
+            'success': False,
+            'message': "Colonnes manquantes : Nom et Prénom"
+        }, status=400)
+
+    # === TRAITEMENT DES LIGNES ===
+    for line_no, row in rows:
+        try:
+            prenom = row.get(mapped['prenom'], '').strip()
+            nom = row.get(mapped['nom'], '').strip()
+            poste = row.get(mapped.get('poste', ''), '').strip()
+            departement = row.get(mapped.get('departement', ''), '').strip()
+            notes = row.get(mapped.get('notes', ''), '').strip()
+
+            if not nom and not prenom:
+                errors.append(f"Ligne {line_no}: nom et prénom vides")
+                continue
+
+            EmployeCible.objects.create(
+                prenom=prenom,
+                nom=nom,
+                poste=poste,
+                departement=departement,
+                notes=notes,
+                company=company,
+                importe_par=request.user,
+                status='pending',
+                created_at=timezone.now()
+            )
+
+            imported += 1
+
+        except Exception as e:
+            errors.append(f"Ligne {line_no}: erreur — {e}")
+
+    # === RÉSULTAT ===
+    message = f"{imported} employé(s) importé(s)"
+    if errors:
+        message += f" — {len(errors)} avertissement(s)"
+
+    return JsonResponse({
+        'success': True,
+        'message': message,
+        'imported': imported,
+        'errors': errors
+    })

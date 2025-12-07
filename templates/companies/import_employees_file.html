@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Importer des employés ciblés{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Styles simples pour l'upload */
+.import-container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
+.import-card { background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); border-radius: 12px; padding: 30px; color: white; }
+.file-input-label { display:flex; align-items:center; justify-content:center; gap:12px; padding:30px; border:2px dashed rgba(255,255,255,0.3); border-radius:10px; cursor:pointer; }
+.file-input-label:hover { background: rgba(255,255,255,0.05); }
+.file-info { background: rgba(255,255,255,0.06); padding:12px; border-radius:8px; margin-top:12px; display:none; }
+.file-info.show { display:block; }
+.results-container { margin-top:20px; }
+.template-section { background: white; color:#333; padding:18px; border-radius:10px; margin-top:20px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="import-container">
+  <div class="import-card">
+    <h2><i class="fas fa-file-import"></i> Importer des employés (CSV / XLSX)</h2>
+    <p class="opacity-75">Le fichier doit contenir au minimum les colonnes <strong>Nom</strong> et <strong>Prénom</strong>. Les autres colonnes (Poste, Département, Notes) sont optionnelles.</p>
+
+    <form id="importForm" enctype="multipart/form-data" method="post">
+      {% csrf_token %}
+      <div style="margin-top:18px;">
+        <input type="file" id="fileInput" name="file" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileSelect(event)">
+        <label for="fileInput" class="file-input-label" id="dropZone">
+          <i class="fas fa-cloud-upload-alt fa-2x"></i>
+          <div>
+            <div>Glissez-déposez votre fichier ici ou cliquez pour sélectionner</div>
+            <small>Formats: CSV, XLSX • Colonnes: Nom, Prénom, Poste, Département, Notes</small>
+          </div>
+        </label>
+
+        <div class="file-info" id="fileInfo">
+          <div><strong>Fichier:</strong> <span id="fileName"></span></div>
+          <div><strong>Taille:</strong> <span id="fileSize"></span></div>
+        </div>
+
+        <div style="margin-top:18px; display:flex; gap:10px;">
+          <button type="button" class="btn btn-light" id="downloadTemplateBtn">Télécharger un template</button>
+          <button type="button" class="btn btn-primary" id="importBtn" disabled>Importer</button>
+          <a href="{% url 'companies:manage_employees_cibles' %}" class="btn btn-outline-light">Annuler</a>
+        </div>
+
+      </div>
+    </form>
+
+    <div class="results-container" id="resultsContainer" style="display:none;">
+      <div class="template-section" id="resultsBox"></div>
+    </div>
+  </div>
+
+  <div class="template-section">
+    <h4>Format attendu</h4>
+    <p>Colonnes (en-tête)</p>
+    <ul>
+      <li><strong>Nom</strong> (obligatoire)</li>
+      <li><strong>Prénom</strong> (obligatoire)</li>
+      <li>Poste (optionnel)</li>
+      <li>Département (optionnel)</li>
+      <li>Notes (optionnel)</li>
+    </ul>
+    <p>Vous pouvez télécharger un template CSV ci-dessous.</p>
+    <button class="btn btn-sm btn-primary" id="downloadTemplateBtn2">Télécharger template CSV</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const fileInput = document.getElementById('fileInput');
+const dropZone = document.getElementById('dropZone');
+const fileInfo = document.getElementById('fileInfo');
+const fileNameEl = document.getElementById('fileName');
+const fileSizeEl = document.getElementById('fileSize');
+const importBtn = document.getElementById('importBtn');
+const resultsContainer = document.getElementById('resultsContainer');
+const resultsBox = document.getElementById('resultsBox');
+
+// Drag & drop
+['dragenter','dragover'].forEach(evt => dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.style.borderColor = '#ffffff'; }));
+['dragleave','drop'].forEach(evt => dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.style.borderColor = 'rgba(255,255,255,0.3)'; }));
+
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  if (e.dataTransfer.files.length) {
+    fileInput.files = e.dataTransfer.files;
+    handleFileSelect({ target: { files: e.dataTransfer.files } });
+  }
+});
+
+function handleFileSelect(event) {
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
+  const f = files[0];
+  fileNameEl.textContent = f.name;
+  fileSizeEl.textContent = (f.size / 1024).toFixed(2) + ' KB';
+  fileInfo.classList.add('show');
+  importBtn.disabled = false;
+}
+
+importBtn.addEventListener('click', () => {
+  if (!fileInput.files.length) return;
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+  importBtn.disabled = true;
+  importBtn.textContent = 'Importation...';
+
+  fetch('{% url "companies:import_employees_from_file" %}', {
+    method: 'POST',
+    body: formData,
+    headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+  }).then(r => r.json()).then(data => {
+    importBtn.disabled = false;
+    importBtn.textContent = 'Importer';
+    resultsContainer.style.display = 'block';
+    let html = '';
+    if (data.success) {
+      html += `<h5 style="color:green">${data.message}</h5>`;
+      html += `<div>Employés importés: <strong>${data.imported}</strong></div>`;
+      if (data.errors && data.errors.length) {
+        html += '<div style="margin-top:10px;color:#a94442"><strong>Avertissements :</strong><ul>';
+        data.errors.forEach(e => html += `<li>${e}</li>`);
+        html += '</ul></div>';
+      }
+      html += `<div style="margin-top:12px"><a class='btn btn-sm btn-light' href='{% url "companies:manage_employees_cibles" %}'>Voir les employés</a></div>`;
+    } else {
+      html += `<h5 style="color:red">Erreur: ${data.message}</h5>`;
+    }
+    resultsBox.innerHTML = html;
+  }).catch(err => {
+    importBtn.disabled = false;
+    importBtn.textContent = 'Importer';
+    resultsContainer.style.display = 'block';
+    resultsBox.innerHTML = `<h5 style="color:red">Erreur lors de l'envoi: ${err.message}</h5>`;
+  });
+});
+
+// Download template
+function downloadTemplateCsv() {
+  const csv = 'Nom,Prénom,Poste,Département,Notes\nDupont,Jean,Manager,IT,\nMartin,Marie,Développeur,IT,En télétravail\n';
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'template_employees.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+document.getElementById('downloadTemplateBtn').addEventListener('click', downloadTemplateCsv);
+document.getElementById('downloadTemplateBtn2').addEventListener('click', downloadTemplateCsv);
+</script>
+{% endblock %}
+
