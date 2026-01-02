@@ -15,6 +15,8 @@ import logging
 from datetime import datetime, timedelta
 import cv2
 import numpy as np
+import threading
+import time
 from .models import Location, Camera, Zone, DetectionEvent, Incident, VideoRecording
 from alerts.models import Alert, AlertRule
 from analytics.models import StatisticsSummary, HeatMapData
@@ -173,18 +175,24 @@ def camera_list(request):
 
 
 
-
 @login_required
 def camera_detail(request, camera_id):
     """Détails d'une caméra"""
     camera = get_object_or_404(Camera, id=camera_id)
-    
+
+    # Construire l'URL RTSP
+    rtsp_url = None
+    if camera.ip_address and camera.port:
+        rtsp_url = f"rtsp://{camera.ip_address}:{camera.port}/media/video1"
+    elif camera.stream_url:
+        rtsp_url = camera.stream_url
+
     # QuerySet de base pour les détections de cette caméra
     camera_detections = DetectionEvent.objects.filter(camera=camera)
-    
+
     # Détections récentes (limitées à 50)
     recent_detections = camera_detections.order_by('-detected_at')[:50]
-    
+
     # Statistiques (utiliser le QuerySet de base, pas la version slicée)
     today = timezone.now().date()
     stats = {
@@ -194,34 +202,32 @@ def camera_detail(request, camera_id):
             avg_conf=Avg('confidence')
         )['avg_conf'] or 0,
     }
-    
+
     # Récupérer toutes les règles d'alerte disponibles pour cette entreprise
     from alerts.models import AlertRule, CameraAlertRule
     rule_filter = {}
-    
+
     # Filtrer par entreprise si l'utilisateur n'est pas owner
     if hasattr(request, 'current_company') and request.current_company:
         rule_filter['company'] = request.current_company
         print(f"🔍 DEBUG: Filtrage règles par entreprise: {request.current_company.name}")
-    
+
     # Toutes les règles disponibles pour cette entreprise
     available_rules = AlertRule.objects.filter(
         **rule_filter
     ).select_related('created_by', 'company').order_by('-created_at')
-    
+
     # Règles assignées à cette caméra
     assigned_rules = CameraAlertRule.objects.filter(
         camera=camera
     ).select_related('alert_rule', 'assigned_by').order_by('-assigned_at')
-    
+
     # IDs des règles déjà assignées
     assigned_rule_ids = set(assigned_rules.values_list('alert_rule_id', flat=True))
-    
+
     print(f"🔍 DEBUG: Nombre de règles disponibles: {available_rules.count()}")
     print(f"🔍 DEBUG: Nombre de règles assignées: {assigned_rules.count()}")
-    for assigned in assigned_rules:
-        print(f"🔍 DEBUG: Règle assignée: {assigned.alert_rule.name} - Actif: {assigned.is_active}")
-    
+
     # Récupérer les types d'événements disponibles pour cette entreprise
     event_types = []
     if hasattr(request, 'current_company') and request.current_company:
@@ -230,7 +236,7 @@ def camera_detail(request, camera_id):
             company=request.current_company,
             is_enabled=True
         ).select_related('event_type').order_by('event_type__name')
-        
+
         for company_event_type in company_event_types:
             event_types.append({
                 'code': company_event_type.event_type.code,
@@ -250,9 +256,10 @@ def camera_detail(request, camera_id):
                 'color': event_type.color,
                 'icon': event_type.icon,
             })
-    
+
     context = {
         'camera': camera,
+        'rtsp_url': rtsp_url,
         'recent_detections': recent_detections,
         'stats': stats,
         'available_rules': available_rules,
@@ -260,9 +267,8 @@ def camera_detail(request, camera_id):
         'assigned_rule_ids': assigned_rule_ids,
         'event_types': event_types,
     }
-    
-    return render(request, 'monitoring/camera_detail.html', context)
 
+    return render(request, 'monitoring/camera_detail.html', context)
 
 @login_required
 @require_http_methods(["POST"])
@@ -1646,3 +1652,188 @@ def api_dashboard_stats(request):
     except Exception as e:
         logger.error(f"Erreur stats dashboard: {e}")
         return Response({'error': str(e)}, status=500)
+
+
+def generate_frames(camera_id):
+    """Générateur de frames pour le streaming vidéo"""
+    try:
+        camera = Camera.objects.get(id=camera_id)
+        
+        # Construire l'URL RTSP
+        if camera.stream_url:
+            rtsp_url = camera.stream_url
+        elif camera.ip_address and camera.port:
+            rtsp_url = f"rtsp://{camera.ip_address}:{camera.port}/media/video1"
+        else:
+            logger.error(f"Pas d'URL de flux configurée pour la caméra {camera_id}")
+            return
+        
+        logger.info(f"Tentative de connexion au flux RTSP: {rtsp_url}")
+        
+        # Ouvrir le flux vidéo avec OpenCV
+        cap = cv2.VideoCapture(rtsp_url)
+        
+        # Configuration pour améliorer la compatibilité RTSP
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Réduire le buffer
+        cap.set(cv2.CAP_PROP_FPS, 15)  # Limiter les FPS pour la stabilité
+        
+        if not cap.isOpened():
+            logger.error(f"Impossible d'ouvrir le flux RTSP: {rtsp_url}")
+            return
+        
+        logger.info(f"Flux RTSP ouvert avec succès pour la caméra {camera_id}")
+        
+        frame_count = 0
+        while True:
+            ret, frame = cap.read()
+            
+            if not ret:
+                logger.warning(f"Impossible de lire le frame du flux RTSP pour la caméra {camera_id}")
+                # Essayer de reconnecter
+                cap.release()
+                time.sleep(2)
+                cap = cv2.VideoCapture(rtsp_url)
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                cap.set(cv2.CAP_PROP_FPS, 15)
+                continue
+            
+            frame_count += 1
+            
+            # Redimensionner le frame pour optimiser la bande passante
+            height, width = frame.shape[:2]
+            if width > 800:
+                scale = 800 / width
+                new_width = int(width * scale)
+                new_height = int(height * scale)
+                frame = cv2.resize(frame, (new_width, new_height))
+            
+            # Ajouter des informations sur le frame
+            cv2.putText(frame, f"{camera.name}", (10, 30), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            # cv2.putText(frame, f"Frame: {frame_count}", (10, 70), 
+            #            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            cv2.putText(frame, f"LIVE - {time.strftime('%H:%M:%S')}", (10, frame.shape[0] - 10), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+            
+            # Encoder le frame en JPEG
+            ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            
+            if ret:
+                frame_bytes = buffer.tobytes()
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+            
+            # Contrôler la fréquence des frames
+            time.sleep(1/15)  # ~15 FPS
+    
+    except Exception as e:
+        logger.error(f"Erreur dans generate_frames pour caméra {camera_id}: {e}")
+    finally:
+        if 'cap' in locals():
+            cap.release()
+
+
+@login_required
+def camera_stream(request, camera_id):
+    """Vue pour le streaming vidéo en direct"""
+    try:
+        # Vérifier que la caméra existe et que l'utilisateur y a accès
+        camera_filter = {'id': camera_id}
+        if hasattr(request, 'current_company') and request.current_company:
+            camera_filter['location__company'] = request.current_company
+        
+        camera = get_object_or_404(Camera, **camera_filter)
+        
+        return StreamingHttpResponse(
+            generate_frames(camera_id),
+            content_type='multipart/x-mixed-replace; boundary=frame'
+        )
+        
+    except Exception as e:
+        logger.error(f"Erreur streaming caméra {camera_id}: {e}")
+        # Retourner une image d'erreur
+        return StreamingHttpResponse(
+            generate_error_frame(f"Erreur: {str(e)}"),
+            content_type='multipart/x-mixed-replace; boundary=frame'
+        )
+
+
+def generate_error_frame(error_message):
+    """Générer un frame d'erreur"""
+    # Créer une image d'erreur
+    img = np.zeros((480, 640, 3), dtype=np.uint8)
+    cv2.putText(img, "ERREUR DE FLUX", (150, 200), 
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+    cv2.putText(img, error_message, (50, 250), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(img, "Verifiez la configuration", (120, 300), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+    
+    ret, buffer = cv2.imencode('.jpg', img)
+    if ret:
+        frame_bytes = buffer.tobytes()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def api_test_camera_stream(request, camera_id):
+    """API pour tester le flux vidéo d'une caméra"""
+    try:
+        camera = get_object_or_404(Camera, id=camera_id)
+        
+        # Construire l'URL RTSP
+        if camera.stream_url:
+            rtsp_url = camera.stream_url
+        elif camera.ip_address and camera.port:
+            rtsp_url = f"rtsp://{camera.ip_address}:{camera.port}/media/video1"
+        else:
+            return Response({
+                'success': False,
+                'error': 'Aucune URL de flux configurée'
+            }, status=400)
+        
+        # Tester la connexion au flux
+        cap = cv2.VideoCapture(rtsp_url)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        
+        if cap.isOpened():
+            # Essayer de lire un frame
+            ret, frame = cap.read()
+            cap.release()
+            
+            if ret and frame is not None:
+                camera.status = 'online'
+                camera.last_seen = timezone.now()
+                camera.save()
+                
+                return Response({
+                    'success': True,
+                    'message': 'Flux vidéo accessible',
+                    'rtsp_url': rtsp_url,
+                    'frame_size': f"{frame.shape[1]}x{frame.shape[0]}"
+                })
+            else:
+                camera.status = 'error'
+                camera.save()
+                
+                return Response({
+                    'success': False,
+                    'error': 'Flux accessible mais aucun frame reçu'
+                })
+        else:
+            camera.status = 'offline'
+            camera.save()
+            
+            return Response({
+                'success': False,
+                'error': 'Impossible de se connecter au flux RTSP'
+            })
+            
+    except Exception as e:
+        logger.error(f"Erreur test flux caméra {camera_id}: {e}")
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=500)

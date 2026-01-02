@@ -1147,3 +1147,28 @@ Règle wassim assignée à la zone Zone-2 par hi - 1 nouvelles assignations
 Erreur création zone: No Location matches the given query.
 Règle wassim assignée à la caméra moiaa par manager_limite
 Règle kkdaz assignée à la caméra moiaa par manager_limite
+Erreur création caméra: No Zone matches the given query.
+Tentative de connexion au flux RTSP: rtsp://197.2.23.47:554/media/video1
+Flux RTSP ouvert avec succès pour la caméra 174
+Tentative de connexion au flux RTSP: ffplay rtsp://197.2.23.47:554/media/video1
+Impossible d'ouvrir le flux RTSP: ffplay rtsp://197.2.23.47:554/media/video1
+Tentative de connexion au flux RTSP: ffplay rtsp://197.2.23.47:554/media/video1
+Impossible d'ouvrir le flux RTSP: ffplay rtsp://197.2.23.47:554/media/video1
+Tentative de connexion au flux RTSP: rtsp://197.2.23.47:554/media/video1
+Flux RTSP ouvert avec succès pour la caméra 174
+Tentative de connexion au flux RTSP: rtsp://197.2.23.47:554/media/video1
+Flux RTSP ouvert avec succès pour la caméra 174
+Tentative de connexion au flux RTSP: ffplay rtsp://197.2.23.47:554/media/video1
+Impossible d'ouvrir le flux RTSP: ffplay rtsp://197.2.23.47:554/media/video1
+Tentative de connexion au flux RTSP: ffplay rtsp://197.2.23.47:554/media/video1
+Impossible d'ouvrir le flux RTSP: ffplay rtsp://197.2.23.47:554/media/video1
+Tentative de connexion au flux RTSP: ffplay rtsp://197.2.23.47:554/media/video1
+Impossible d'ouvrir le flux RTSP: ffplay rtsp://197.2.23.47:554/media/video1
+Tentative de connexion au flux RTSP: ffplay rtsp://197.2.23.47:554/media/video1
+Impossible d'ouvrir le flux RTSP: ffplay rtsp://197.2.23.47:554/media/video1
+Tentative de connexion au flux RTSP: ffplay rtsp://197.2.23.47:554/media/video1
+Impossible d'ouvrir le flux RTSP: ffplay rtsp://197.2.23.47:554/media/video1
+Tentative de connexion au flux RTSP: rtsp://197.2.23.47:554/media/video1
+Flux RTSP ouvert avec succès pour la caméra 174
+Tentative de connexion au flux RTSP: rtsp://197.2.23.47:554/media/video1
+Flux RTSP ouvert avec succès pour la caméra 175

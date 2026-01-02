@@ -1,0 +1,482 @@
+{% extends "base.html" %}
+
+{% block title %}{{ camera.name }} - Détails Caméra{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="margin-top: 70px;">
+    
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>
+                        <i class="fas fa-video me-2"></i>
+                        {{ camera.name }}
+                        <span class="badge bg-{% if camera.status == 'online' %}success{% elif camera.status == 'offline' %}danger{% else %}warning{% endif %} ms-2">
+                            {{ camera.get_status_display }}
+                        </span>
+                    </h2>
+                    <p class="text-muted">{{ camera.zone.name }} - {{ camera.location.name }}</p>
+                    {% if rtsp_url %}
+                        <p class="text-info small">
+                            <i class="fas fa-link me-1"></i>
+                            RTSP: {{ rtsp_url }}
+                        </p>
+                    {% endif %}
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'monitoring:cameras' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i> Retour
+                    </a>
+                    <button class="btn btn-primary" onclick="testCameraStream()">
+                        <i class="fas fa-play me-1"></i> Tester Flux
+                    </button>
+                    <button class="btn btn-success" onclick="configureCamera({{ camera.id }})">
+                        <i class="fas fa-cog me-1"></i> Configurer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Flux vidéo RTSP réel -->
+        <div class="col-lg-8">
+            <div class="card bg-dark text-light mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-video me-2"></i>
+                        Flux Vidéo en Direct
+                        <span id="stream-status" class="badge bg-secondary ms-2">Chargement...</span>
+                    </h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-light" onclick="refreshStream()" title="Actualiser">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button class="btn btn-outline-light" onclick="toggleFullscreen()" title="Plein écran">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                        <button class="btn btn-outline-light" onclick="takeSnapshot()" title="Capture">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="video-container position-relative" id="video-container">
+                        <img id="camera-stream" 
+                             src="{% url 'monitoring:camera_stream' camera.id %}" 
+                             class="w-100" 
+                             style="max-height: 600px; object-fit: contain; background: #000;"
+                             onerror="handleStreamError()"
+                             onload="handleStreamLoad()">
+                        
+                        <!-- Overlay d'informations -->
+                        <div class="position-absolute bottom-0 start-0 end-0 p-3" 
+                             style="background: linear-gradient(transparent, rgba(0,0,0,0.8));">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center gap-3">
+                                    <span class="badge bg-danger" id="live-indicator">
+                                        <i class="fas fa-circle me-1" style="animation: pulse 2s infinite;"></i>
+                                        LIVE
+                                    </span>
+                                    <small class="text-light" id="stream-info">
+                                        Résolution: {{ camera.resolution }} | FPS: {{ camera.fps }}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="small text-light" id="current-time">
+                                        --:--:--
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Overlay d'erreur -->
+                        <div id="error-overlay" class="position-absolute top-0 start-0 w-100 h-100 d-none" 
+                             style="background: rgba(0,0,0,0.8); z-index: 10;">
+                            <div class="d-flex align-items-center justify-content-center h-100">
+                                <div class="text-center text-light">
+                                    <i class="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
+                                    <h5>Erreur de Flux Vidéo</h5>
+                                    <p id="error-message">Impossible de charger le flux vidéo</p>
+                                    <button class="btn btn-primary" onclick="refreshStream()">
+                                        <i class="fas fa-sync-alt me-1"></i> Réessayer
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Détections récentes -->
+            <div class="card bg-dark text-light">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-search me-2"></i>
+                        Détections Récentes ({{ recent_detections|length }})
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if recent_detections %}
+                        <div class="table-responsive">
+                            <table class="table table-dark table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Heure</th>
+                                        <th>Type</th>
+                                        <th>Gravité</th>
+                                        <th>Confiance</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for detection in recent_detections %}
+                                    <tr>
+                                        <td>{{ detection.detected_at|date:"H:i:s" }}</td>
+                                        <td>{{ detection.get_event_type_display }}</td>
+                                        <td>
+                                            <span class="badge bg-{% if detection.severity == 'critical' %}danger{% elif detection.severity == 'high' %}warning{% elif detection.severity == 'medium' %}info{% else %}secondary{% endif %}">
+                                                {{ detection.severity }}
+                                            </span>
+                                        </td>
+                                        <td>{{ detection.confidence|floatformat:1 }}%</td>
+                                        <td>
+                                            <a href="{% url 'monitoring:detection_detail' detection.id %}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                            <h6 class="text-muted">Aucune détection récente</h6>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Informations et statistiques -->
+        <div class="col-lg-4">
+            <!-- Informations techniques -->
+            <div class="card bg-dark text-light mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Informations Techniques
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Adresse IP:</strong>
+                        </div>
+                        <div class="col-6">
+                            {{ camera.ip_address }}
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Port:</strong>
+                        </div>
+                        <div class="col-6">
+                            {{ camera.port }}
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>URL Flux:</strong>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-break">{{ rtsp_url|default:"Non configuré" }}</small>
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Résolution:</strong>
+                        </div>
+                        <div class="col-6">
+                            {{ camera.resolution }}
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>FPS:</strong>
+                        </div>
+                        <div class="col-6">
+                            {{ camera.fps }}
+                        </div>
+                    </div>
+                    <hr class="my-2">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Dernière activité:</strong>
+                        </div>
+                        <div class="col-6">
+                            {% if camera.last_seen %}
+                                {{ camera.last_seen|date:"d/m/Y H:i" }}
+                            {% else %}
+                                <span class="text-muted">Jamais</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistiques -->
+            <div class="card bg-dark text-light mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Statistiques
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h4 class="text-primary">{{ stats.detections_today }}</h4>
+                                <small class="text-muted">Détections Aujourd'hui</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-warning">{{ stats.false_positives }}</h4>
+                            <small class="text-muted">Faux Positifs</small>
+                        </div>
+                    </div>
+                    <hr class="my-3">
+                    <div class="text-center">
+                        <h4 class="text-success">{{ stats.avg_confidence|floatformat:1 }}%</h4>
+                        <small class="text-muted">Confiance Moyenne</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions rapides -->
+            <div class="card bg-dark text-light">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-tools me-2"></i>
+                        Actions Rapides
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="testCameraStream()">
+                            <i class="fas fa-play me-2"></i>
+                            Tester le Flux RTSP
+                        </button>
+                        <button class="btn btn-outline-info" onclick="refreshStream()">
+                            <i class="fas fa-sync-alt me-2"></i>
+                            Actualiser le Flux
+                        </button>
+                        <button class="btn btn-outline-success" onclick="takeSnapshot()">
+                            <i class="fas fa-camera me-2"></i>
+                            Capturer une Image
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="resetCamera()">
+                            <i class="fas fa-redo me-2"></i>
+                            Redémarrer la Caméra
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let streamRetryCount = 0;
+const maxRetries = 3;
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+    
+    // Vérifier le statut du flux après un délai
+    setTimeout(checkStreamStatus, 3000);
+});
+
+function updateCurrentTime() {
+    const now = new Date();
+    document.getElementById('current-time').textContent = now.toLocaleTimeString('fr-FR');
+}
+
+function handleStreamLoad() {
+    console.log('Flux vidéo chargé avec succès');
+    document.getElementById('stream-status').textContent = 'En ligne';
+    document.getElementById('stream-status').className = 'badge bg-success ms-2';
+    document.getElementById('error-overlay').classList.add('d-none');
+    streamRetryCount = 0;
+}
+
+function handleStreamError() {
+    console.error('Erreur de chargement du flux vidéo');
+    document.getElementById('stream-status').textContent = 'Hors ligne';
+    document.getElementById('stream-status').className = 'badge bg-danger ms-2';
+    
+    if (streamRetryCount < maxRetries) {
+        streamRetryCount++;
+        console.log(`Tentative de reconnexion ${streamRetryCount}/${maxRetries}`);
+        setTimeout(refreshStream, 2000);
+    } else {
+        showErrorOverlay('Impossible de se connecter au flux vidéo après plusieurs tentatives');
+    }
+}
+
+function showErrorOverlay(message) {
+    document.getElementById('error-message').textContent = message;
+    document.getElementById('error-overlay').classList.remove('d-none');
+}
+
+function refreshStream() {
+    console.log('Actualisation du flux vidéo');
+    const img = document.getElementById('camera-stream');
+    const timestamp = new Date().getTime();
+    img.src = `{% url 'monitoring:camera_stream' camera.id %}?t=${timestamp}`;
+    
+    document.getElementById('stream-status').textContent = 'Reconnexion...';
+    document.getElementById('stream-status').className = 'badge bg-warning ms-2';
+    document.getElementById('error-overlay').classList.add('d-none');
+}
+
+function checkStreamStatus() {
+    const img = document.getElementById('camera-stream');
+    if (img.complete && img.naturalHeight !== 0) {
+        handleStreamLoad();
+    } else {
+        handleStreamError();
+    }
+}
+
+function testCameraStream() {
+    console.log('Test du flux RTSP...');
+    
+    fetch(`/api/monitoring/cameras/{{ camera.id }}/test-stream/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(`Test réussi: ${data.message}`, 'success');
+            if (data.frame_size) {
+                document.getElementById('stream-info').textContent = 
+                    `Résolution: ${data.frame_size} | FPS: {{ camera.fps }}`;
+            }
+            refreshStream();
+        } else {
+            showToast(`Test échoué: ${data.error}`, 'error');
+            showErrorOverlay(data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur test flux:', error);
+        showToast('Erreur lors du test du flux', 'error');
+    });
+}
+
+function takeSnapshot() {
+    const img = document.getElementById('camera-stream');
+    
+    // Créer un canvas pour capturer l'image
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = img.naturalWidth || img.width;
+    canvas.height = img.naturalHeight || img.height;
+    
+    ctx.drawImage(img, 0, 0);
+    
+    // Télécharger l'image
+    const link = document.createElement('a');
+    link.download = `{{ camera.name }}-${new Date().getTime()}.png`;
+    link.href = canvas.toDataURL();
+    link.click();
+    
+    showToast('Capture d\'écran sauvegardée', 'success');
+}
+
+function toggleFullscreen() {
+    const container = document.getElementById('video-container');
+    
+    if (!document.fullscreenElement) {
+        container.requestFullscreen().then(() => {
+            container.classList.add('fullscreen-video');
+        }).catch(err => {
+            console.error('Erreur plein écran:', err);
+        });
+    } else {
+        document.exitFullscreen();
+        container.classList.remove('fullscreen-video');
+    }
+}
+
+function configureCamera(cameraId) {
+    // Rediriger vers la page de configuration
+    window.location.href = `/monitoring/cameras/${cameraId}/config/`;
+}
+
+function resetCamera() {
+    if (confirm('Êtes-vous sûr de vouloir redémarrer cette caméra ?')) {
+        showToast('Redémarrage de la caméra...', 'info');
+        // Ici, implémenter la logique de redémarrage
+        setTimeout(() => {
+            refreshStream();
+        }, 5000);
+    }
+}
+
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} position-fixed`;
+    toast.style.cssText = 'top: 100px; right: 20px; z-index: 9999; min-width: 300px;';
+    toast.innerHTML = `
+        <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : type === 'success' ? 'check' : 'info-circle'} me-2"></i>
+        ${message}
+    `;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 5000);
+}
+
+// Styles CSS pour le plein écran
+const style = document.createElement('style');
+style.textContent = `
+    .fullscreen-video img {
+        width: 100vw !important;
+        height: 100vh !important;
+        object-fit: contain;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+`;
+document.head.appendChild(style);
+</script>
+
+{% csrf_token %}
+{% endblock %}

@@ -17,6 +17,7 @@ urlpatterns = [
     # Gestion des caméras
     path('cameras/', views.camera_list, name='cameras'),
     path('cameras/<int:camera_id>/', views.camera_detail, name='camera_detail'),
+    path('cameras/<int:camera_id>/stream/', views.camera_stream, name='camera_stream'),
     path('cameras/create/', views.create_camera, name='create_camera'),
     path('cameras/<int:camera_id>/rules/create/', views.create_camera_rule, name='create_camera_rule'),
     path('cameras/<int:camera_id>/rules/assign/', views.assign_rule_to_camera, name='assign_rule_to_camera'),

@@ -12,6 +12,7 @@ urlpatterns = [
     # API Caméras
     path('cameras/status/', views.api_camera_status, name='camera_status'),
     path('cameras/<int:camera_id>/test/', views.api_test_camera, name='test_camera'),
+    path('cameras/<int:camera_id>/test-stream/', views.api_test_camera_stream, name='test_camera_stream'),
     
     # API Simulation (pour tests)
     path('simulate/detection/', views.api_simulate_detection, name='simulate_detection'),

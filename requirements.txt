@@ -18,6 +18,11 @@ dj-database-url==2.3.0
 uvicorn==0.30.1
 openpyxl==3.1.2
 
+# Bibliothèques pour l'intégration RTSP et streaming vidéo
+imutils==0.5.4
+aiortc==1.14.0
+ffmpeg-python==0.2.0
+
 # Optionnelles pour la production
 # gunicorn==21.2.0
 # psycopg2-binary==2.9.7  # Pour PostgreSQL

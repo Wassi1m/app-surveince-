@@ -46,12 +46,7 @@
                 </div>
                 <div class="card-body p-0">
                     <div class="video-container">
-                        <img id="camera-stream" 
-                             src="{% url 'monitoring:camera_stream' camera.id %}" 
-                             class="w-100" 
-                             style="max-height: 600px; object-fit: contain; background: #000;"
-                             onerror="handleStreamError()"
-                             onload="handleStreamLoad()">
+                        <canvas id="camera-stream" width="800" height="600" class="w-100"></canvas>
                         <div class="position-absolute bottom-0 start-0 end-0 p-3" 
                              style="background: linear-gradient(transparent, rgba(0,0,0,0.8));">
                             <div class="d-flex justify-content-between align-items-center">
@@ -353,94 +348,54 @@
 <script>
 let isStreaming = true;
 let isRecording = false;
-let streamRetryCount = 0;
-const maxRetries = 3;
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeCameraStream();
 });
 
 function initializeCameraStream() {
-    console.log('Initialisation du flux RTSP réel');
-    updateCurrentTime();
-    setInterval(updateCurrentTime, 1000);
+    const canvas = document.getElementById('camera-stream');
+    const ctx = canvas.getContext('2d');
     
-    // Vérifier le statut du flux après un délai
-    setTimeout(checkStreamStatus, 3000);
-}
-
-function updateCurrentTime() {
-    const now = new Date();
-    const timeElement = document.getElementById('current-time');
-    if (timeElement) {
-        timeElement.textContent = now.toLocaleTimeString('fr-FR');
-    }
-}
-
-function handleStreamLoad() {
-    console.log('Flux vidéo RTSP chargé avec succès');
-    const statusElement = document.getElementById('stream-status');
-    if (statusElement) {
-        statusElement.textContent = 'En ligne';
-        statusElement.className = 'badge bg-success ms-2';
-    }
-    const errorOverlay = document.getElementById('error-overlay');
-    if (errorOverlay) {
-        errorOverlay.classList.add('d-none');
-    }
-    streamRetryCount = 0;
-}
-
-function handleStreamError() {
-    console.error('Erreur de chargement du flux RTSP');
-    const statusElement = document.getElementById('stream-status');
-    if (statusElement) {
-        statusElement.textContent = 'Hors ligne';
-        statusElement.className = 'badge bg-danger ms-2';
+    // Simuler un flux vidéo
+    function drawSimulatedStream() {
+        if (!isStreaming) return;
+        
+        // Fond dégradé
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, '#2d3436');
+        gradient.addColorStop(1, '#636e72');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Grille de simulation
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.lineWidth = 1;
+        for(let i = 0; i < canvas.width; i += 40) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, canvas.height);
+            ctx.stroke();
+        }
+        for(let j = 0; j < canvas.height; j += 40) {
+            ctx.beginPath();
+            ctx.moveTo(0, j);
+            ctx.lineTo(canvas.width, j);
+            ctx.stroke();
+        }
+        
+        // Texte de simulation
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('{{ camera.name }}', canvas.width/2, canvas.height/2 - 20);
+        ctx.font = '16px Arial';
+        ctx.fillText('Flux simulé - ' + new Date().toLocaleTimeString(), canvas.width/2, canvas.height/2 + 20);
+        
+        setTimeout(drawSimulatedStream, 100);
     }
     
-    if (streamRetryCount < maxRetries) {
-        streamRetryCount++;
-        console.log(`Tentative de reconnexion ${streamRetryCount}/${maxRetries}`);
-        setTimeout(refreshStream, 2000);
-    } else {
-        showErrorOverlay('Impossible de se connecter au flux vidéo après plusieurs tentatives');
-    }
-}
-
-function showErrorOverlay(message) {
-    const errorMessage = document.getElementById('error-message');
-    const errorOverlay = document.getElementById('error-overlay');
-    if (errorMessage && errorOverlay) {
-        errorMessage.textContent = message;
-        errorOverlay.classList.remove('d-none');
-    }
-}
-
-function refreshStream() {
-    console.log('Actualisation du flux RTSP');
-    const img = document.getElementById('camera-stream');
-    const timestamp = new Date().getTime();
-    img.src = `{% url 'monitoring:camera_stream' camera.id %}?t=${timestamp}`;
-    
-    const statusElement = document.getElementById('stream-status');
-    if (statusElement) {
-        statusElement.textContent = 'Reconnexion...';
-        statusElement.className = 'badge bg-warning ms-2';
-    }
-    const errorOverlay = document.getElementById('error-overlay');
-    if (errorOverlay) {
-        errorOverlay.classList.add('d-none');
-    }
-}
-
-function checkStreamStatus() {
-    const img = document.getElementById('camera-stream');
-    if (img.complete && img.naturalHeight !== 0) {
-        handleStreamLoad();
-    } else {
-        handleStreamError();
-    }
+    drawSimulatedStream();
 }
 
 function toggleStream() {
@@ -454,79 +409,31 @@ function toggleStream() {
 }
 
 function takeSnapshot() {
-    const img = document.getElementById('camera-stream');
-    
-    // Créer un canvas pour capturer l'image
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    canvas.width = img.naturalWidth || img.width;
-    canvas.height = img.naturalHeight || img.height;
-    
-    ctx.drawImage(img, 0, 0);
-    
-    // Télécharger l'image
+    const canvas = document.getElementById('camera-stream');
     const link = document.createElement('a');
     link.download = `{{ camera.name }}-${new Date().getTime()}.png`;
     link.href = canvas.toDataURL();
     link.click();
-    
-    showToast('Capture d\'écran sauvegardée', 'success');
-}
-
-function getCsrfToken() {
-    return document.querySelector('[name=csrfmiddlewaretoken]').value;
-}
-
-function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} position-fixed`;
-    toast.style.cssText = 'top: 100px; right: 20px; z-index: 9999; min-width: 300px;';
-    toast.innerHTML = `
-        <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : type === 'success' ? 'check' : 'info-circle'} me-2"></i>
-        ${message}
-    `;
-    
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.remove();
-    }, 5000);
 }
 
 function testCamera() {
-    testCameraStream();
-}
-
-function testCameraStream() {
-    console.log('Test du flux RTSP...');
-    
-    fetch(`/api/monitoring/cameras/{{ camera.id }}/test-stream/`, {
+    fetch(`/api/cameras/{{ camera.id }}/test/`, {
         method: 'POST',
         headers: {
-            'X-CSRFToken': getCsrfToken(),
-            'Content-Type': 'application/json'
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
         }
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showToast(`Test réussi: ${data.message}`, 'success');
-            if (data.frame_size) {
-                const streamInfo = document.getElementById('stream-info');
-                if (streamInfo) {
-                    streamInfo.textContent = `Résolution: ${data.frame_size} | FPS: {{ camera.fps }}`;
-                }
-            }
-            refreshStream();
+            alert('Test réussi: ' + data.message);
         } else {
-            showToast(`Test échoué: ${data.error}`, 'error');
-            showErrorOverlay(data.error);
+            alert('Test échoué: ' + data.message);
         }
     })
     .catch(error => {
-        console.error('Erreur test flux:', error);
-        showToast('Erreur lors du test du flux', 'error');
+        console.error('Erreur test:', error);
+        alert('Erreur lors du test de la caméra');
     });
 }
 
