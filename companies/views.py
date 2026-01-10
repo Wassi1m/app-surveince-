@@ -344,11 +344,16 @@ def manager_dashboard(request):
     # Utilisateurs récents
     recent_users = company.company_users.order_by('-created_at')[:5]
     
+    # Récupérer l'image de profil de l'utilisateur
+    profile_image = None
+    if hasattr(company_user.user, 'profile') and company_user.user.profile.profile_image:
+        profile_image = company_user.user.profile.profile_image
+    
     context = {
         'company': company,
         'stats': stats,
         'recent_users': recent_users,
-        'profile_image': company_user.profile.profile_image,
+        'profile_image': profile_image,
     }
     return render(request, 'companies/manager_dashboard.html', context)
 
